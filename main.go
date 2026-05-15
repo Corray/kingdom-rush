@@ -1,5 +1,5 @@
 package main
 
 func main() {
-	println("kingdom-rush v0.0")
+	println("kingdom-rush v0.1")
 }
