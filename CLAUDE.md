@@ -47,7 +47,7 @@ standard_path: /Users/chat/backend-ai-workflow/agent-dev-standard
 - **adr_path**: `docs/adr/` (待首次 ADR 时创建)
 - **code_path**: `/Users/chat/Desktop/games/kingdom-rush`
 - **compile_cmd**: `go build ./...`
-- **role**: `BE`
+- **role**: `be`
 
 ---
 
