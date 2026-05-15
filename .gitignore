@@ -1,0 +1,63 @@
+# agent-dev-standard hub-repo .gitignore template
+#
+# 适用：standard hub repo（标准本身的仓库）+ 类似分发型仓库
+# 用途：避免 self-install dogfood 时把"给别人 install 后才该产生的"产物
+#       和"用户身份信息"误提交到主仓库。
+#
+# 由 install/modules/06-templates.sh 渲染到 <project>/.gitignore（如不存在）。
+# 修订后重跑 install.sh 不会覆盖既有 .gitignore（保护用户自定义）。
+
+# ============================================================
+# OS / Editor
+# ============================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ============================================================
+# 通用语言产物
+# ============================================================
+node_modules/
+dist/
+target/
+build/
+*.class
+*.py[cod]
+*.log
+*.jar
+*.war
+
+# ============================================================
+# Self-install artifacts（dogfood 兼容）
+# ============================================================
+# hub repo 自身跑 install.sh 产生的项目侧产物——不进 hub 主仓库。
+
+# 会话日志（每个项目自己积累）
+/spool.md
+
+# Go binary（与 module 同名）
+/kingdom-rush
+*.exe
+
+# install 状态文件（resume 用）
+/.install-state.json
+
+# 项目级 registry 目录（hub 不该有 audit / problems）
+# 注意：使用细粒度排除，保留 docs/audit/tasks/ 可追踪
+/docs/audit/*.md
+/docs/audit/spool-review/
+/docs/audit/processed-proposals/
+/docs/problems/
+
+# handoff 工作目录
+/docs/handoff/README.md
+/docs/handoff/in-progress/
+/docs/handoff/completed/
+
+# ============================================================
+# GitHub identity（Layout A — 不进任何 repo）
+# ============================================================
+.gh-account
