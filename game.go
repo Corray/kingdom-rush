@@ -35,6 +35,7 @@ type Game struct {
 	pathLookup map[Point]bool
 	Towers     []*Tower
 	Enemies    []*Enemy
+	Effects    []*Effect // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
 	Gold       int
 	Lives      int
 	StartLives int
@@ -70,6 +71,7 @@ func (g *Game) StartLevel(idx int) {
 	}
 	g.Towers = nil
 	g.Enemies = nil
+	g.Effects = nil
 	g.Gold = lv.StartGold
 	g.Lives = lv.StartLives
 	g.StartLives = lv.StartLives
@@ -176,12 +178,19 @@ func (g *Game) Update(dt float64) {
 		if target != nil {
 			target.HP -= lvl.Damage
 			t.cooldown = lvl.Cooldown
+			// V2.6: push 视觉特效
+			g.Effects = append(g.Effects,
+				makeShootEffect(t.Pos, target.Pos(g.Path), towerSpec.Color),
+				makeHitEffect(target.Pos(g.Path)),
+			)
 			if target.HP <= 0 {
 				target.Dead = true
 				g.Gold += enemySpecs[target.Kind].Reward
 			}
 		}
 	}
+	// V2.6: 衰减视觉特效, 过期清理
+	g.Effects = decayEffects(g.Effects, dt)
 	// wave done?
 	if g.prepTimer == 0 && g.spawned >= len(cur.Enemies) {
 		alive := false

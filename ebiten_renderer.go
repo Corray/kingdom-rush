@@ -287,6 +287,24 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		fillRect(screen, x+2, y, barW*hpRatio, 3, eColHpFg)
 	}
 
+	// V2.6: 攻击视觉特效 (在 cursor / status 之前画, 在 enemy 之上)
+	for _, fx := range g.Effects {
+		alpha := uint8(fx.Alpha() * 255)
+		c := color.RGBA{R: fx.Color.R, G: fx.Color.G, B: fx.Color.B, A: alpha}
+		fx1, fy1 := cellPos(fx.From)
+		fx2, fy2 := cellPos(fx.To)
+		cx1 := fx1 + float32(cellPx)/2
+		cy1 := fy1 + float32(cellPx)/2
+		cx2 := fx2 + float32(cellPx)/2
+		cy2 := fy2 + float32(cellPx)/2
+		if fx.Kind == EShoot {
+			vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
+		} else { // EHit: fade 圆, 半径随 fade 减小
+			r := float32(cellPx)/2*float32(fx.Alpha()) + 2
+			fillCircle(screen, cx2, cy2, r, c)
+		}
+	}
+
 	// cursor
 	cxr, cyr := cellPos(g.Cursor)
 	strokeRect(screen, cxr, cyr, float32(cellPx), float32(cellPx), eColCursor, 2)

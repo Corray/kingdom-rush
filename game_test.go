@@ -369,6 +369,75 @@ func TestUpdate_MagicHitsFlying(t *testing.T) {
 }
 
 // ============================================================
+// V2.6: 攻击视觉特效
+// ============================================================
+
+func TestEffects_AddOnShoot(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 1}}
+	if len(g.Effects) != 0 {
+		t.Fatalf("pre: expected 0 effects, got %d", len(g.Effects))
+	}
+	g.Update(0.1) // Archer cd 0.6, 但 cooldown 初始 0 → 第一帧即射击
+	// shoot + hit = 2 effects
+	if len(g.Effects) != 2 {
+		t.Fatalf("expected 2 effects (shoot+hit), got %d", len(g.Effects))
+	}
+	kinds := map[EffectKind]int{}
+	for _, e := range g.Effects {
+		kinds[e.Kind]++
+	}
+	if kinds[EShoot] != 1 || kinds[EHit] != 1 {
+		t.Errorf("expected 1 EShoot + 1 EHit, got %v", kinds)
+	}
+}
+
+func TestEffects_DecayTTL(t *testing.T) {
+	effects := []*Effect{
+		{Kind: EShoot, TTL: 0.10, MaxTTL: 0.15},
+		{Kind: EHit, TTL: 0.25, MaxTTL: 0.30},
+	}
+	out := decayEffects(effects, 0.05)
+	if len(out) != 2 {
+		t.Errorf("both should survive: got %d", len(out))
+	}
+	if out[0].TTL != 0.05 {
+		t.Errorf("shoot TTL: got %f want 0.05", out[0].TTL)
+	}
+}
+
+func TestEffects_RemoveExpired(t *testing.T) {
+	effects := []*Effect{
+		{Kind: EShoot, TTL: 0.02, MaxTTL: 0.15}, // 减后过期
+		{Kind: EHit, TTL: 0.25, MaxTTL: 0.30},   // 减后存活
+	}
+	out := decayEffects(effects, 0.05)
+	if len(out) != 1 {
+		t.Errorf("expected 1 surviving effect, got %d", len(out))
+	}
+	if out[0].Kind != EHit {
+		t.Errorf("EHit should survive, got %v", out[0].Kind)
+	}
+}
+
+func TestEffects_Alpha(t *testing.T) {
+	e := &Effect{TTL: 0.15, MaxTTL: 0.3}
+	if a := e.Alpha(); a < 0.49 || a > 0.51 {
+		t.Errorf("Alpha at half TTL: got %f want 0.5", a)
+	}
+	e.TTL = 0
+	if a := e.Alpha(); a != 0 {
+		t.Errorf("Alpha at 0 TTL: got %f want 0", a)
+	}
+	e.TTL = e.MaxTTL
+	if a := e.Alpha(); a != 1 {
+		t.Errorf("Alpha at full TTL: got %f want 1", a)
+	}
+}
+
+// ============================================================
 // V1.7: 存档 / unlock 系统
 // ============================================================
 
