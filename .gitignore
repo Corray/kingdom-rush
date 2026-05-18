@@ -1,11 +1,17 @@
-# agent-dev-standard hub-repo .gitignore template
+# agent-dev-standard hub-repo .gitignore template (项目侧已调整)
 #
-# 适用：standard hub repo（标准本身的仓库）+ 类似分发型仓库
-# 用途：避免 self-install dogfood 时把"给别人 install 后才该产生的"产物
-#       和"用户身份信息"误提交到主仓库。
+# 原模板适用：standard hub repo（标准本身的仓库）+ 类似分发型仓库
+# 由 install/modules/06-templates.sh 渲染到 <project>/.gitignore（如不存在）
+# 修订后重跑 install.sh 不会覆盖既有 .gitignore（保护用户自定义）
 #
-# 由 install/modules/06-templates.sh 渲染到 <project>/.gitignore（如不存在）。
-# 修订后重跑 install.sh 不会覆盖既有 .gitignore（保护用户自定义）。
+# 项目侧调整（kingdom-rush, 2026-05-18）—— KR-FB-001 实证回写：
+#   kingdom-rush 既是 standard 的 dogfood,也作为 business 项目跑真实 Issue,
+#   audit / problems / handoff completed 等是流程实证,应作为审计证据保留版本控制。
+#   下列路径已从原 hub template 解除 ignore：
+#     - /docs/audit/*.md / spool-review/ / processed-proposals/
+#     - /docs/problems/
+#     - /docs/handoff/README.md / completed/
+#   仅保留 ignore: spool.md / Go binary / install-state / .gh-account / handoff/in-progress/
 
 # ============================================================
 # OS / Editor
@@ -31,11 +37,10 @@ build/
 *.war
 
 # ============================================================
-# Self-install artifacts（dogfood 兼容）
+# Self-install / 临时态产物（dogfood 兼容）
 # ============================================================
-# hub repo 自身跑 install.sh 产生的项目侧产物——不进 hub 主仓库。
 
-# 会话日志（每个项目自己积累）
+# 会话日志（每个项目自己积累,临时态不进版本控制）
 /spool.md
 
 # Go binary（与 module 同名）
@@ -45,17 +50,8 @@ build/
 # install 状态文件（resume 用）
 /.install-state.json
 
-# 项目级 registry 目录（hub 不该有 audit / problems）
-# 注意：使用细粒度排除，保留 docs/audit/tasks/ 可追踪
-/docs/audit/*.md
-/docs/audit/spool-review/
-/docs/audit/processed-proposals/
-/docs/problems/
-
-# handoff 工作目录
-/docs/handoff/README.md
+# handoff 中间态（in-progress 含临时执行状态,完成归 completed 才入库）
 /docs/handoff/in-progress/
-/docs/handoff/completed/
 
 # ============================================================
 # GitHub identity（Layout A — 不进任何 repo）

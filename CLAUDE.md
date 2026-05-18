@@ -51,6 +51,23 @@ standard_path: /Users/chat/backend-ai-workflow/agent-dev-standard
 
 ---
 
+## Audit 输入映射
+
+> `/audit` skill 执行前读取本段（字段来源 standard `skills/core/audit/SKILL.md` L33-80）。
+> 项目 bootstrap 阶段,仅 issue-process / rule-coverage phase 适用; 其他 phase 缺 spec / 架构 / api / behavior 实体, N/A。
+
+### issue-process
+- Issue 仓库: `Corray/kingdom-rush`
+- 默认窗口: `30d`
+- /release 历史: `docs/release-history.md`
+- 共享文档仓库: `/Users/chat/Desktop/games/kingdom-rush`（单仓库,code 与 docs 同目录）
+- 项目特定规则补充: 无（采用 standard 默认）
+
+### prd / spec / architecture / api / behavior / integration
+- N/A — 项目 bootstrap 阶段,无对应 artifact
+
+---
+
 ## Standard 引用（基础规则）
 
 本项目采用 **agent-dev-standard** 工作规范（ADR-004 决策 1：standard 是规范源，不 install 到本项目）。
