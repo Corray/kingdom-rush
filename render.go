@@ -55,6 +55,7 @@ var (
 	colSelBg    = tcell.NewRGBColor(60, 60, 100)
 	colPrepFg   = tcell.NewRGBColor(255, 200, 80)
 	colMenuFg   = tcell.NewRGBColor(220, 220, 240)
+	colLockedFg = tcell.NewRGBColor(100, 100, 100)
 )
 
 func putCell(s tcell.Screen, x, y int, ch1, ch2 rune, style tcell.Style) {
@@ -83,24 +84,49 @@ func (r *TermRenderer) Draw(g *Game) {
 func (r *TermRenderer) drawLevelSelect(g *Game) {
 	stTitle := tcell.StyleDefault.Foreground(colTitleFg).Bold(true)
 	stMenu := tcell.StyleDefault.Foreground(colMenuFg)
+	stDone := tcell.StyleDefault.Foreground(colStartFg).Bold(true)
+	stLock := tcell.StyleDefault.Foreground(colLockedFg)
 	stHelp := tcell.StyleDefault.Foreground(colHelpFg)
+	stMsg := tcell.StyleDefault.Foreground(colPrepFg)
 
-	drawString(r.scr, 0, 0, " Kingdom Rush V1.5  —  Select Level", stTitle)
+	drawString(r.scr, 0, 0, " Kingdom Rush V1.7  —  Select Level", stTitle)
 	drawString(r.scr, 0, 1, " ===================================", stHelp)
 
+	completed := 0
+	for _, lv := range g.Levels {
+		if g.Save.IsCompleted(lv.ID) {
+			completed++
+		}
+	}
+	progress := fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels))
+	drawString(r.scr, 0, 2, progress, stHelp)
+
 	for i, lv := range g.Levels {
-		row := 3 + i
+		row := 4 + i
 		key := i + 1
 		keyStr := fmt.Sprintf("%d", key)
 		if key == 10 {
 			keyStr = "0"
 		}
-		line := fmt.Sprintf("   [%s]  Lv %2d  %-18s  (waves: %d  gold: %d  lives: %d)",
-			keyStr, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
-		drawString(r.scr, 0, row, line, stMenu)
+		status := "[    ]"
+		style := stMenu
+		if g.Save.IsCompleted(lv.ID) {
+			status = "[DONE]"
+			style = stDone
+		} else if !g.Save.IsUnlocked(lv.ID) {
+			status = "[LOCK]"
+			style = stLock
+		}
+		line := fmt.Sprintf("   [%s] %s  Lv %2d  %-18s  (waves:%d  gold:%d  lives:%d)",
+			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
+		drawString(r.scr, 0, row, line, style)
 	}
-	drawString(r.scr, 0, 3+len(g.Levels)+1,
-		" Press 1-9 or 0 to start | Q/Esc to quit", stHelp)
+	helpRow := 4 + len(g.Levels) + 1
+	drawString(r.scr, 0, helpRow,
+		" Press 1-9 or 0 to start unlocked level | Q/Esc to quit", stHelp)
+	if g.Msg != "" {
+		drawString(r.scr, 0, helpRow+1, " "+g.Msg, stMsg)
+	}
 }
 
 func (r *TermRenderer) drawGame(g *Game) {
@@ -119,7 +145,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 	}
 
 	// title
-	title := fmt.Sprintf(" KR V1.5 — Lv %d: %s — Wave %d/%d ",
+	title := fmt.Sprintf(" KR V1.7 — Lv %d: %s — Wave %d/%d ",
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	drawString(s, 0, 0, title, stTitle)
 

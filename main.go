@@ -27,6 +27,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	save, err := LoadSave()
+	if err != nil {
+		// 加载失败不阻断启动(可能是 corrupt save),fallback empty save 让玩家继续
+		fmt.Fprintln(os.Stderr, "warning: load save failed:", err, "(starting fresh)")
+		save = NewSave()
+	}
+
 	r, err := NewTermRenderer()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -38,7 +45,7 @@ func main() {
 	}
 	defer r.Fini()
 
-	g := NewGame(levels)
+	g := NewGame(levels, save)
 
 	evCh := make(chan tcell.Event, 16)
 	done := make(chan struct{})

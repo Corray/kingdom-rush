@@ -29,6 +29,7 @@ type Game struct {
 	Phase    GamePhase
 	Levels   []Level
 	LevelIdx int
+	Save     Save // 存档:已完成关卡 + unlock 状态
 
 	Path       []Point
 	pathLookup map[Point]bool
@@ -47,8 +48,8 @@ type Game struct {
 	spawnTimer float64
 }
 
-func NewGame(levels []Level) *Game {
-	return &Game{Phase: PhaseLevelSelect, Levels: levels}
+func NewGame(levels []Level, save Save) *Game {
+	return &Game{Phase: PhaseLevelSelect, Levels: levels, Save: save}
 }
 
 func (g *Game) StartLevel(idx int) {
@@ -56,6 +57,10 @@ func (g *Game) StartLevel(idx int) {
 		return
 	}
 	lv := g.Levels[idx]
+	if !g.Save.IsUnlocked(lv.ID) {
+		g.Msg = fmt.Sprintf("Level %d locked — clear Level %d first", lv.ID, lv.ID-1)
+		return
+	}
 	g.Phase = PhasePlaying
 	g.LevelIdx = idx
 	g.Path = lv.Path
@@ -198,6 +203,13 @@ func (g *Game) Update(dt float64) {
 				g.Msg = fmt.Sprintf("Wave %d cleared! +%dg, prep for next", g.WaveIdx, waveBonus)
 			} else {
 				g.Phase = PhaseWon
+				g.Save.MarkCompleted(lv.ID)
+				if err := StoreSave(g.Save); err != nil {
+					// 不阻断游戏,仅在 msg 显示;玩家可手动重试或忽略
+					g.Msg = fmt.Sprintf("Victory! (save failed: %v)", err)
+				} else {
+					g.Msg = fmt.Sprintf("Victory! Level %d cleared & saved", lv.ID)
+				}
 			}
 		}
 	}

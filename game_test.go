@@ -369,8 +369,117 @@ func TestUpdate_MagicHitsFlying(t *testing.T) {
 }
 
 // ============================================================
+// V1.7: 存档 / unlock 系统
+// ============================================================
+
+func TestSave_IsUnlocked_DefaultOnlyL1(t *testing.T) {
+	s := NewSave()
+	if !s.IsUnlocked(1) {
+		t.Errorf("Level 1 should always be unlocked")
+	}
+	if s.IsUnlocked(2) {
+		t.Errorf("Level 2 should be locked initially")
+	}
+}
+
+func TestSave_IsUnlocked_ChainAfterCompletion(t *testing.T) {
+	s := NewSave()
+	s.MarkCompleted(1)
+	if !s.IsUnlocked(2) {
+		t.Errorf("Level 2 should unlock after L1 completed")
+	}
+	if s.IsUnlocked(3) {
+		t.Errorf("Level 3 should still be locked (L2 not done)")
+	}
+	s.MarkCompleted(2)
+	if !s.IsUnlocked(3) {
+		t.Errorf("Level 3 should unlock after L2 completed")
+	}
+}
+
+func TestSave_Roundtrip(t *testing.T) {
+	withTempSavePath(t, func() {
+		s := NewSave()
+		s.MarkCompleted(1)
+		s.MarkCompleted(3)
+		if err := StoreSave(s); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !loaded.IsCompleted(1) || !loaded.IsCompleted(3) {
+			t.Errorf("expected L1 and L3 completed, got %v", loaded.Completed)
+		}
+		if loaded.IsCompleted(2) {
+			t.Errorf("L2 should not be completed")
+		}
+	})
+}
+
+func TestSave_LoadMissingFileNoError(t *testing.T) {
+	withTempSavePath(t, func() {
+		s, err := LoadSave()
+		if err != nil {
+			t.Fatalf("missing file should not error: %v", err)
+		}
+		if s.IsCompleted(1) {
+			t.Errorf("empty save should have no completed")
+		}
+	})
+}
+
+func TestGame_StartLevelRejectsLocked(t *testing.T) {
+	g := newTestGameMultiLevel()
+	g.StartLevel(1) // Lv 2 (idx 1), L1 not completed → locked
+	if g.Phase != PhaseLevelSelect {
+		t.Errorf("locked level should not start, phase: %v", g.Phase)
+	}
+	if g.Msg == "" {
+		t.Errorf("expected locked msg")
+	}
+}
+
+func TestGame_VictoryMarksCompletedAndSaves(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.prepTimer = 0
+		g.spawned = 1 // 已 spawn 一个 (= wave size)
+		// 模拟唯一敌人已 dead
+		g.Enemies = []*Enemy{{Kind: ENormal, HP: 0, MaxHP: 20, Dead: true}}
+		g.Update(0.1)
+		if g.Phase != PhaseWon {
+			t.Fatalf("expected PhaseWon, got %v", g.Phase)
+		}
+		if !g.Save.IsCompleted(1) {
+			t.Errorf("L1 should be marked completed")
+		}
+		// 验证落盘: 重新 load 应该也有 L1 completed
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !loaded.IsCompleted(1) {
+			t.Errorf("L1 completion should persist to disk")
+		}
+	})
+}
+
+// ============================================================
 // helpers
 // ============================================================
+
+func withTempSavePath(t *testing.T, fn func()) {
+	t.Helper()
+	old := savePathFn
+	defer func() { savePathFn = old }()
+	dir := t.TempDir()
+	savePathFn = func() (string, error) {
+		return dir + "/save.json", nil
+	}
+	fn()
+}
 
 func newTestGame() *Game {
 	levels := []Level{{
@@ -379,9 +488,27 @@ func newTestGame() *Game {
 		Path:  []Point{{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}},
 		Waves: []WaveSpec{{Enemies: []EnemyKind{ENormal}}},
 	}}
-	g := NewGame(levels)
+	g := NewGame(levels, NewSave())
 	g.StartLevel(0)
 	return g
+}
+
+func newTestGameMultiLevel() *Game {
+	levels := []Level{
+		{
+			ID: 1, Name: "L1",
+			StartGold: 100, StartLives: 5,
+			Path:  []Point{{0, 0}, {1, 0}},
+			Waves: []WaveSpec{{Enemies: []EnemyKind{ENormal}}},
+		},
+		{
+			ID: 2, Name: "L2",
+			StartGold: 100, StartLives: 5,
+			Path:  []Point{{0, 0}, {1, 0}},
+			Waves: []WaveSpec{{Enemies: []EnemyKind{ENormal}}},
+		},
+	}
+	return NewGame(levels, NewSave())
 }
 
 func pointsEqual(a, b []Point) bool {
