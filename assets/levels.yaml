@@ -1,0 +1,117 @@
+# kingdom-rush V1.5 — 10 关数据
+#
+# cps:    路径控制点列表 (相邻 cp 必须水平或垂直对齐, 否则 load 报错)
+#         代码会自动 expand 中间 cells
+# waves:  每波敌人组成 DSL
+#         token 格式: <kind><count>  kind: n=Normal, f=Fast
+#         多 token 空格分隔, 按顺序 spawn
+#         例: "n5 f2 n3" = 5 normal -> 2 fast -> 3 normal
+
+levels:
+  - id: 1
+    name: "Forest Path"
+    start_gold: 120
+    start_lives: 10
+    cps: [[0,7], [29,7]]
+    waves:
+      - "n5"
+      - "n6 f1"
+      - "n6 f3"
+
+  - id: 2
+    name: "L Turn"
+    start_gold: 110
+    start_lives: 10
+    cps: [[0,3], [15,3], [15,10], [29,10]]
+    waves:
+      - "n6"
+      - "n6 f2"
+      - "n8 f3"
+
+  - id: 3
+    name: "Forest S"
+    start_gold: 100
+    start_lives: 10
+    cps: [[0,3], [7,3], [7,7], [17,7], [17,3], [29,3]]
+    waves:
+      - "n6"
+      - "n7 f2"
+      - "n8 f3"
+      - "n10 f4"
+
+  - id: 4
+    name: "Crossroads"
+    start_gold: 100
+    start_lives: 9
+    cps: [[0,2], [10,2], [10,9], [20,9], [20,4], [29,4]]
+    waves:
+      - "n7 f1"
+      - "n8 f3"
+      - "n10 f4"
+
+  - id: 5
+    name: "Mountain Pass"
+    start_gold: 90
+    start_lives: 9
+    cps: [[0,4], [12,4], [12,11], [22,11], [22,2], [29,2]]
+    waves:
+      - "n8 f2"
+      - "n8 f4"
+      - "n10 f5"
+      - "n12 f6"
+
+  - id: 6
+    name: "Twisted Valley"
+    start_gold: 100
+    start_lives: 8
+    cps: [[0,7], [6,7], [6,2], [12,2], [12,12], [18,12], [18,5], [29,5]]
+    waves:
+      - "n8 f3"
+      - "n10 f4"
+      - "n12 f5"
+      - "n14 f6"
+
+  - id: 7
+    name: "Snake Path"
+    start_gold: 90
+    start_lives: 8
+    cps: [[0,2], [25,2], [25,5], [4,5], [4,8], [25,8], [25,11], [4,11], [4,13], [29,13]]
+    waves:
+      - "n10 f3"
+      - "n12 f5"
+      - "n14 f6"
+      - "n16 f8"
+
+  - id: 8
+    name: "Maze Edge"
+    start_gold: 80
+    start_lives: 7
+    cps: [[0,3], [8,3], [8,8], [15,8], [15,3], [22,3], [22,11], [29,11]]
+    waves:
+      - "n10 f5"
+      - "n12 f6"
+      - "n14 f8"
+      - "n16 f8"
+
+  - id: 9
+    name: "Spiral"
+    start_gold: 80
+    start_lives: 7
+    cps: [[0,7], [3,7], [3,2], [27,2], [27,12], [6,12], [6,8], [22,8], [22,6], [29,6]]
+    waves:
+      - "n12 f5"
+      - "n14 f7"
+      - "n16 f9"
+      - "n18 f12"
+
+  - id: 10
+    name: "Final Gauntlet"
+    start_gold: 80
+    start_lives: 6
+    cps: [[0,2], [10,2], [10,12], [20,12], [20,2], [29,2]]
+    waves:
+      - "n15 f8"
+      - "n18 f10"
+      - "n22 f12"
+      - "n25 f15"
+      - "n30 f20"

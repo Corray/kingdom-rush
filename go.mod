@@ -2,7 +2,10 @@ module github.com/Corray/kingdom-rush
 
 go 1.24.0
 
-require github.com/gdamore/tcell/v2 v2.13.9
+require (
+	github.com/gdamore/tcell/v2 v2.13.9
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	github.com/gdamore/encoding v1.0.1 // indirect
