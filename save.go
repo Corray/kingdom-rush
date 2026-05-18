@@ -1,4 +1,8 @@
-// 存档系统:JSON 持久化到 ~/.kingdom-rush/save.json
+//go:build !js
+
+// 存档系统(native build):JSON 持久化到 ~/.kingdom-rush/save.json
+//
+// WASM 版见 save_wasm.go (localStorage)。
 //
 // 规则:
 //   - Level 1 always unlocked

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kingdom Rush V2.5 — WASM</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px 0;
+            background: #1e1e28;
+            color: #eaeaea;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            text-align: center;
+        }
+        h2 { margin: 4px 0; font-weight: 500; color: #78dcff; }
+        p { margin: 6px 0; font-size: 12px; color: #aaa; }
+        kbd {
+            background: #2a2a35;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 11px;
+            color: #ddd;
+        }
+        canvas {
+            display: block;
+            margin: 10px auto;
+            border: 1px solid #444;
+            background: #1e1e28;
+        }
+        #loading {
+            display: inline-block;
+            margin: 60px auto;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h2>Kingdom Rush — Go + Ebiten + WASM</h2>
+    <p>
+        <kbd>Click canvas first to focus.</kbd>
+        Controls:
+        <kbd>Arrows</kbd> move ·
+        <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tower select ·
+        <kbd>Space</kbd> build/upgrade ·
+        <kbd>M</kbd> menu ·
+        <kbd>Q</kbd>/<kbd>Esc</kbd> quit
+    </p>
+    <p>Save persists in browser localStorage (per origin).</p>
+    <div id="loading">Loading WASM...</div>
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("kingdom-rush.wasm"), go.importObject)
+            .then(result => {
+                document.getElementById("loading").remove();
+                go.run(result.instance);
+            })
+            .catch(err => {
+                document.getElementById("loading").innerText = "Load failed: " + err;
+            });
+    </script>
+</body>
+</html>
