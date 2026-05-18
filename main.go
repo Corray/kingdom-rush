@@ -123,7 +123,14 @@ func handleEvent(g *Game, ev tcell.Event, r Renderer) (quit bool) {
 				g.Selected = TCannon
 				g.Msg = "Selected Cannon"
 			}
-		case '3', '4', '5', '6', '7', '8', '9':
+		case '3':
+			if g.Phase == PhaseLevelSelect {
+				g.StartLevel(2)
+			} else if g.Phase == PhasePlaying {
+				g.Selected = TMagic
+				g.Msg = "Selected Magic"
+			}
+		case '4', '5', '6', '7', '8', '9':
 			if g.Phase == PhaseLevelSelect {
 				idx := int(e.Rune() - '1')
 				g.StartLevel(idx)

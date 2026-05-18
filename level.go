@@ -95,6 +95,10 @@ func ParseWave(s string) ([]EnemyKind, error) {
 			kind = ENormal
 		case 'f':
 			kind = EFast
+		case 'g':
+			kind = EGlider
+		case 'b':
+			kind = EBoss
 		default:
 			return nil, fmt.Errorf("unknown enemy kind %q in %q", kindCh, tok)
 		}

@@ -286,6 +286,89 @@ func TestLoadLevels_10Levels(t *testing.T) {
 }
 
 // ============================================================
+// V1.6: 3 种塔 × 4 种敌人 (含飞行 / Boss)
+// ============================================================
+
+func TestParseWave_AllKinds(t *testing.T) {
+	seq, err := ParseWave("n1 f1 g1 b1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []EnemyKind{ENormal, EFast, EGlider, EBoss}
+	if !kindsEqual(seq, want) {
+		t.Errorf("got %v want %v", seq, want)
+	}
+}
+
+func TestTowerSpec_HitsFlying(t *testing.T) {
+	cases := map[TowerKind]bool{
+		TArcher: true,
+		TCannon: false, // Cannon 打不到飞行
+		TMagic:  true,
+	}
+	for kind, want := range cases {
+		if got := towerSpecs[kind].HitsFlying; got != want {
+			t.Errorf("tower %d HitsFlying: got %v want %v", kind, got, want)
+		}
+	}
+}
+
+func TestEnemySpec_Flying(t *testing.T) {
+	if !enemySpecs[EGlider].Flying {
+		t.Errorf("Glider should be Flying")
+	}
+	if enemySpecs[EBoss].Flying {
+		t.Errorf("Boss should not be Flying")
+	}
+	if enemySpecs[ENormal].Flying || enemySpecs[EFast].Flying {
+		t.Errorf("Normal/Fast should not be Flying")
+	}
+}
+
+func TestUpdate_CannonSkipsFlying(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	// 建 Cannon 在 (1, 1) 邻近 path
+	g.Towers = append(g.Towers, &Tower{Pos: Point{1, 1}, Kind: TCannon, Level: 1})
+	// 放 Glider 在 path 中 (range 2.5 内)
+	g.Enemies = append(g.Enemies, &Enemy{
+		Kind: EGlider, HP: 18, MaxHP: 18, PathIdx: 1,
+	})
+	g.Update(0.1)
+	// Cannon cd 1.5 已耗一帧,但目标 filter 飞行不击 → enemy HP 不变
+	if g.Enemies[0].HP != 18 {
+		t.Errorf("Glider HP should remain 18 (Cannon should skip), got %d", g.Enemies[0].HP)
+	}
+}
+
+func TestUpdate_ArcherHitsFlying(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	// Archer 在 (1, 1) 接近 path
+	g.Towers = append(g.Towers, &Tower{Pos: Point{1, 1}, Kind: TArcher, Level: 1})
+	g.Enemies = append(g.Enemies, &Enemy{
+		Kind: EGlider, HP: 18, MaxHP: 18, PathIdx: 1,
+	})
+	g.Update(0.1) // Archer cd 0.6, 触发一次射击
+	if g.Enemies[0].HP == 18 {
+		t.Errorf("Glider HP should be reduced (Archer hits flying)")
+	}
+}
+
+func TestUpdate_MagicHitsFlying(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Towers = append(g.Towers, &Tower{Pos: Point{1, 1}, Kind: TMagic, Level: 1})
+	g.Enemies = append(g.Enemies, &Enemy{
+		Kind: EGlider, HP: 18, MaxHP: 18, PathIdx: 1,
+	})
+	g.Update(0.1)
+	if g.Enemies[0].HP == 18 {
+		t.Errorf("Glider HP should be reduced (Magic hits flying)")
+	}
+}
+
+// ============================================================
 // helpers
 // ============================================================
 

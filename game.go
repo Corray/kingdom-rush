@@ -142,9 +142,10 @@ func (g *Game) Update(dt float64) {
 			}
 		}
 	}
-	// shoot
+	// shoot — 塔目标 path 最远的可击中敌人 (Cannon 不打飞行)
 	for _, t := range g.Towers {
-		spec := t.Spec()
+		lvl := t.Spec()
+		towerSpec := towerSpecs[t.Kind]
 		t.cooldown -= dt
 		if t.cooldown > 0 {
 			continue
@@ -155,17 +156,21 @@ func (g *Game) Update(dt float64) {
 			if e.Dead || e.Escaped {
 				continue
 			}
+			eSpec := enemySpecs[e.Kind]
+			if eSpec.Flying && !towerSpec.HitsFlying {
+				continue
+			}
 			ep := e.Pos(g.Path)
 			dx := float64(ep.X - t.Pos.X)
 			dy := float64(ep.Y - t.Pos.Y)
-			if math.Sqrt(dx*dx+dy*dy) <= spec.Range && e.PathIdx > maxIdx {
+			if math.Sqrt(dx*dx+dy*dy) <= lvl.Range && e.PathIdx > maxIdx {
 				maxIdx = e.PathIdx
 				target = e
 			}
 		}
 		if target != nil {
-			target.HP -= spec.Damage
-			t.cooldown = spec.Cooldown
+			target.HP -= lvl.Damage
+			t.cooldown = lvl.Cooldown
 			if target.HP <= 0 {
 				target.Dead = true
 				g.Gold += enemySpecs[target.Kind].Reward
