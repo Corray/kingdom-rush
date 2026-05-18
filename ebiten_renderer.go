@@ -129,6 +129,16 @@ func (eg *EbitenGame) handleInput() {
 			g.Selected = TMagic
 			g.Msg = "Selected Magic"
 		}
+		// V2.7: 鼠标 hover → cursor 跟随; 左键 → 等同 Space
+		mx, my := ebiten.CursorPosition()
+		if p, ok := pixelToCell(mx, my); ok {
+			g.Cursor = p
+		}
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			if _, ok := pixelToCell(mx, my); ok {
+				g.TryAction()
+			}
+		}
 		return
 	}
 	if g.Phase == PhaseLevelSelect {
@@ -144,6 +154,13 @@ func (eg *EbitenGame) handleInput() {
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyDigit0) {
 			g.StartLevel(9)
+		}
+		// V2.7: menu 阶段鼠标点击 row 启动关卡
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			_, my := ebiten.CursorPosition()
+			if i, ok := menuRowAtPixel(my, len(g.Levels)); ok {
+				g.StartLevel(i)
+			}
 		}
 	}
 }
@@ -166,6 +183,34 @@ func fillCircle(screen *ebiten.Image, cx, cy, r float32, c color.RGBA) {
 
 func cellPos(p Point) (float32, float32) {
 	return float32(p.X * cellPx), float32(topBarH + p.Y*cellPx)
+}
+
+// pixelToCell 把屏幕像素坐标转回 game cell, 返回 (cell, inGameArea)。
+// 鼠标在 game area 外(top/bottom UI bar)时返回 false。
+func pixelToCell(mx, my int) (Point, bool) {
+	if my < topBarH || my >= topBarH+gameAreaH {
+		return Point{}, false
+	}
+	if mx < 0 || mx >= gameAreaW {
+		return Point{}, false
+	}
+	gx := mx / cellPx
+	gy := (my - topBarH) / cellPx
+	if gx < 0 || gx >= mapW || gy < 0 || gy >= mapH {
+		return Point{}, false
+	}
+	return Point{X: gx, Y: gy}, true
+}
+
+// menuRowAtPixel 返回鼠标所在的 level select row index (0..len(levels)-1), false 表示不在行上
+func menuRowAtPixel(my, numLevels int) (int, bool) {
+	const startY = 50
+	const rowH = 22
+	i := (my - startY) / rowH
+	if i < 0 || i >= numLevels {
+		return 0, false
+	}
+	return i, true
 }
 
 // ============================================================
@@ -285,6 +330,35 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		barW := float32(cellPx) - 4
 		fillRect(screen, x+2, y, barW, 3, eColHpBg)
 		fillRect(screen, x+2, y, barW*hpRatio, 3, eColHpFg)
+	}
+
+	// V2.7: 射程圈预览 (cursor 在 tower 上 → 显示当前级 range,
+	//                    cursor 在空地 → 显示 selected lvl 1 range preview)
+	var atTowerHover *Tower
+	for _, t := range g.Towers {
+		if t.Pos == g.Cursor {
+			atTowerHover = t
+			break
+		}
+	}
+	if atTowerHover != nil {
+		spec := towerSpecs[atTowerHover.Kind]
+		col := ebitenColor(spec.Color)
+		col.A = 140 // 半透明描边
+		cxr, cyr := cellPos(g.Cursor)
+		centerX := cxr + float32(cellPx)/2
+		centerY := cyr + float32(cellPx)/2
+		vector.StrokeCircle(screen, centerX, centerY,
+			float32(atTowerHover.Spec().Range)*float32(cellPx), 1.5, col, true)
+	} else if !g.pathContains(g.Cursor) {
+		spec := towerSpecs[g.Selected]
+		base := ebitenColor(spec.Color)
+		col := color.RGBA{R: base.R, G: base.G, B: base.B, A: 80} // 更淡
+		cxr, cyr := cellPos(g.Cursor)
+		centerX := cxr + float32(cellPx)/2
+		centerY := cyr + float32(cellPx)/2
+		vector.StrokeCircle(screen, centerX, centerY,
+			float32(spec.Levels[0].Range)*float32(cellPx), 1, col, true)
 	}
 
 	// V2.6: 攻击视觉特效 (在 cursor / status 之前画, 在 enemy 之上)
