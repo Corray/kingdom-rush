@@ -1,11 +1,12 @@
 // Tower / Enemy 实体与 spec table。
 // Tower 支持 3 级升级,每级独立 spec(damage/range/cd/字符)。
+//
+// Spec.Color 用自定义 RGB 类型(color.go),renderer 各自转换,
+// 此文件不依赖任何 UI 库。
 package main
 
 import (
 	"math"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 // ============================================================
@@ -41,14 +42,14 @@ type TowerLevel struct {
 
 type TowerSpec struct {
 	Name        string
-	Color       tcell.Color
+	Color       RGB
 	HitsFlying  bool // 能否打飞行单位
 	Levels      [3]TowerLevel
 }
 
 var towerSpecs = map[TowerKind]TowerSpec{
 	TArcher: {
-		Name: "Archer", Color: tcell.NewRGBColor(100, 180, 255), HitsFlying: true,
+		Name: "Archer", Color: rgb(100, 180, 255), HitsFlying: true,
 		Levels: [3]TowerLevel{
 			{Cost: 50, Damage: 8, Range: 3.5, Cooldown: 0.6, Char1: 'A', Char2: '1'},
 			{Cost: 40, Damage: 14, Range: 4.0, Cooldown: 0.5, Char1: 'A', Char2: '2'},
@@ -56,7 +57,7 @@ var towerSpecs = map[TowerKind]TowerSpec{
 		},
 	},
 	TCannon: {
-		Name: "Cannon", Color: tcell.NewRGBColor(180, 120, 255), HitsFlying: false,
+		Name: "Cannon", Color: rgb(180, 120, 255), HitsFlying: false,
 		Levels: [3]TowerLevel{
 			{Cost: 80, Damage: 25, Range: 2.5, Cooldown: 1.5, Char1: 'C', Char2: '1'},
 			{Cost: 60, Damage: 45, Range: 3.0, Cooldown: 1.3, Char1: 'C', Char2: '2'},
@@ -64,7 +65,7 @@ var towerSpecs = map[TowerKind]TowerSpec{
 		},
 	},
 	TMagic: {
-		Name: "Magic", Color: tcell.NewRGBColor(220, 120, 255), HitsFlying: true,
+		Name: "Magic", Color: rgb(220, 120, 255), HitsFlying: true,
 		Levels: [3]TowerLevel{
 			{Cost: 100, Damage: 18, Range: 3.0, Cooldown: 0.8, Char1: 'M', Char2: '1'},
 			{Cost: 80, Damage: 30, Range: 3.5, Cooldown: 0.7, Char1: 'M', Char2: '2'},
@@ -113,25 +114,25 @@ type EnemySpec struct {
 	Flying bool // true = 飞行(Cannon 不能 target)
 	Char1  rune
 	Char2  rune
-	Color  tcell.Color
+	Color  RGB
 }
 
 var enemySpecs = map[EnemyKind]EnemySpec{
 	ENormal: {
 		HP: 20, Speed: 3.0, Reward: 10, Flying: false,
-		Char1: 'o', Char2: 'o', Color: tcell.NewRGBColor(255, 100, 100),
+		Char1: 'o', Char2: 'o', Color: rgb(255, 100, 100),
 	},
 	EFast: {
 		HP: 12, Speed: 5.5, Reward: 12, Flying: false,
-		Char1: '>', Char2: '>', Color: tcell.NewRGBColor(255, 200, 80),
+		Char1: '>', Char2: '>', Color: rgb(255, 200, 80),
 	},
 	EGlider: {
 		HP: 18, Speed: 4.0, Reward: 18, Flying: true,
-		Char1: '~', Char2: '~', Color: tcell.NewRGBColor(100, 220, 220),
+		Char1: '~', Char2: '~', Color: rgb(100, 220, 220),
 	},
 	EBoss: {
 		HP: 150, Speed: 1.5, Reward: 50, Flying: false,
-		Char1: 'B', Char2: 'B', Color: tcell.NewRGBColor(255, 60, 200),
+		Char1: 'B', Char2: 'B', Color: rgb(255, 60, 200),
 	},
 }
 

@@ -1,5 +1,10 @@
-// Renderer interface + terminal (tcell) 实现。
-// V1.5 仅 terminal impl,接口预留 web/WASM 适配。
+//go:build term
+
+// Terminal (tcell) 渲染。V2 默认 build 用 ebiten,terminal 模式 opt-in:
+//   go build -tags term
+//
+// V1.7 中 Renderer interface 实际未被 ebiten 复用(范式不同),V2 删除 interface,
+// TermRenderer 仍为 terminal main 直接调用。
 package main
 
 import (
@@ -8,24 +13,20 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// termColor 把 UI-agnostic 的 RGB(entities.go) 转为 tcell.Color。
+func termColor(c RGB) tcell.Color {
+	return tcell.NewRGBColor(int32(c.R), int32(c.G), int32(c.B))
+}
+
 const (
 	cellW      = 2
 	gameTopRow = 1
 )
 
-// Renderer 是渲染层抽象。V2 web/WASM 实现新类型时实现此接口即可。
-type Renderer interface {
-	Init() error
-	Fini()
-	PollEvent() tcell.Event
-	Sync()
-	Draw(g *Game)
-}
-
-// ============================================================
-// TermRenderer (tcell-based)
-// ============================================================
-
+// TermRenderer 是 V1.7 的 terminal 渲染器(tcell-based)。
+// V2 删除了 Renderer interface(ebiten 范式与 tcell 不兼容,interface 没有
+// 复用价值)。terminal mode 通过 build tag `term` 启用,term_main.go 直接
+// 调用 TermRenderer 方法。
 type TermRenderer struct {
 	scr tcell.Screen
 }
@@ -162,7 +163,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 	for _, t := range g.Towers {
 		spec := towerSpecs[t.Kind]
 		lvl := t.Spec()
-		st := tcell.StyleDefault.Foreground(spec.Color).Bold(true)
+		st := tcell.StyleDefault.Foreground(termColor(spec.Color)).Bold(true)
 		putCell(s, t.Pos.X, t.Pos.Y, lvl.Char1, lvl.Char2, st)
 	}
 
@@ -176,7 +177,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 		if e.HP <= e.MaxHP/3 {
 			ch1, ch2 = 'x', 'x'
 		}
-		st := tcell.StyleDefault.Background(colPathBg).Foreground(spec.Color).Bold(true)
+		st := tcell.StyleDefault.Background(colPathBg).Foreground(termColor(spec.Color)).Bold(true)
 		p := e.Pos(g.Path)
 		putCell(s, p.X, p.Y, ch1, ch2, st)
 	}
@@ -217,7 +218,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 	for _, k := range TowerKinds() {
 		spec := towerSpecs[k]
 		label := fmt.Sprintf(" [%d] %s %dg ", int(k)+1, spec.Name, spec.Levels[0].Cost)
-		st := tcell.StyleDefault.Foreground(spec.Color)
+		st := tcell.StyleDefault.Foreground(termColor(spec.Color))
 		if k == g.Selected {
 			st = st.Background(colSelBg).Bold(true)
 		}

@@ -43,8 +43,9 @@ build/
 # 会话日志（每个项目自己积累,临时态不进版本控制）
 /spool.md
 
-# Go binary（与 module 同名）
+# Go binary（与 module 同名 + V2 term variant）
 /kingdom-rush
+/kingdom-rush-term
 *.exe
 
 # install 状态文件（resume 用）
