@@ -207,9 +207,10 @@ func pixelToCell(mx, my int) (Point, bool) {
 }
 
 // menuRowAtPixel 返回鼠标所在的 level select row index (0..len(levels)-1), false 表示不在行上
+// V3 Phase 5a: layout 重排 (startY 50→60, rowH 22→36 配合 box-style 渲染)
 func menuRowAtPixel(my, numLevels int) (int, bool) {
-	const startY = 50
-	const rowH = 22
+	const startY = 60
+	const rowH = 36
 	i := (my - startY) / rowH
 	if i < 0 || i >= numLevels {
 		return 0, false
@@ -224,7 +225,13 @@ func menuRowAtPixel(my, numLevels int) (int, bool) {
 func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	g := eg.game
 
-	ebitenutil.DebugPrintAt(screen, " Kingdom Rush V2  —  Select Level", 8, 4)
+	// V3 Phase 5a: title panel 顶部 (50 px)
+	fillRect(screen, 0, 0, float32(windowW), 50,
+		color.RGBA{R: 15, G: 15, B: 25, A: 230})
+	strokeRect(screen, 0, 0, float32(windowW), 50,
+		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
+	ebitenutil.DebugPrintAt(screen,
+		" Kingdom Rush V3  —  Select Level", 20, 10)
 
 	completed := 0
 	for _, lv := range g.Levels {
@@ -234,31 +241,85 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	}
 	ebitenutil.DebugPrintAt(screen,
 		fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels)),
-		8, 24)
+		20, 28)
+
+	// V3 Phase 5a: 每关 row 用 box (panel + border)
+	// 状态颜色: 通关绿底, 锁定灰底, 默认深底; hover unlocked 加金边
+	_, mouseY := ebiten.CursorPosition()
+	mouseX, _ := ebiten.CursorPosition()
+	const (
+		rowStartY = 60
+		rowH      = 36
+		rowMargin = 2
+		rowX      = 8
+	)
+	rowW := windowW - rowX*2
 
 	for i, lv := range g.Levels {
-		y := 50 + i*22
+		y := rowStartY + i*rowH
 		key := i + 1
 		keyStr := fmt.Sprintf("%d", key)
 		if key == 10 {
 			keyStr = "0"
 		}
+
+		isCompleted := g.Save.IsCompleted(lv.ID)
+		isUnlocked := g.Save.IsUnlocked(lv.ID)
+		isHover := mouseY >= y && mouseY < y+rowH-rowMargin &&
+			mouseX >= rowX && mouseX < rowX+rowW
+
+		// Box bg
+		var bgCol color.RGBA
+		switch {
+		case isCompleted:
+			bgCol = color.RGBA{R: 30, G: 60, B: 30, A: 220} // 深绿
+		case !isUnlocked:
+			bgCol = color.RGBA{R: 35, G: 35, B: 40, A: 220} // 深灰 (locked)
+		default:
+			bgCol = color.RGBA{R: 40, G: 40, B: 60, A: 220} // 默认 unlocked
+		}
+		if isHover && isUnlocked {
+			bgCol = color.RGBA{R: 60, G: 80, B: 110, A: 240}
+		}
+		fillRect(screen, float32(rowX), float32(y),
+			float32(rowW), float32(rowH-rowMargin), bgCol)
+
+		// Box border
+		var borderCol color.RGBA
+		switch {
+		case isCompleted:
+			borderCol = color.RGBA{R: 80, G: 200, B: 80, A: 255} // 亮绿
+		case !isUnlocked:
+			borderCol = color.RGBA{R: 80, G: 80, B: 80, A: 255} // 灰
+		default:
+			borderCol = color.RGBA{R: 150, G: 150, B: 180, A: 255}
+		}
+		if isHover && isUnlocked {
+			borderCol = color.RGBA{R: 255, G: 220, B: 80, A: 255} // 金
+		}
+		strokeRect(screen, float32(rowX), float32(y),
+			float32(rowW), float32(rowH-rowMargin), borderCol, 2)
+
+		// Status indicator (left side)
 		status := "[    ]"
-		if g.Save.IsCompleted(lv.ID) {
+		if isCompleted {
 			status = "[DONE]"
-		} else if !g.Save.IsUnlocked(lv.ID) {
+		} else if !isUnlocked {
 			status = "[LOCK]"
 		}
-		line := fmt.Sprintf("  [%s] %s  Lv %2d  %-18s  (waves:%d  gold:%d  lives:%d)",
+
+		line := fmt.Sprintf("[%s]  %s  Lv %2d  %-18s    (waves:%d  gold:%d  lives:%d)",
 			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
-		ebitenutil.DebugPrintAt(screen, line, 8, y)
+		ebitenutil.DebugPrintAt(screen, line, rowX+12, y+12)
 	}
 
-	helpY := 50 + len(g.Levels)*22 + 8
+	// Help row + msg
+	helpY := rowStartY + len(g.Levels)*rowH + 8
 	ebitenutil.DebugPrintAt(screen,
-		" Press 1-9 or 0 to start | Q/Esc to quit", 8, helpY)
+		" Click row or press 1-9 / 0 to start | Q/Esc to quit",
+		20, helpY)
 	if g.Msg != "" {
-		ebitenutil.DebugPrintAt(screen, " "+g.Msg, 8, helpY+18)
+		ebitenutil.DebugPrintAt(screen, " "+g.Msg, 20, helpY+18)
 	}
 }
 
