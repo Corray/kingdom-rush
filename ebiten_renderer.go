@@ -273,10 +273,16 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		return
 	}
 
+	// V3 Phase 4: top title bar panel background
+	fillRect(screen, 0, 0, float32(windowW), float32(topBarH),
+		color.RGBA{R: 15, G: 15, B: 25, A: 230})
+	strokeRect(screen, 0, 0, float32(windowW), float32(topBarH),
+		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
+
 	// title
-	title := fmt.Sprintf(" KR V2 — Lv %d: %s — Wave %d/%d ",
+	title := fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
-	ebitenutil.DebugPrintAt(screen, title, 8, 6)
+	ebitenutil.DebugPrintAt(screen, title, 8, 8)
 
 	// V3 Phase 2: 背景 grass tile 填充非 path 区域 (game area 内)
 	if tilesheet != nil {
@@ -440,19 +446,50 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	cxr, cyr := cellPos(g.Cursor)
 	strokeRect(screen, cxr, cyr, float32(cellPx), float32(cellPx), eColCursor, 2)
 
-	// status row
-	statusY := topBarH + gameAreaH + 4
-	leftStatus := fmt.Sprintf(" Gold: %-4d Lives: %d/%d Enemies: %-3d  %s",
-		g.Gold, g.Lives, g.StartLives, g.CountAliveEnemies(), g.Msg)
-	ebitenutil.DebugPrintAt(screen, leftStatus, 4, statusY)
+	// V3 Phase 4: bottom UI panel background + 边框
+	panelY := float32(topBarH + gameAreaH)
+	fillRect(screen, 0, panelY, float32(windowW), float32(bottomBarH),
+		color.RGBA{R: 15, G: 15, B: 25, A: 230})
+	strokeRect(screen, 0, panelY, float32(windowW), float32(bottomBarH),
+		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
+
+	// V3 Phase 4: status row 用 sprite icon for Gold / Lives
+	statusY := topBarH + gameAreaH + 8
+	curX := 8
+	// $ icon + gold value
+	if tilesheet != nil {
+		drawTileAt(screen, spriteGold, float32(curX), float32(statusY-2), 0.55, 1.0)
+	}
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY)
+	curX += 80
+	// + icon + lives
+	if tilesheet != nil {
+		drawTileAt(screen, spriteLives, float32(curX), float32(statusY-2), 0.55, 1.0)
+	}
+	ebitenutil.DebugPrintAt(screen,
+		fmt.Sprintf("%d/%d", g.Lives, g.StartLives), curX+24, statusY)
+	curX += 90
+	// enemies count
+	ebitenutil.DebugPrintAt(screen,
+		fmt.Sprintf("Enemies:%-3d", g.CountAliveEnemies()), curX, statusY)
+	curX += 110
+	// msg
+	ebitenutil.DebugPrintAt(screen, g.Msg, curX, statusY)
+	// prep timer (right edge)
 	if g.prepTimer > 0 && g.Phase == PhasePlaying {
 		prepMsg := fmt.Sprintf("PREP: %.1fs", g.prepTimer)
 		ebitenutil.DebugPrintAt(screen, prepMsg, windowW-90, statusY)
 	}
 
-	// 塔选择栏 + 升级提示
-	selY := statusY + 20
-	selX := 8
+	// V3 Phase 4: 塔选择按钮 (button style + mini tower sprite + 选中 gold border)
+	selY := statusY + 22
+	const (
+		btnW   = 100
+		btnH   = 32
+		btnGap = 8
+	)
+	btnX := 8
+
 	var atTower *Tower
 	for _, t := range g.Towers {
 		if t.Pos == g.Cursor {
@@ -460,31 +497,50 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			break
 		}
 	}
+
 	for _, k := range TowerKinds() {
 		spec := towerSpecs[k]
-		label := fmt.Sprintf("[%d] %s %dg", int(k)+1, spec.Name, spec.Levels[0].Cost)
+		bgCol := color.RGBA{R: 40, G: 40, B: 60, A: 220}
+		borderCol := color.RGBA{R: 120, G: 120, B: 150, A: 255}
 		if k == g.Selected {
-			tw := len(label)*7 + 4
-			fillRect(screen, float32(selX)-2, float32(selY)-2, float32(tw), 16, eColSelHi)
+			bgCol = color.RGBA{R: 80, G: 80, B: 140, A: 240}
+			borderCol = color.RGBA{R: 255, G: 220, B: 80, A: 255}
 		}
-		ebitenutil.DebugPrintAt(screen, label, selX, selY)
-		selX += len(label)*7 + 12
+		fillRect(screen, float32(btnX), float32(selY),
+			float32(btnW), float32(btnH), bgCol)
+		strokeRect(screen, float32(btnX), float32(selY),
+			float32(btnW), float32(btnH), borderCol, 2)
+		// mini tower sprite (32×32 at left)
+		if tilesheet != nil {
+			drawTileAt(screen, towerSpriteID(k, 1),
+				float32(btnX+1), float32(selY+1), 1.0, 1.0)
+		}
+		// label 2 行: [N]Name 在上, Cost 在下
+		ebitenutil.DebugPrintAt(screen,
+			fmt.Sprintf("[%d]%s", int(k)+1, spec.Name),
+			btnX+36, selY+4)
+		ebitenutil.DebugPrintAt(screen,
+			fmt.Sprintf("%dg", spec.Levels[0].Cost),
+			btnX+36, selY+18)
+		btnX += btnW + btnGap
 	}
+
+	// 升级提示 (右侧 of buttons)
 	if atTower != nil {
 		cost, can := atTower.NextUpgradeCost()
 		var hint string
 		if can {
-			hint = fmt.Sprintf("Space=Upgrade (%dg)", cost)
+			hint = fmt.Sprintf("Space=Upgrade %dg", cost)
 		} else {
 			hint = "MAX LEVEL"
 		}
-		ebitenutil.DebugPrintAt(screen, hint, selX, selY)
+		ebitenutil.DebugPrintAt(screen, hint, btnX+8, selY+12)
 	}
 
 	// help row
-	helpY := selY + 22
+	helpY := selY + btnH + 8
 	ebitenutil.DebugPrintAt(screen,
-		" Arrows: move  1/2/3: select  Space: build/upgrade  M: menu  Q/Esc: quit",
+		" Arrows/Mouse: move | 1/2/3: select | Space/Click: build/upgrade | M: menu | Q/Esc: quit",
 		4, helpY)
 
 	// banner

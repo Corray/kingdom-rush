@@ -47,8 +47,11 @@ const (
 	spriteDigit3  = 279
 	spriteBullet  = 275 // 灰白小子弹 (Archer)
 	// V3 Phase 3b: 投射物按塔型分
-	spriteCannonball  = 252 // 红色大火箭 (Cannon)
+	spriteCannonball   = 252 // 红色大火箭 (Cannon)
 	spriteMagicMissile = 251 // 红色小火箭 (Magic)
+	// V3 Phase 4: UI icon
+	spriteGold  = 287 // $ symbol (gold counter)
+	spriteLives = 289 // + cross (lives counter)
 )
 
 // bulletSpriteID 按塔型返回投射物 sprite
