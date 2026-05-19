@@ -413,10 +413,21 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		cx2 := fx2 + float32(cellPx)/2
 		cy2 := fy2 + float32(cellPx)/2
 		if fx.Kind == EShoot {
-			vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
+			// V3 Phase 3: bullet sprite 沿 from→to 飞行
+			// Progress = 1 - Alpha (0 刚 spawn 在 from, 1 到达 to)
+			if tilesheet != nil {
+				progress := float32(1.0 - fx.Alpha())
+				lerpX := cx1 + (cx2-cx1)*progress
+				lerpY := cy1 + (cy2-cy1)*progress
+				bulletX := lerpX - float32(cellPx)/2
+				bulletY := lerpY - float32(cellPx)/2
+				drawTileAt(screen, spriteBullet, bulletX, bulletY, 0.45, 1.0)
+			} else {
+				vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
+			}
 		} else { // EHit: fire sprite,fade out + 略微缩小
 			if tilesheet != nil {
-				scaleFactor := 0.6 + 0.4*fx.Alpha() // 1.0→0.6
+				scaleFactor := 0.6 + 0.4*fx.Alpha()
 				drawTileAt(screen, spriteHitFire, fx2, fy2, scaleFactor, fx.Alpha())
 			} else {
 				r := float32(cellPx)/2*float32(fx.Alpha()) + 2

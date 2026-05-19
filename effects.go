@@ -57,8 +57,10 @@ func decayEffects(effects []*Effect, dt float64) []*Effect {
 	return out
 }
 
+// V3 Phase 3: Shoot TTL 0.15 → 0.4 让 bullet 飞行可见
+// EHit 也调到 0.4 与 shoot 同步 fade
 func makeShootEffect(from, to Point, color RGB) *Effect {
-	return &Effect{Kind: EShoot, From: from, To: to, Color: color, TTL: 0.15, MaxTTL: 0.15}
+	return &Effect{Kind: EShoot, From: from, To: to, Color: color, TTL: 0.4, MaxTTL: 0.4}
 }
 
 func makeHitEffect(at Point) *Effect {
@@ -66,8 +68,8 @@ func makeHitEffect(at Point) *Effect {
 		Kind:   EHit,
 		From:   at,
 		To:     at,
-		Color:  RGB{255, 220, 80}, // 黄色闪光
-		TTL:    0.3,
-		MaxTTL: 0.3,
+		Color:  RGB{255, 220, 80},
+		TTL:    0.4,
+		MaxTTL: 0.4,
 	}
 }
