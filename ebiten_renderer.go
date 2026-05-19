@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	cellPx     = 28
+	cellPx     = 32 // V3: 28→32 for sprite (64 px source / 2 = 32 visual)
 	gameAreaW  = mapW * cellPx
 	gameAreaH  = mapH * cellPx
 	topBarH    = 30
@@ -57,6 +57,10 @@ type EbitenGame struct {
 }
 
 func NewEbitenGame(g *Game) *EbitenGame {
+	// V3: 加载 sprite tilesheet (失败不致命, fallback 旧 circle 渲染)
+	if err := loadTilesheet(); err != nil {
+		fmt.Println("warning: tilesheet load failed:", err, "(falling back to primitive render)")
+	}
 	return &EbitenGame{game: g, last: time.Now()}
 }
 
@@ -274,55 +278,71 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	ebitenutil.DebugPrintAt(screen, title, 8, 6)
 
-	// path
+	// V3: path 用 dirt tile sprite (若 tilesheet load 失败 fallback 棕色 rect)
 	for _, p := range g.Path {
 		x, y := cellPos(p)
-		fillRect(screen, x, y, float32(cellPx), float32(cellPx), eColPathBg)
+		if tilesheet != nil {
+			drawTile(screen, spriteDirtPath, x, y)
+		} else {
+			fillRect(screen, x, y, float32(cellPx), float32(cellPx), eColPathBg)
+		}
 	}
-	// start / end
+	// start / end markers (S/E 文字 overlay,仍叠加在 path tile 之上)
 	if len(g.Path) > 0 {
 		sx, sy := cellPos(g.Path[0])
-		fillRect(screen, sx, sy, float32(cellPx), float32(cellPx), eColStart)
+		strokeRect(screen, sx, sy, float32(cellPx), float32(cellPx), eColStart, 2)
 		ebitenutil.DebugPrintAt(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
 
 		end := g.Path[len(g.Path)-1]
 		ex, ey := cellPos(end)
-		fillRect(screen, ex, ey, float32(cellPx), float32(cellPx), eColEnd)
+		strokeRect(screen, ex, ey, float32(cellPx), float32(cellPx), eColEnd, 2)
 		ebitenutil.DebugPrintAt(screen, "E", int(ex)+cellPx/2-3, int(ey)+cellPx/2-6)
 	}
 
-	// towers
+	// V3: towers 用 sprite (按 kind + level 切换造型, Magic 升级换 rocket 数)
 	for _, t := range g.Towers {
-		spec := towerSpecs[t.Kind]
-		lvl := t.Spec()
 		x, y := cellPos(t.Pos)
-		cx := x + float32(cellPx)/2
-		cy := y + float32(cellPx)/2
-		fillCircle(screen, cx, cy, float32(cellPx)/2-2, ebitenColor(spec.Color))
-		label := fmt.Sprintf("%c%c", lvl.Char1, lvl.Char2)
-		ebitenutil.DebugPrintAt(screen, label, int(cx)-6, int(cy)-6)
+		if tilesheet != nil {
+			drawTile(screen, towerSpriteID(t.Kind, t.Level), x, y)
+		} else {
+			spec := towerSpecs[t.Kind]
+			lvl := t.Spec()
+			cx := x + float32(cellPx)/2
+			cy := y + float32(cellPx)/2
+			fillCircle(screen, cx, cy, float32(cellPx)/2-2, ebitenColor(spec.Color))
+			label := fmt.Sprintf("%c%c", lvl.Char1, lvl.Char2)
+			ebitenutil.DebugPrintAt(screen, label, int(cx)-6, int(cy)-6)
+		}
 	}
 
-	// enemies
+	// V3: enemies 用 sprite (Boss 放大 1.4x)
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		spec := enemySpecs[e.Kind]
 		p := e.Pos(g.Path)
 		x, y := cellPos(p)
-		cx := x + float32(cellPx)/2
-		cy := y + float32(cellPx)/2
-		radius := float32(cellPx) / 3
-		if e.Kind == EBoss {
-			radius = float32(cellPx)/2 - 1
+		if tilesheet != nil {
+			if e.Kind == EBoss {
+				drawTileScaled(screen, enemySpriteID(e.Kind), x, y, 1.4)
+			} else {
+				drawTile(screen, enemySpriteID(e.Kind), x, y)
+			}
+		} else {
+			spec := enemySpecs[e.Kind]
+			cx := x + float32(cellPx)/2
+			cy := y + float32(cellPx)/2
+			radius := float32(cellPx) / 3
+			if e.Kind == EBoss {
+				radius = float32(cellPx)/2 - 1
+			}
+			col := ebitenColor(spec.Color)
+			if e.HP <= e.MaxHP/3 {
+				col = color.RGBA{R: col.R / 2, G: col.G / 2, B: col.B / 2, A: 255}
+			}
+			fillCircle(screen, cx, cy, radius, col)
 		}
-		col := ebitenColor(spec.Color)
-		if e.HP <= e.MaxHP/3 {
-			col = color.RGBA{R: col.R / 2, G: col.G / 2, B: col.B / 2, A: 255}
-		}
-		fillCircle(screen, cx, cy, radius, col)
-		// HP bar
+		// HP bar 仍画 (sprite 之上)
 		hpRatio := float32(e.HP) / float32(e.MaxHP)
 		if hpRatio < 0 {
 			hpRatio = 0
