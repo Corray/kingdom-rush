@@ -19,9 +19,10 @@ const (
 
 type Effect struct {
 	Kind   EffectKind
-	From   Point // EShoot: 塔位; EHit: 敌人位(同 To)
-	To     Point // 敌人位 (shoot 终点 / hit 中心)
-	Color  RGB   // shoot 颜色随塔型, hit 通常红
+	From   Point     // EShoot: 塔位; EHit: 敌人位(同 To)
+	To     Point     // 敌人位 (shoot 终点 / hit 中心)
+	Color  RGB       // shoot 颜色随塔型, hit 通常红
+	Tower  TowerKind // V3 Phase 3b: 决定 bullet sprite (仅 EShoot 有意义)
 	TTL    float64
 	MaxTTL float64
 }
@@ -59,8 +60,8 @@ func decayEffects(effects []*Effect, dt float64) []*Effect {
 
 // V3 Phase 3: Shoot TTL 0.15 → 0.4 让 bullet 飞行可见
 // EHit 也调到 0.4 与 shoot 同步 fade
-func makeShootEffect(from, to Point, color RGB) *Effect {
-	return &Effect{Kind: EShoot, From: from, To: to, Color: color, TTL: 0.4, MaxTTL: 0.4}
+func makeShootEffect(from, to Point, color RGB, tower TowerKind) *Effect {
+	return &Effect{Kind: EShoot, From: from, To: to, Color: color, Tower: tower, TTL: 0.4, MaxTTL: 0.4}
 }
 
 func makeHitEffect(at Point) *Effect {

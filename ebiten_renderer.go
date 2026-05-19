@@ -414,14 +414,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		cy2 := fy2 + float32(cellPx)/2
 		if fx.Kind == EShoot {
 			// V3 Phase 3: bullet sprite 沿 from→to 飞行
-			// Progress = 1 - Alpha (0 刚 spawn 在 from, 1 到达 to)
+			// V3 Phase 3b: bullet 按塔型选 sprite (Archer 小弹 / Cannon 大火箭 / Magic 小火箭)
 			if tilesheet != nil {
 				progress := float32(1.0 - fx.Alpha())
 				lerpX := cx1 + (cx2-cx1)*progress
 				lerpY := cy1 + (cy2-cy1)*progress
 				bulletX := lerpX - float32(cellPx)/2
 				bulletY := lerpY - float32(cellPx)/2
-				drawTileAt(screen, spriteBullet, bulletX, bulletY, 0.45, 1.0)
+				drawTileAt(screen, bulletSpriteID(fx.Tower), bulletX, bulletY, 0.55, 1.0)
 			} else {
 				vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
 			}

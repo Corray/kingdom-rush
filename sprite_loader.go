@@ -41,12 +41,27 @@ const (
 	spriteEnemyGlider = 270
 	spriteEnemyBoss   = 247
 	// V3 Phase 2 新增
-	spriteHitFire   = 295 // 橙色火焰 (用作 hit explosion)
-	spriteDigit1    = 277
-	spriteDigit2    = 278
-	spriteDigit3    = 279
-	spriteBullet    = 275
+	spriteHitFire = 295 // 橙色火焰 (用作 hit explosion)
+	spriteDigit1  = 277
+	spriteDigit2  = 278
+	spriteDigit3  = 279
+	spriteBullet  = 275 // 灰白小子弹 (Archer)
+	// V3 Phase 3b: 投射物按塔型分
+	spriteCannonball  = 252 // 红色大火箭 (Cannon)
+	spriteMagicMissile = 251 // 红色小火箭 (Magic)
 )
+
+// bulletSpriteID 按塔型返回投射物 sprite
+func bulletSpriteID(k TowerKind) int {
+	switch k {
+	case TCannon:
+		return spriteCannonball
+	case TMagic:
+		return spriteMagicMissile
+	default: // TArcher 与默认
+		return spriteBullet
+	}
+}
 
 // digitSpriteID 返回 level 数字对应的 sprite ID (1-3)
 func digitSpriteID(level int) int {

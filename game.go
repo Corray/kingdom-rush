@@ -178,9 +178,9 @@ func (g *Game) Update(dt float64) {
 		if target != nil {
 			target.HP -= lvl.Damage
 			t.cooldown = lvl.Cooldown
-			// V2.6: push 视觉特效
+			// V2.6: push 视觉特效  (V3 Phase 3b: shoot 带 tower kind 决定 bullet sprite)
 			g.Effects = append(g.Effects,
-				makeShootEffect(t.Pos, target.Pos(g.Path), towerSpec.Color),
+				makeShootEffect(t.Pos, target.Pos(g.Path), towerSpec.Color, t.Kind),
 				makeHitEffect(target.Pos(g.Path)),
 			)
 			if target.HP <= 0 {
