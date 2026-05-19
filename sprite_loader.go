@@ -29,8 +29,8 @@ const (
 
 // 关键 sprite ID 映射 (按 visual id, 详细 catalog 见 ADR-004)
 const (
-	spriteGrass     = 24
-	spriteDirtPath  = 200
+	spriteGrass       = 24
+	spriteDirtPath    = 200
 	spriteTowerArcher = 249
 	spriteTowerCannon = 250
 	spriteTowerMagic1 = 206 // 1 rocket
@@ -40,7 +40,45 @@ const (
 	spriteEnemyFast   = 246
 	spriteEnemyGlider = 270
 	spriteEnemyBoss   = 247
+	// V3 Phase 2 新增
+	spriteHitFire   = 295 // 橙色火焰 (用作 hit explosion)
+	spriteDigit1    = 277
+	spriteDigit2    = 278
+	spriteDigit3    = 279
+	spriteBullet    = 275
 )
+
+// digitSpriteID 返回 level 数字对应的 sprite ID (1-3)
+func digitSpriteID(level int) int {
+	switch level {
+	case 1:
+		return spriteDigit1
+	case 2:
+		return spriteDigit2
+	default:
+		return spriteDigit3
+	}
+}
+
+// drawTileAt 绘制 tile 在指定位置, 自定义 scale + alpha
+// scaleMul: 相对于默认 cellPx/64 的额外缩放 (1.0=cell 大小, 0.4=mini badge, 1.4=Boss)
+// alpha: 0..1, 用于特效 fade
+func drawTileAt(dst *ebiten.Image, tileID int, x, y float32, scaleMul, alpha float64) {
+	sub := tileSubImage(tileID)
+	if sub == nil {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	scale := float64(cellPx) / float64(sheetTileSrc) * scaleMul
+	op.GeoM.Scale(scale, scale)
+	// 居中: scaleMul != 1 时,offset 把 sprite 居中到 cell
+	offset := (1.0 - scaleMul) * float64(cellPx) / 2
+	op.GeoM.Translate(float64(x)+offset, float64(y)+offset)
+	if alpha < 1.0 {
+		op.ColorScale.ScaleAlpha(float32(alpha))
+	}
+	dst.DrawImage(sub, op)
+}
 
 var tilesheet *ebiten.Image
 

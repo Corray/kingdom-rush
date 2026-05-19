@@ -278,6 +278,20 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	ebitenutil.DebugPrintAt(screen, title, 8, 6)
 
+	// V3 Phase 2: 背景 grass tile 填充非 path 区域 (game area 内)
+	if tilesheet != nil {
+		for y := 0; y < mapH; y++ {
+			for x := 0; x < mapW; x++ {
+				p := Point{X: x, Y: y}
+				if g.pathContains(p) {
+					continue
+				}
+				px, py := cellPos(p)
+				drawTile(screen, spriteGrass, px, py)
+			}
+		}
+	}
+
 	// V3: path 用 dirt tile sprite (若 tilesheet load 失败 fallback 棕色 rect)
 	for _, p := range g.Path {
 		x, y := cellPos(p)
@@ -300,10 +314,16 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	}
 
 	// V3: towers 用 sprite (按 kind + level 切换造型, Magic 升级换 rocket 数)
+	// V3 Phase 2: 加 level badge digit overlay (mini sprite 右上角)
 	for _, t := range g.Towers {
 		x, y := cellPos(t.Pos)
 		if tilesheet != nil {
 			drawTile(screen, towerSpriteID(t.Kind, t.Level), x, y)
+			// level badge: mini digit sprite at top-right
+			badgeScale := 0.45
+			miniSize := float32(cellPx) * float32(badgeScale)
+			drawTileAt(screen, digitSpriteID(t.Level),
+				x+float32(cellPx)-miniSize, y, badgeScale, 1.0)
 		} else {
 			spec := towerSpecs[t.Kind]
 			lvl := t.Spec()
@@ -382,6 +402,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	}
 
 	// V2.6: 攻击视觉特效 (在 cursor / status 之前画, 在 enemy 之上)
+	// V3 Phase 2: EHit 用 fire sprite (alpha-faded) 替换 V2.6 黄圆
 	for _, fx := range g.Effects {
 		alpha := uint8(fx.Alpha() * 255)
 		c := color.RGBA{R: fx.Color.R, G: fx.Color.G, B: fx.Color.B, A: alpha}
@@ -393,9 +414,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		cy2 := fy2 + float32(cellPx)/2
 		if fx.Kind == EShoot {
 			vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
-		} else { // EHit: fade 圆, 半径随 fade 减小
-			r := float32(cellPx)/2*float32(fx.Alpha()) + 2
-			fillCircle(screen, cx2, cy2, r, c)
+		} else { // EHit: fire sprite,fade out + 略微缩小
+			if tilesheet != nil {
+				scaleFactor := 0.6 + 0.4*fx.Alpha() // 1.0→0.6
+				drawTileAt(screen, spriteHitFire, fx2, fy2, scaleFactor, fx.Alpha())
+			} else {
+				r := float32(cellPx)/2*float32(fx.Alpha()) + 2
+				fillCircle(screen, cx2, cy2, r, c)
+			}
 		}
 	}
 
