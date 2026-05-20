@@ -186,6 +186,14 @@ func (g *Game) Update(dt float64) {
 			if target.HP <= 0 {
 				target.Dead = true
 				g.Gold += enemySpecs[target.Kind].Reward
+				// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
+				if target.Kind == ESpawner {
+					normSpec := enemySpecs[ENormal]
+					g.Enemies = append(g.Enemies,
+						&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: target.PathIdx},
+						&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: target.PathIdx},
+					)
+				}
 			}
 		}
 	}

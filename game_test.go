@@ -355,6 +355,39 @@ func TestUpdate_ArcherHitsFlying(t *testing.T) {
 	}
 }
 
+// V3.6: Spawner 死时召唤 2 个 ENormal
+func TestSpawner_DeathSpawnsNormals(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1 // 跳过 wave spawn (避免 Update 自动 spawn 干扰)
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	// 单个 Spawner enemy in range, HP=1 → 一击致死 → 触发 spawn
+	g.Enemies = []*Enemy{{Kind: ESpawner, HP: 1, MaxHP: 35, PathIdx: 1}}
+	g.Update(0.7)
+	if len(g.Enemies) != 3 {
+		t.Errorf("expected 1 dead spawner + 2 normals = 3 total, got %d", len(g.Enemies))
+	}
+	normalsAlive := 0
+	for _, e := range g.Enemies {
+		if e.Kind == ENormal && !e.Dead && !e.Escaped {
+			normalsAlive++
+		}
+	}
+	if normalsAlive != 2 {
+		t.Errorf("expected 2 alive normals, got %d", normalsAlive)
+	}
+}
+
+func TestParseWave_Spawner(t *testing.T) {
+	seq, err := ParseWave("s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seq) != 2 || seq[0] != ESpawner || seq[1] != ESpawner {
+		t.Errorf("expected 2 ESpawner, got %v", seq)
+	}
+}
+
 func TestUpdate_MagicHitsFlying(t *testing.T) {
 	g := newTestGame()
 	g.prepTimer = 0

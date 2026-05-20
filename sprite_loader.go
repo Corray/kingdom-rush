@@ -36,10 +36,11 @@ const (
 	spriteTowerMagic1 = 206 // 1 rocket
 	spriteTowerMagic2 = 204 // 2 rockets
 	spriteTowerMagic3 = 205 // 4 rockets
-	spriteEnemyNormal = 248
-	spriteEnemyFast   = 246
-	spriteEnemyGlider = 270
-	spriteEnemyBoss   = 247
+	spriteEnemyNormal  = 248
+	spriteEnemyFast    = 246
+	spriteEnemyGlider  = 270
+	spriteEnemyBoss    = 247
+	spriteEnemySpawner = 268 // V3.6: 绿色容器, "summoning pod" 形象
 	// V3 Phase 2 新增
 	spriteHitFire = 295 // 橙色火焰 (用作 hit explosion)
 	spriteDigit1  = 277
@@ -184,6 +185,8 @@ func enemySpriteID(kind EnemyKind) int {
 		return spriteEnemyGlider
 	case EBoss:
 		return spriteEnemyBoss
+	case ESpawner:
+		return spriteEnemySpawner
 	}
 	return spriteEnemyNormal
 }

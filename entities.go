@@ -103,8 +103,9 @@ type EnemyKind int
 const (
 	ENormal EnemyKind = iota
 	EFast
-	EGlider // 飞行单位:Cannon 打不到
-	EBoss   // 大型敌人:HP 高 / 速度慢 / 奖励高
+	EGlider  // 飞行单位:Cannon 打不到
+	EBoss    // 大型敌人:HP 高 / 速度慢 / 奖励高
+	ESpawner // 召唤者:死时 spawn 2 个 ENormal at same PathIdx (V3.6)
 )
 
 type EnemySpec struct {
@@ -133,6 +134,10 @@ var enemySpecs = map[EnemyKind]EnemySpec{
 	EBoss: {
 		HP: 150, Speed: 1.5, Reward: 50, Flying: false,
 		Char1: 'B', Char2: 'B', Color: rgb(255, 60, 200),
+	},
+	ESpawner: {
+		HP: 35, Speed: 2.5, Reward: 25, Flying: false,
+		Char1: 'S', Char2: 'p', Color: rgb(120, 220, 100),
 	},
 }
 
