@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/gdamore/tcell/v2 v2.13.9
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
+	golang.org/x/image v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

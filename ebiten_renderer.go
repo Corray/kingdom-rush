@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -60,6 +59,10 @@ func NewEbitenGame(g *Game) *EbitenGame {
 	// V3: 加载 sprite tilesheet (失败不致命, fallback 旧 circle 渲染)
 	if err := loadTilesheet(); err != nil {
 		fmt.Println("warning: tilesheet load failed:", err, "(falling back to primitive render)")
+	}
+	// V3 Phase 5c: 加载 truetype font (失败 fallback ebitenutil 7×13)
+	if err := loadGameFont(); err != nil {
+		fmt.Println("warning: font load failed:", err, "(falling back to bitmap font)")
 	}
 	return &EbitenGame{game: g, last: time.Now()}
 }
@@ -255,7 +258,7 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		color.RGBA{R: 15, G: 15, B: 25, A: 230})
 	strokeRect(screen, 0, 0, float32(windowW), 50,
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		" Kingdom Rush V3  —  Select Level", 20, 10)
 
 	completed := 0
@@ -264,7 +267,7 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 			completed++
 		}
 	}
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels)),
 		20, 28)
 
@@ -335,16 +338,16 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 
 		line := fmt.Sprintf("[%s]  %s  Lv %2d  %-18s    (waves:%d  gold:%d  lives:%d)",
 			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
-		ebitenutil.DebugPrintAt(screen, line, rowX+12, y+12)
+		drawText(screen, line, rowX+12, y+12)
 	}
 
 	// Help row + msg
 	helpY := rowStartY + len(g.Levels)*rowH + 8
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		" Click row or press 1-9 / 0 to start | Q/Esc to quit",
 		20, helpY)
 	if g.Msg != "" {
-		ebitenutil.DebugPrintAt(screen, " "+g.Msg, 20, helpY+18)
+		drawText(screen, " "+g.Msg, 20, helpY+18)
 	}
 }
 
@@ -368,7 +371,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// title
 	title := fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
-	ebitenutil.DebugPrintAt(screen, title, 8, 8)
+	drawText(screen, title, 8, 8)
 
 	// V3 Phase 2: 背景 grass tile 填充非 path 区域 (game area 内)
 	if tilesheet != nil {
@@ -397,12 +400,12 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	if len(g.Path) > 0 {
 		sx, sy := cellPos(g.Path[0])
 		strokeRect(screen, sx, sy, float32(cellPx), float32(cellPx), eColStart, 2)
-		ebitenutil.DebugPrintAt(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
+		drawText(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
 
 		end := g.Path[len(g.Path)-1]
 		ex, ey := cellPos(end)
 		strokeRect(screen, ex, ey, float32(cellPx), float32(cellPx), eColEnd, 2)
-		ebitenutil.DebugPrintAt(screen, "E", int(ex)+cellPx/2-3, int(ey)+cellPx/2-6)
+		drawText(screen, "E", int(ex)+cellPx/2-3, int(ey)+cellPx/2-6)
 	}
 
 	// V3: towers 用 sprite (按 kind + level 切换造型, Magic 升级换 rocket 数)
@@ -423,7 +426,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			cy := y + float32(cellPx)/2
 			fillCircle(screen, cx, cy, float32(cellPx)/2-2, ebitenColor(spec.Color))
 			label := fmt.Sprintf("%c%c", lvl.Char1, lvl.Char2)
-			ebitenutil.DebugPrintAt(screen, label, int(cx)-6, int(cy)-6)
+			drawText(screen, label, int(cx)-6, int(cy)-6)
 		}
 	}
 
@@ -546,25 +549,25 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	if tilesheet != nil {
 		drawTileAt(screen, spriteGold, float32(curX), float32(statusY-2), 0.55, 1.0)
 	}
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY)
+	drawText(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY)
 	curX += 80
 	// + icon + lives
 	if tilesheet != nil {
 		drawTileAt(screen, spriteLives, float32(curX), float32(statusY-2), 0.55, 1.0)
 	}
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		fmt.Sprintf("%d/%d", g.Lives, g.StartLives), curX+24, statusY)
 	curX += 90
 	// enemies count
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		fmt.Sprintf("Enemies:%-3d", g.CountAliveEnemies()), curX, statusY)
 	curX += 110
 	// msg
-	ebitenutil.DebugPrintAt(screen, g.Msg, curX, statusY)
+	drawText(screen, g.Msg, curX, statusY)
 	// prep timer (right edge)
 	if g.prepTimer > 0 && g.Phase == PhasePlaying {
 		prepMsg := fmt.Sprintf("PREP: %.1fs", g.prepTimer)
-		ebitenutil.DebugPrintAt(screen, prepMsg, windowW-90, statusY)
+		drawText(screen, prepMsg, windowW-90, statusY)
 	}
 
 	// V3 Phase 4: 塔选择按钮 (button style + mini tower sprite + 选中 gold border)
@@ -602,10 +605,10 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				float32(btnX+1), float32(selY+1), 1.0, 1.0)
 		}
 		// label 2 行: [N]Name 在上, Cost 在下
-		ebitenutil.DebugPrintAt(screen,
+		drawText(screen,
 			fmt.Sprintf("[%d]%s", int(k)+1, spec.Name),
 			btnX+36, selY+4)
-		ebitenutil.DebugPrintAt(screen,
+		drawText(screen,
 			fmt.Sprintf("%dg", spec.Levels[0].Cost),
 			btnX+36, selY+18)
 		btnX += btnW + btnGap
@@ -620,12 +623,12 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		} else {
 			hint = "MAX LEVEL"
 		}
-		ebitenutil.DebugPrintAt(screen, hint, btnX+8, selY+12)
+		drawText(screen, hint, btnX+8, selY+12)
 	}
 
 	// help row
 	helpY := selY + btnH + 8
-	ebitenutil.DebugPrintAt(screen,
+	drawText(screen,
 		" Arrows/Mouse: move | 1/2/3: select | Space/Click: build/upgrade | M: menu | Q/Esc: quit",
 		4, helpY)
 
@@ -634,11 +637,11 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	bannerY := topBarH + gameAreaH/2
 	if g.Phase == PhaseWon {
 		msg := fmt.Sprintf(" *** VICTORY *** Level %d cleared! ", lv.ID)
-		ebitenutil.DebugPrintAt(screen, msg, bannerX, bannerY)
-		ebitenutil.DebugPrintAt(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
+		drawText(screen, msg, bannerX, bannerY)
+		drawText(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
 	}
 	if g.Phase == PhaseLost {
-		ebitenutil.DebugPrintAt(screen, " *** GAME OVER *** ", bannerX+50, bannerY)
-		ebitenutil.DebugPrintAt(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
+		drawText(screen, " *** GAME OVER *** ", bannerX+50, bannerY)
+		drawText(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
 	}
 }
