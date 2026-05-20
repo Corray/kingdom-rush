@@ -134,12 +134,16 @@ func (eg *EbitenGame) handleInput() {
 			g.Msg = "Selected Magic"
 		}
 		// V2.7: 鼠标 hover → cursor 跟随; 左键 → 等同 Space
+		// V3 Phase 5b: 左键先 check tower select button, 否则 game area TryAction
 		mx, my := ebiten.CursorPosition()
 		if p, ok := pixelToCell(mx, my); ok {
 			g.Cursor = p
 		}
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			if _, ok := pixelToCell(mx, my); ok {
+			if k, ok := towerButtonAt(mx, my); ok {
+				g.Selected = k
+				g.Msg = "Selected " + towerSpecs[k].Name
+			} else if _, ok := pixelToCell(mx, my); ok {
 				g.TryAction()
 			}
 		}
@@ -216,6 +220,27 @@ func menuRowAtPixel(my, numLevels int) (int, bool) {
 		return 0, false
 	}
 	return i, true
+}
+
+// V3 Phase 5b: tower select button hitbox (与 drawGame 的 button 渲染保持一致)
+// 返回 (kind, true) 表示鼠标在某 button 内, (0, false) 表示不在任何 button 内
+func towerButtonAt(mx, my int) (TowerKind, bool) {
+	statusY := topBarH + gameAreaH + 8
+	selY := statusY + 22
+	const (
+		btnW   = 100
+		btnH   = 32
+		btnGap = 8
+	)
+	btnX := 8
+	for _, k := range TowerKinds() {
+		if mx >= btnX && mx < btnX+btnW &&
+			my >= selY && my < selY+btnH {
+			return k, true
+		}
+		btnX += btnW + btnGap
+	}
+	return 0, false
 }
 
 // ============================================================
