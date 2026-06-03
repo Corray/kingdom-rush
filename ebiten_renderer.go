@@ -385,37 +385,43 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 
 	// V3 Phase 6: procedural path overlay — 中心圆 + 邻居方向矩形
 	// 自动适配任何 corner/T/直/端点 形状, 无需 sprite catalog
-	pathCol := color.RGBA{R: 139, G: 69, B: 19, A: 255}        // SaddleBrown
-	pathEdgeCol := color.RGBA{R: 100, G: 50, B: 14, A: 255}    // 深棕 outline
+	// Phase 6b: 两 pass outline — 先全 path 画外扩 outlineW 的 edge 色,
+	// 再叠正常尺寸 fill 色, 留出的环带即描边。pass 间不能交错:
+	// 单 loop 内邻 cell 的 edge 会盖掉本 cell 已画的 fill, seam 处留深色横纹。
+	pathCol := color.RGBA{R: 139, G: 69, B: 19, A: 255}     // SaddleBrown
+	pathEdgeCol := color.RGBA{R: 100, G: 50, B: 14, A: 255} // 深棕 outline
 	const roadW = 22
 	const roadHalf = roadW / 2.0
-	for _, p := range g.Path {
+	const outlineW = 3
+	// drawPathShape: 单 cell 的程序化路面形状, grow = 外扩像素 (edge pass 用)
+	drawPathShape := func(p Point, grow float32, col color.RGBA) {
 		x, y := cellPos(p)
 		cx := x + float32(cellPx)/2
 		cy := y + float32(cellPx)/2
-
-		hasLeft := g.pathContains(Point{X: p.X - 1, Y: p.Y})
-		hasRight := g.pathContains(Point{X: p.X + 1, Y: p.Y})
-		hasUp := g.pathContains(Point{X: p.X, Y: p.Y - 1})
-		hasDown := g.pathContains(Point{X: p.X, Y: p.Y + 1})
+		half := float32(roadHalf) + grow
 
 		// 中心圆 (略大于 road width, 与方向矩形混合形成圆角)
-		fillCircle(screen, cx, cy, float32(roadHalf+1), pathCol)
+		fillCircle(screen, cx, cy, half+1, col)
 
-		// 方向连接矩形 (从 cell 边到中心)
-		if hasLeft {
-			fillRect(screen, x, cy-roadHalf, float32(cellPx)/2, roadW, pathCol)
+		// 方向连接矩形 (从 cell 边到中心; 邻 cell 画自己那半, seam 处衔接)
+		if g.pathContains(Point{X: p.X - 1, Y: p.Y}) {
+			fillRect(screen, x, cy-half, float32(cellPx)/2, half*2, col)
 		}
-		if hasRight {
-			fillRect(screen, cx, cy-roadHalf, float32(cellPx)/2, roadW, pathCol)
+		if g.pathContains(Point{X: p.X + 1, Y: p.Y}) {
+			fillRect(screen, cx, cy-half, float32(cellPx)/2, half*2, col)
 		}
-		if hasUp {
-			fillRect(screen, cx-roadHalf, y, roadW, float32(cellPx)/2, pathCol)
+		if g.pathContains(Point{X: p.X, Y: p.Y - 1}) {
+			fillRect(screen, cx-half, y, half*2, float32(cellPx)/2, col)
 		}
-		if hasDown {
-			fillRect(screen, cx-roadHalf, cy, roadW, float32(cellPx)/2, pathCol)
+		if g.pathContains(Point{X: p.X, Y: p.Y + 1}) {
+			fillRect(screen, cx-half, cy, half*2, float32(cellPx)/2, col)
 		}
-		_ = pathEdgeCol // reserved for future outline polish
+	}
+	for _, p := range g.Path {
+		drawPathShape(p, outlineW, pathEdgeCol) // pass 1: edge
+	}
+	for _, p := range g.Path {
+		drawPathShape(p, 0, pathCol) // pass 2: fill
 	}
 
 	// 起点 / 终点 markers — 在 path overlay 之上, 圆色块 + 字符标签
