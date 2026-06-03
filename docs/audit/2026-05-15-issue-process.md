@@ -229,3 +229,16 @@
 ### audit 自荐 fix dispatch vs review verdict 的差异
 
 audit 自荐 L206-208 对 IPR-001 推荐 `escalate`（升 severity）,review 改判 `confirmed` —— 理由:KR-FB-005 已是 high（feedback 文件 L240 实证）,severity 维度无需 escalate;finding 自身分类正确即 confirmed,severity 升级是衍生动作不是 finding 状态变更。standard 对 "FB 实例 vs 独立 finding" 的边界未明示,本判定保留 confirmed,可能盲点已在 handoff 标注。
+
+---
+
+## 勘误段（状态流转批处理, 2026-06-03）
+
+> 用户授权（"按你想法先做"）的 backlog 批处理,verdict 由 AI 候选 + 用户概括授权。本段仅记录状态流转,不改原报告内容。
+
+| Finding | 原 status | 新 status | 依据 |
+|---------|----------|----------|------|
+| IPR-001 / P-001 | confirmed (2026-05-18) | **resolved** | issue #1 已显式闭环（2026-06-03, 4 字段 close comment + `gh issue close`）；约束已沉淀 standard `git-workflow.md` §5.2 auto-close 关键词禁用（本机分发副本 L89-105 已验证）；已上报 standard#11（2026-05-22）|
+| IPR-003 / P-003 | deferred (2026-05-18) | **resolved** | deferred 触发条件（"引入第一个有逻辑分支函数"）早已满足且改进已自然落地——V1.6 起测试随版本累积,2026-06-03 实测 `go test ./...` 39/39 PASS,前提"无 unit test"不成立,跳过 fixing 直接 resolved |
+
+**同批关联动作:** P-004 入册 problem-registry（confirmed,规则级）；KR-FB-005 status candidate → applied（git-workflow §5.2 即其修复建议的规则化落地）。

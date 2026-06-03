@@ -91,7 +91,7 @@
 - **modules**: skills/core/issue/SKILL.md
 - **phases**: issue Step 6 commit
 - **severity**: high
-- **status**: candidate
+- **status**: applied（2026-06-03 流转：standard git-workflow.md §5.2 已含完整 auto-close 禁用 + refs 替代，本机分发副本 L89-105 验证；详见源文件 status 注）
 - **occurrences**: 2（2026-05-18 更新：IPR-001 作为第 2 例实证，见 audit/findings-registry.md）
 - **guidance**: commit message 禁用 auto-close 关键词（closes / fixes / resolves 全变体）指向本次 issue，用 `refs #N` / `related #N` / `see #N` 替代；违反则 GitHub 替 agent 间接 close，破坏 release Step 6.3 `--state open` 前提
 - **scan_when**: 跑 `/issue` Step 6 写 commit message 时
@@ -122,10 +122,8 @@
 | high | 1 |
 | medium | 4 |
 | low | 1 |
-| applied 状态 | 0 |
+| applied 状态 | 1 |
 | observing 状态 | 0 |
-
-> 注：KR-FB-005 occurrences=2 已达 ≥ 2 例阈值，但源文件 status 仍为 candidate——status 流转待拍板（见 problem-registry 拍板项），本索引镜像源文件不单边改。
 
 ---
 
@@ -134,6 +132,7 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-06-03 | 初次补录：KR-FB-001~005 + FB-006（闭环 2026-05-18 spool 遗留项 (b)），删示例骨架，编号规范增既有保留 + ADR-008 新格式双轨说明 |
+| 2026-06-03 | KR-FB-005 candidate → applied（用户授权批处理；git-workflow §5.2 已含禁用约束，源文件同步流转），统计 applied 0 → 1 |
 
 ---
 

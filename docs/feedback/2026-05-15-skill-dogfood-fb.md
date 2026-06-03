@@ -238,7 +238,7 @@ gh issue list --repo <owner/repo> --label [role]-in-progress --state open \
 - **modules:** skills/core/issue/SKILL.md
 - **phases:** issue Step 6 commit
 - **severity:** **high**
-- **status:** candidate
+- **status:** applied _(2026-06-03 流转: standard `git-workflow.md` §5.2 已含完整 auto-close 关键词禁用——三族全变体表 + `refs #N` 替代 + "Issue 关闭走显式动作",与本条修复建议 1/2 实质一致;本机分发副本 L89-105 已验证。SKILL.md issue Step 6 是否同步补段未验证——当前账号无 standard 仓库访问权限)_
 - **occurrences:** 2 _(2026-05-18 更新: IPR-001 作为第 2 例实证,见 docs/audit/findings-registry.md)_
 - **guidance:** commit message 不要用 git auto-close 关键词（closes / fixes / resolves / 等）指向本次 issue，会触发 GitHub 自动关闭违反 "closed 只由人工触发" 约束；用 `refs #N` / `related #N` / `see #N` 替代
 - **scan_when:** 跑 `/issue` Step 6 写 commit message 时
