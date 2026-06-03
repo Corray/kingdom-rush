@@ -373,38 +373,62 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	drawText(screen, title, 8, 8)
 
-	// V3 Phase 2: 背景 grass tile 填充非 path 区域 (game area 内)
+	// V3 Phase 6: ALL cells grass tile (背景统一, path overlay 之上)
 	if tilesheet != nil {
 		for y := 0; y < mapH; y++ {
 			for x := 0; x < mapW; x++ {
-				p := Point{X: x, Y: y}
-				if g.pathContains(p) {
-					continue
-				}
-				px, py := cellPos(p)
+				px, py := cellPos(Point{X: x, Y: y})
 				drawTile(screen, spriteGrass, px, py)
 			}
 		}
 	}
 
-	// V3: path 用 dirt tile sprite (若 tilesheet load 失败 fallback 棕色 rect)
+	// V3 Phase 6: procedural path overlay — 中心圆 + 邻居方向矩形
+	// 自动适配任何 corner/T/直/端点 形状, 无需 sprite catalog
+	pathCol := color.RGBA{R: 139, G: 69, B: 19, A: 255}        // SaddleBrown
+	pathEdgeCol := color.RGBA{R: 100, G: 50, B: 14, A: 255}    // 深棕 outline
+	const roadW = 22
+	const roadHalf = roadW / 2.0
 	for _, p := range g.Path {
 		x, y := cellPos(p)
-		if tilesheet != nil {
-			drawTile(screen, spriteDirtPath, x, y)
-		} else {
-			fillRect(screen, x, y, float32(cellPx), float32(cellPx), eColPathBg)
+		cx := x + float32(cellPx)/2
+		cy := y + float32(cellPx)/2
+
+		hasLeft := g.pathContains(Point{X: p.X - 1, Y: p.Y})
+		hasRight := g.pathContains(Point{X: p.X + 1, Y: p.Y})
+		hasUp := g.pathContains(Point{X: p.X, Y: p.Y - 1})
+		hasDown := g.pathContains(Point{X: p.X, Y: p.Y + 1})
+
+		// 中心圆 (略大于 road width, 与方向矩形混合形成圆角)
+		fillCircle(screen, cx, cy, float32(roadHalf+1), pathCol)
+
+		// 方向连接矩形 (从 cell 边到中心)
+		if hasLeft {
+			fillRect(screen, x, cy-roadHalf, float32(cellPx)/2, roadW, pathCol)
 		}
+		if hasRight {
+			fillRect(screen, cx, cy-roadHalf, float32(cellPx)/2, roadW, pathCol)
+		}
+		if hasUp {
+			fillRect(screen, cx-roadHalf, y, roadW, float32(cellPx)/2, pathCol)
+		}
+		if hasDown {
+			fillRect(screen, cx-roadHalf, cy, roadW, float32(cellPx)/2, pathCol)
+		}
+		_ = pathEdgeCol // reserved for future outline polish
 	}
-	// start / end markers (S/E 文字 overlay,仍叠加在 path tile 之上)
+
+	// 起点 / 终点 markers — 在 path overlay 之上, 圆色块 + 字符标签
 	if len(g.Path) > 0 {
 		sx, sy := cellPos(g.Path[0])
-		strokeRect(screen, sx, sy, float32(cellPx), float32(cellPx), eColStart, 2)
+		fillCircle(screen, sx+float32(cellPx)/2, sy+float32(cellPx)/2,
+			float32(cellPx)/3, eColStart)
 		drawText(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
 
 		end := g.Path[len(g.Path)-1]
 		ex, ey := cellPos(end)
-		strokeRect(screen, ex, ey, float32(cellPx), float32(cellPx), eColEnd, 2)
+		fillCircle(screen, ex+float32(cellPx)/2, ey+float32(cellPx)/2,
+			float32(cellPx)/3, eColEnd)
 		drawText(screen, "E", int(ex)+cellPx/2-3, int(ey)+cellPx/2-6)
 	}
 
