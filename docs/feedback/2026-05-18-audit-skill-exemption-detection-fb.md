@@ -74,3 +74,11 @@
 ## fb-index 同步
 
 > `docs/problems/fb-index.md` 当前是骨架（仅 FB-001 示例条目）,本 FB 暂不录入 fb-index,等 fb-index 正式启用 KR-FB-XXX 录入流程时一并加入。
+
+---
+
+## 上报记录
+
+| 日期 | 链接 | 备注 |
+|------|------|------|
+| 2026-05-22 | [chatlabs-ai/agent-dev-standard#11](https://github.com/chatlabs-ai/agent-dev-standard/issues/11) | 与 `2026-05-15-skill-dogfood-fb.md` 5 条 FB 合并为单总览 issue 上报；本 FB 在 issue 内编号为 FB-006 段 |

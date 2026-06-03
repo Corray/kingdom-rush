@@ -317,3 +317,11 @@ agent 写出 `closes #1` 的 commit → push → GitHub 替 agent 关掉 issue �
 - A / B 都需要先验证 `Corray` 账号能否向 `shangronggu-cyber/agent-dev-standard` 提 issue (public + community / private + collaborator 视设置而定)
 - C 是最直接的贡献方式，但需要 standard 维护方接受 PR 流程
 - D 是最保守的，没回传节奏的话先攒着
+
+---
+
+## 上报记录
+
+| 日期 | 方案 | 链接 | 备注 |
+|------|------|------|------|
+| 2026-05-22 | **A（单总览 issue）** | [chatlabs-ai/agent-dev-standard#11](https://github.com/chatlabs-ai/agent-dev-standard/issues/11) | 本文 5 条 FB + `2026-05-18-audit-skill-exemption-detection-fb.md` 的 FB-006 合并为 1 个总览 issue 上报；目标仓库切换至 `chatlabs-ai/agent-dev-standard`（团队私有 standard 仓库，区别于原 README 列出的 `shangronggu-cyber/agent-dev-standard`）；gh 账号 `bcorraychen`
