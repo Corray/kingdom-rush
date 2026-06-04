@@ -43,6 +43,9 @@ var oggBuild []byte
 //go:embed assets/sfx/upgrade.ogg
 var oggUpgrade []byte
 
+//go:embed assets/sfx/sell.ogg
+var oggSell []byte
+
 //go:embed assets/sfx/wave_start.ogg
 var oggWaveStart []byte
 
@@ -67,6 +70,7 @@ func initAudio() int {
 		SndEnemyDeath:  oggEnemyDeath,
 		SndBuild:       oggBuild,
 		SndUpgrade:     oggUpgrade,
+		SndSell:        oggSell,
 		SndWaveStart:   oggWaveStart,
 		SndWin:         oggWin,
 		SndLose:        oggLose,

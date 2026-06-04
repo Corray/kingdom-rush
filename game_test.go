@@ -1105,3 +1105,109 @@ func TestJuice_TogglePersists(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================
+// V5 Phase 1: 卖塔 (towerInvested + SellTower)
+// ============================================================
+
+func TestSell_TowerInvested(t *testing.T) {
+	// Archer: lvl1=50, lvl2=+40, lvl3=+80
+	cases := []struct {
+		level int
+		want  int
+	}{
+		{1, 50}, {2, 90}, {3, 170},
+	}
+	for _, c := range cases {
+		if got := towerInvested(TArcher, c.level); got != c.want {
+			t.Errorf("invested(Archer, lvl%d) = %d, want %d", c.level, got, c.want)
+		}
+	}
+	if got := towerInvested(TArcher, 99); got != 170 {
+		t.Errorf("over-level should clamp to full sum, got %d", got)
+	}
+}
+
+func TestSell_RefundAndRemoval(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.Cursor = Point{10, 10}
+		g.TryAction() // build Archer lvl1 (gold 100 → 50)
+		g.DrainSounds()
+		g.SellTower() // refund = 50 × 0.7 = 35
+		if len(g.Towers) != 0 {
+			t.Fatalf("tower should be removed after sell")
+		}
+		if g.Gold != 85 { // 50 + 35
+			t.Errorf("gold = %d, want 85 (50 + 35 refund)", g.Gold)
+		}
+		if !drainHas(g.DrainSounds(), SndSell) {
+			t.Errorf("sell should push SndSell")
+		}
+		// 金币飘字
+		found := false
+		for _, fx := range g.Effects {
+			if fx.Kind == EText && fx.Text == "+35g" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("sell should push gold text +35g")
+		}
+		if g.Msg == "" {
+			t.Errorf("sell should set Msg")
+		}
+	})
+}
+
+func TestSell_UpgradedTowerRefund(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.Gold = 1000
+		g.Cursor = Point{10, 10}
+		g.TryAction() // build lvl1
+		g.TryAction() // upgrade → lvl2 (invested 90)
+		g.DrainSounds()
+		goldBefore := g.Gold
+		g.SellTower() // refund = 90 × 0.7 = 63
+		if g.Gold != goldBefore+63 {
+			t.Errorf("upgraded sell refund = %d, want %d", g.Gold-goldBefore, 63)
+		}
+	})
+}
+
+func TestSell_EmptyCellNoEffect(t *testing.T) {
+	g := newTestGame()
+	g.Cursor = Point{10, 10}
+	goldBefore := g.Gold
+	g.SellTower()
+	if g.Gold != goldBefore {
+		t.Errorf("empty sell should not change gold")
+	}
+	if len(g.DrainSounds()) != 0 {
+		t.Errorf("empty sell should push no sound")
+	}
+	if g.Msg == "" {
+		t.Errorf("empty sell should still give Msg feedback")
+	}
+}
+
+func TestSell_SoldTowerStopsShooting(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Cursor = Point{1, 1}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 100, MaxHP: 100, PathIdx: 1}}
+	g.SellTower()
+	g.Effects = nil // 清掉卖塔飘字, 只看射击产物
+	g.Update(0.05)
+	for _, fx := range g.Effects {
+		if fx.Kind == EShoot {
+			t.Fatalf("sold tower must not shoot")
+		}
+	}
+	if g.Enemies[0].HP != 100 {
+		t.Errorf("enemy should be untouched after tower sold")
+	}
+}

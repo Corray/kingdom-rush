@@ -200,6 +200,12 @@ func (eg *EbitenGame) handleInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.Phase == PhasePlaying {
 		g.TryAction()
 	}
+	// V5 Phase 1: X 键 / 右键卖塔 (右键位置已由 hover 同步到 cursor)
+	if g.Phase == PhasePlaying &&
+		(inpututil.IsKeyJustPressed(ebiten.KeyX) ||
+			inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)) {
+		g.SellTower()
+	}
 	if g.Phase == PhasePlaying {
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			g.MoveCursor(0, -1)
@@ -779,7 +785,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		btnX += btnW + btnGap
 	}
 
-	// 升级提示 (右侧 of buttons)
+	// 升级提示 (右侧 of buttons) — V5 Phase 1: 加卖塔提示
 	if atTower != nil {
 		cost, can := atTower.NextUpgradeCost()
 		var hint string
@@ -788,6 +794,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		} else {
 			hint = "MAX LEVEL"
 		}
+		hint += fmt.Sprintf(" | X=Sell +%dg", sellRefund(atTower.Kind, atTower.Level))
 		drawText(screen, hint, btnX+8, selY+12)
 	}
 

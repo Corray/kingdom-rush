@@ -298,6 +298,34 @@ func (g *Game) AdjustVolume(delta int) {
 	g.Msg = fmt.Sprintf("Volume %d/%d", g.Save.VolumeLevel(), maxVolume)
 }
 
+// sellRefundRate: V5 Phase 1 — 卖塔退款比例 (对累计投入)。
+const sellRefundRate = 0.7
+
+// sellRefund: 退款额单一出处 (SellTower + HUD 提示共用)。
+// math.Round 防 IEEE754 截断 (90 × 0.7 = 62.999… → int 截成 62)。
+func sellRefund(kind TowerKind, level int) int {
+	return int(math.Round(float64(towerInvested(kind, level)) * sellRefundRate))
+}
+
+// SellTower: V5 Phase 1 — 卖光标位置的塔。退款入账 + 金币飘字
+// (复用 V4 Phase 4) + SFX; 光标不在塔上仅提示。
+func (g *Game) SellTower() {
+	for i, t := range g.Towers {
+		if t.Pos != g.Cursor {
+			continue
+		}
+		refund := sellRefund(t.Kind, t.Level)
+		g.Gold += refund
+		g.Towers = append(g.Towers[:i], g.Towers[i+1:]...)
+		g.pushSound(SndSell)
+		g.Effects = append(g.Effects,
+			makeGoldText(float64(t.Pos.X), float64(t.Pos.Y), refund))
+		g.Msg = fmt.Sprintf("Sold %s +%dg", towerSpecs[t.Kind].Name, refund)
+		return
+	}
+	g.Msg = "No tower here to sell"
+}
+
 // ToggleJuice: V4 Phase 5 — 屏幕反馈特效 (shake / 顿帧) 一键开关, 持久化。
 func (g *Game) ToggleJuice() {
 	g.Save.JuiceOff = !g.Save.JuiceOff

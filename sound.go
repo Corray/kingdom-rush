@@ -17,6 +17,7 @@ const (
 	SndEnemyDeath
 	SndBuild
 	SndUpgrade
+	SndSell // V5 Phase 1
 	SndWaveStart
 	SndWin
 	SndLose

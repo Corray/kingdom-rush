@@ -41,10 +41,10 @@ type TowerLevel struct {
 }
 
 type TowerSpec struct {
-	Name        string
-	Color       RGB
-	HitsFlying  bool // 能否打飞行单位
-	Levels      [3]TowerLevel
+	Name       string
+	Color      RGB
+	HitsFlying bool // 能否打飞行单位
+	Levels     [3]TowerLevel
 }
 
 var towerSpecs = map[TowerKind]TowerSpec{
@@ -92,6 +92,17 @@ func (t *Tower) NextUpgradeCost() (int, bool) {
 		return 0, false
 	}
 	return towerSpecs[t.Kind].Levels[t.Level].Cost, true
+}
+
+// towerInvested: V5 Phase 1 — 建造 + 已升级的累计投入 (卖塔退款基数)。
+// Cost 字段是逐级增量 (lvl1 = 建造 cost), 累加 [0, level)。
+func towerInvested(kind TowerKind, level int) int {
+	levels := towerSpecs[kind].Levels
+	total := 0
+	for i := 0; i < level && i < len(levels); i++ {
+		total += levels[i].Cost
+	}
+	return total
 }
 
 // ============================================================
