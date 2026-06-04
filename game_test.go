@@ -1322,3 +1322,111 @@ func TestTargeting_StrongShootsHighHP(t *testing.T) {
 		t.Errorf("weak enemy should be untouched, HP = %d", weak.HP)
 	}
 }
+
+// ============================================================
+// V5 Phase 3: Cannon AoE 溅射 (damageEnemy/killEnemy 重构 + Splash)
+// ============================================================
+
+func TestSplash_SpecOnlyCannon(t *testing.T) {
+	for _, k := range []TowerKind{TArcher, TMagic} {
+		for i, lv := range towerSpecs[k].Levels {
+			if lv.Splash != 0 {
+				t.Errorf("%s lvl%d should have no splash, got %v",
+					towerSpecs[k].Name, i+1, lv.Splash)
+			}
+		}
+	}
+	for i, lv := range towerSpecs[TCannon].Levels {
+		if lv.Splash <= 0 {
+			t.Errorf("Cannon lvl%d should have splash, got %v", i+1, lv.Splash)
+		}
+	}
+}
+
+// 溅射 fixture: cannon (3,1); 主目标 idx3=(3,0); 近邻 idx2.5→(2,0)
+// 距主目标 1 ≤ Splash 1.0; 远敌 idx1=(1,0) 距 2 > 1.0
+func splashFixture() *Game {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Towers = []*Tower{{Pos: Point{3, 1}, Kind: TCannon, Level: 1}}
+	g.Enemies = []*Enemy{
+		{Kind: ENormal, HP: 100, MaxHP: 100, PathIdx: 3},   // 主目标 (最前)
+		{Kind: ENormal, HP: 100, MaxHP: 100, PathIdx: 2.5}, // 溅射圈内
+		{Kind: ENormal, HP: 100, MaxHP: 100, PathIdx: 1},   // 圈外
+	}
+	return g
+}
+
+func TestSplash_CannonHitsCluster(t *testing.T) {
+	g := splashFixture()
+	g.Update(0.05)
+	// Cannon lvl1: 主目标 25, 溅射 round(25×0.5)=13
+	if g.Enemies[0].HP != 75 {
+		t.Errorf("main target HP = %d, want 75", g.Enemies[0].HP)
+	}
+	if g.Enemies[1].HP != 87 {
+		t.Errorf("splash victim HP = %d, want 87 (25×0.5 round=13)", g.Enemies[1].HP)
+	}
+	if g.Enemies[2].HP != 100 {
+		t.Errorf("out-of-splash enemy HP = %d, want 100", g.Enemies[2].HP)
+	}
+}
+
+func TestSplash_KillsSpawnerTriggersSummon(t *testing.T) {
+	// 家族验收点: 溅射杀与主杀同路径 — Spawner 被溅死必须召唤
+	g := splashFixture()
+	g.Enemies[1] = &Enemy{Kind: ESpawner, HP: 1, MaxHP: 35, PathIdx: 2.5}
+	goldBefore := g.Gold
+	g.Update(0.05)
+	if !g.Enemies[1].Dead {
+		t.Fatalf("spawner should die from splash (HP 1 < 13)")
+	}
+	// Update 先 move 后 shoot: spawner 死时 PathIdx 已推进, 召唤物继承死亡时位置
+	spawnerIdx := g.Enemies[1].PathIdx
+	normals := 0
+	for _, e := range g.Enemies {
+		if e.Kind == ENormal && e.PathIdx == spawnerIdx {
+			normals++
+		}
+	}
+	if normals != 2 {
+		t.Errorf("splash-killed spawner should summon 2 normals at its death PathIdx %v, got %d", spawnerIdx, normals)
+	}
+	if g.Gold != goldBefore+enemySpecs[ESpawner].Reward {
+		t.Errorf("splash kill should pay reward, gold %d → %d", goldBefore, g.Gold)
+	}
+}
+
+func TestSplash_FlyingImmuneToCannonSplash(t *testing.T) {
+	g := splashFixture()
+	g.Enemies[1] = &Enemy{Kind: EGlider, HP: 100, MaxHP: 100, PathIdx: 2.5}
+	g.Update(0.05)
+	if g.Enemies[1].HP != 100 {
+		t.Errorf("flying unit must be immune to cannon splash, HP = %d", g.Enemies[1].HP)
+	}
+}
+
+func TestSplash_ArcherNoSplashRegression(t *testing.T) {
+	g := splashFixture()
+	g.Towers = []*Tower{{Pos: Point{3, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	// Archer 单体: 只有主目标掉血
+	if g.Enemies[0].HP != 100-towerSpecs[TArcher].Levels[0].Damage {
+		t.Errorf("archer main target HP = %d", g.Enemies[0].HP)
+	}
+	if g.Enemies[1].HP != 100 || g.Enemies[2].HP != 100 {
+		t.Errorf("archer must not splash: HP %d / %d",
+			g.Enemies[1].HP, g.Enemies[2].HP)
+	}
+}
+
+func TestSplash_BossSplashKillCountsForHitStop(t *testing.T) {
+	// killEnemy 统一路径回归: 溅射杀 Boss 也要计入 BossKills
+	g := splashFixture()
+	g.Enemies[1] = &Enemy{Kind: EBoss, HP: 1, MaxHP: 150, PathIdx: 2.5}
+	g.Update(0.05)
+	if g.BossKills != 1 {
+		t.Errorf("splash boss kill should count, BossKills = %d", g.BossKills)
+	}
+}

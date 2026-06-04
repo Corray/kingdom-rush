@@ -165,7 +165,6 @@ func (g *Game) Update(dt float64) {
 		// 按塔的 Target 策略选 (默认 First = 原"最前优先"行为)
 		target := pickTarget(t, g.Enemies, g.Path)
 		if target != nil {
-			target.HP -= lvl.Damage
 			t.cooldown = lvl.Cooldown
 			// V2.6: push 视觉特效  (V3 Phase 3b: shoot 带 tower kind 决定 bullet sprite)
 			g.Effects = append(g.Effects,
@@ -173,28 +172,25 @@ func (g *Game) Update(dt float64) {
 				makeHitEffect(target.Pos(g.Path)),
 			)
 			g.pushSound(shootSound(t.Kind)) // V4: 射击音按塔型分 (伤害即时结算, 不另设 hit 音)
-			// V4 Phase 3/4: 插值坐标 (对齐渲染层平滑位置), 死亡动画 + 飘字共用
-			hfx, hfy := pathLerp(g.Path, target.PathIdx)
-			g.Effects = append(g.Effects, makeDamageText(hfx, hfy, lvl.Damage))
-			if target.HP <= 0 {
-				target.Dead = true
-				g.pushSound(SndEnemyDeath)
-				if target.Kind == EBoss {
-					g.BossKills++ // V4 Phase 5: 渲染层观察此计数触发顿帧
-				}
-				reward := enemySpecs[target.Kind].Reward
-				// 赏金飘字右偏 0.3 cell, 与伤害字错开
-				g.Effects = append(g.Effects,
-					makeDeathEffect(hfx, hfy, target.Kind),
-					makeGoldText(hfx+0.3, hfy, reward))
-				g.Gold += reward
-				// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
-				if target.Kind == ESpawner {
-					normSpec := enemySpecs[ENormal]
-					g.Enemies = append(g.Enemies,
-						&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: target.PathIdx},
-						&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: target.PathIdx},
-					)
+			g.damageEnemy(target, lvl.Damage)
+			// V5 Phase 3: Cannon 溅射 — 主目标位置 Splash 半径内
+			// 其他敌人吃 splashFactor 折扣伤害 (飞行过滤与主目标一致)
+			if lvl.Splash > 0 {
+				tp := target.Pos(g.Path)
+				splashDmg := int(math.Round(float64(lvl.Damage) * splashFactor))
+				for _, e := range g.Enemies {
+					if e == target || e.Dead || e.Escaped {
+						continue
+					}
+					if enemySpecs[e.Kind].Flying && !towerSpec.HitsFlying {
+						continue
+					}
+					ep := e.Pos(g.Path)
+					ddx := float64(ep.X - tp.X)
+					ddy := float64(ep.Y - tp.Y)
+					if math.Sqrt(ddx*ddx+ddy*ddy) <= lvl.Splash {
+						g.damageEnemy(e, splashDmg)
+					}
 				}
 			}
 		}
@@ -281,6 +277,46 @@ func (g *Game) AdjustVolume(delta int) {
 	g.Save.SetVolumeLevel(g.Save.VolumeLevel() + delta)
 	_ = StoreSave(g.Save)
 	g.Msg = fmt.Sprintf("Volume %d/%d", g.Save.VolumeLevel(), maxVolume)
+}
+
+// splashFactor: V5 Phase 3 — 溅射伤害折扣 (主目标全额, 周围打折)。
+const splashFactor = 0.5
+
+// damageEnemy: V5 Phase 3 前置重构 — 伤害结算唯一入口 (主目标与
+// 溅射目标同路径): HP 扣减 + 伤害飘字 + 致死转 killEnemy。
+func (g *Game) damageEnemy(e *Enemy, dmg int) {
+	e.HP -= dmg
+	// V4 Phase 3/4: 插值坐标 (对齐渲染层平滑位置), 飘字 + 死亡动画共用
+	fx, fy := pathLerp(g.Path, e.PathIdx)
+	g.Effects = append(g.Effects, makeDamageText(fx, fy, dmg))
+	if e.HP <= 0 && !e.Dead {
+		g.killEnemy(e, fx, fy)
+	}
+}
+
+// killEnemy: 致死处理唯一出处 (音效/Boss 计数/死亡动画/赏金/Spawner
+// 召唤)。fix-pattern-scan 家族约束: 任何新增伤害来源 (溅射/技能/...)
+// 必须经 damageEnemy → 本函数, 禁止内联复制击杀逻辑。
+func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
+	e.Dead = true
+	g.pushSound(SndEnemyDeath)
+	if e.Kind == EBoss {
+		g.BossKills++ // V4 Phase 5: 渲染层观察此计数触发顿帧
+	}
+	reward := enemySpecs[e.Kind].Reward
+	// 赏金飘字右偏 0.3 cell, 与伤害字错开
+	g.Effects = append(g.Effects,
+		makeDeathEffect(fx, fy, e.Kind),
+		makeGoldText(fx+0.3, fy, reward))
+	g.Gold += reward
+	// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
+	if e.Kind == ESpawner {
+		normSpec := enemySpecs[ENormal]
+		g.Enemies = append(g.Enemies,
+			&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: e.PathIdx},
+			&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: e.PathIdx},
+		)
+	}
 }
 
 // sellRefundRate: V5 Phase 1 — 卖塔退款比例 (对累计投入)。

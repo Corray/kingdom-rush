@@ -36,6 +36,7 @@ type TowerLevel struct {
 	Damage   int
 	Range    float64
 	Cooldown float64
+	Splash   float64 // V5 Phase 3: 溅射半径 (cell), 0 = 单体 (仅 Cannon 非零)
 	Char1    rune
 	Char2    rune
 }
@@ -59,9 +60,9 @@ var towerSpecs = map[TowerKind]TowerSpec{
 	TCannon: {
 		Name: "Cannon", Color: rgb(180, 120, 255), HitsFlying: false,
 		Levels: [3]TowerLevel{
-			{Cost: 80, Damage: 25, Range: 2.5, Cooldown: 1.5, Char1: 'C', Char2: '1'},
-			{Cost: 60, Damage: 45, Range: 3.0, Cooldown: 1.3, Char1: 'C', Char2: '2'},
-			{Cost: 100, Damage: 70, Range: 3.5, Cooldown: 1.0, Char1: 'C', Char2: '3'},
+			{Cost: 80, Damage: 25, Range: 2.5, Cooldown: 1.5, Splash: 1.0, Char1: 'C', Char2: '1'},
+			{Cost: 60, Damage: 45, Range: 3.0, Cooldown: 1.3, Splash: 1.2, Char1: 'C', Char2: '2'},
+			{Cost: 100, Damage: 70, Range: 3.5, Cooldown: 1.0, Splash: 1.5, Char1: 'C', Char2: '3'},
 		},
 	},
 	TMagic: {
