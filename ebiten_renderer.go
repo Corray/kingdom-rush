@@ -63,6 +63,8 @@ type EbitenGame struct {
 	shake         float64       // shake 剩余时间
 	hitStop       float64       // 顿帧剩余时间 (世界冻结, 渲染继续)
 	offscreen     *ebiten.Image // shake 时整帧偏移用缓冲
+	// V5 Phase 5: 陨石雨瞄准态 (UI 模式, 不入 game 逻辑)
+	aiming bool
 }
 
 func NewEbitenGame(g *Game) *EbitenGame {
@@ -120,6 +122,7 @@ func (eg *EbitenGame) Update() error {
 		eg.goldFlash = 0
 		eg.shake = 0
 		eg.hitStop = 0
+		eg.aiming = false // V5 Phase 5: phase 切换取消瞄准
 	} else {
 		if eg.game.Gold > eg.lastGold {
 			eg.goldFlash = 0.5
@@ -210,6 +213,19 @@ func (eg *EbitenGame) handleInput() {
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		g.CycleTargeting()
 	}
+	// V5 Phase 5: R 键进入/取消陨石瞄准 (不用 Esc — 已绑退出)
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyR) {
+		switch {
+		case eg.aiming:
+			eg.aiming = false
+			g.Msg = "Meteor aim cancelled"
+		case g.MeteorCD <= 0:
+			eg.aiming = true
+			g.Msg = "Meteor: click to strike (R to cancel)"
+		default:
+			g.Msg = fmt.Sprintf("Meteor on cooldown %.0fs", g.MeteorCD)
+		}
+	}
 	if g.Phase == PhasePlaying {
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			g.MoveCursor(0, -1)
@@ -247,7 +263,15 @@ func (eg *EbitenGame) handleInput() {
 			g.Cursor = p
 		}
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			if k, ok := towerButtonAt(mx, my); ok {
+			// V5 Phase 5: 瞄准态点击 = 释放陨石 (优先于建塔/按钮)
+			if eg.aiming {
+				if cell, ok := pixelToCell(mx, my); ok && g.CastMeteor(cell) {
+					eg.aiming = false
+					if !g.Save.JuiceOff {
+						eg.shake = shakeDuration // 落地震屏 (复用 V4 juice)
+					}
+				}
+			} else if k, ok := towerButtonAt(mx, my); ok {
 				g.Selected = k
 				g.Msg = "Selected " + towerSpecs[k].Name
 			} else if _, ok := pixelToCell(mx, my); ok {
@@ -626,6 +650,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		fillRect(screen, x+2, y, barW*hpRatio, 3, eColHpFg)
 	}
 
+	// V5 Phase 5: 陨石瞄准圈 (橙红, 优先于射程圈)
+	if eg.aiming {
+		cxr, cyr := cellPos(g.Cursor)
+		vector.StrokeCircle(screen, cxr+float32(cellPx)/2, cyr+float32(cellPx)/2,
+			float32(meteorRadius)*float32(cellPx), 2.5,
+			color.RGBA{R: 255, G: 120, B: 40, A: 200}, true)
+	}
+
 	// V2.7: 射程圈预览 (cursor 在 tower 上 → 显示当前级 range,
 	//                    cursor 在空地 → 显示 selected lvl 1 range preview)
 	var atTowerHover *Tower
@@ -811,6 +843,26 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		hint += fmt.Sprintf(" | X=Sell +%dg | T=%s",
 			sellRefund(atTower.Kind, atTower.Level), atTower.Target.Name())
 		drawText(screen, hint, btnX+8, selY+12)
+	}
+
+	// V5 Phase 5: 陨石冷却条 (按钮行最右; AC "冷却条显示")
+	{
+		labelX := windowW - 175
+		label := "R:Meteor"
+		if eg.aiming {
+			label = "AIMING.."
+		}
+		drawText(screen, label, labelX, selY+8)
+		barX := float32(labelX + 68)
+		const barW, barH = 90, 8
+		fillRect(screen, barX, float32(selY+12), barW, barH,
+			color.RGBA{R: 40, G: 40, B: 60, A: 255})
+		ready := 1 - g.MeteorCD/meteorCooldownS
+		fillCol := color.RGBA{R: 255, G: 140, B: 40, A: 255} // 冷却中橙
+		if g.MeteorCD <= 0 {
+			fillCol = color.RGBA{R: 80, G: 220, B: 80, A: 255} // 就绪绿
+		}
+		fillRect(screen, barX, float32(selY+12), float32(barW*ready), barH, fillCol)
 	}
 
 	// help row

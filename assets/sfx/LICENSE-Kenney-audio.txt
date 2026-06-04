@@ -24,3 +24,4 @@ http://creativecommons.org/publicdomain/zero/1.0/
 | lose.ogg | Audio/zapThreeToneDown.ogg | Digital Audio |
 | sell.ogg | Audio/back_002.ogg | Interface Sounds (V5 Phase 1 补, 2026-06-04 重新下载核实) |
 | shoot_frost.ogg | Audio/phaserDown1.ogg | Digital Audio (V5 Phase 4 补, 2026-06-04 重新下载核实) |
+| meteor.ogg | Audio/impactPlate_heavy_000.ogg | Impact Sounds (V5 Phase 5 补, 2026-06-04 重新下载核实) |

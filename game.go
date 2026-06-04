@@ -38,6 +38,7 @@ type Game struct {
 	Effects     []*Effect    // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
 	SoundEvents []SoundEvent // V4: SFX 事件队列 (sound.go, 渲染层每帧 drain)
 	BossKills   int          // V4 Phase 5: boss 击杀累计 (渲染层观察增量触发顿帧, 同 goldFlash 模式)
+	MeteorCD    float64      // V5 Phase 5: 陨石雨剩余冷却秒 (0 = 可用)
 	Gold        int
 	Lives       int
 	StartLives  int
@@ -83,6 +84,7 @@ func (g *Game) StartLevel(idx int) {
 	g.prepTimer = wavePrepS
 	g.spawned = 0
 	g.spawnTimer = 0
+	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
 	g.Msg = fmt.Sprintf("Level %d: %s — get ready!", lv.ID, lv.Name)
 }
 
@@ -119,6 +121,13 @@ func (g *Game) Update(dt float64) {
 		if g.prepTimer <= 0 {
 			g.prepTimer = 0
 			g.pushSound(SndWaveStart) // V4: prep 倒计时归零 = wave 开打 (每 wave 恰一次)
+		}
+	}
+	// V5 Phase 5: 陨石雨冷却衰减
+	if g.MeteorCD > 0 {
+		g.MeteorCD -= dt
+		if g.MeteorCD < 0 {
+			g.MeteorCD = 0
 		}
 	}
 	cur := g.currentWave()
@@ -323,6 +332,48 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 			&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: e.PathIdx},
 		)
 	}
+}
+
+// V5 Phase 5: 陨石雨主动技能参数。
+const (
+	meteorCooldownS = 25.0
+	meteorRadius    = 2.0 // cell
+	meteorDamage    = 60
+)
+
+// CastMeteor: V5 Phase 5 — 在 at 处释放陨石雨: 半径内全敌 AoE
+// (含飞行 — 天上砸下来的) 经 damageEnemy 统一路径结算, 触发冷却。
+// 冷却中 / 非战斗 phase 返回 false。
+func (g *Game) CastMeteor(at Point) bool {
+	if g.MeteorCD > 0 || g.Phase != PhasePlaying {
+		return false
+	}
+	g.MeteorCD = meteorCooldownS
+	g.pushSound(SndMeteor)
+	hits := 0
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped {
+			continue
+		}
+		ep := e.Pos(g.Path)
+		dx := float64(ep.X - at.X)
+		dy := float64(ep.Y - at.Y)
+		if math.Sqrt(dx*dx+dy*dy) <= meteorRadius {
+			g.damageEnemy(e, meteorDamage)
+			hits++
+		}
+	}
+	// 火焰特效: 半径内每个 cell 一团火 (复用 EHit 渲染)
+	for ddy := -int(meteorRadius); ddy <= int(meteorRadius); ddy++ {
+		for ddx := -int(meteorRadius); ddx <= int(meteorRadius); ddx++ {
+			if math.Sqrt(float64(ddx*ddx+ddy*ddy)) > meteorRadius {
+				continue
+			}
+			g.Effects = append(g.Effects, makeHitEffect(Point{X: at.X + ddx, Y: at.Y + ddy}))
+		}
+	}
+	g.Msg = fmt.Sprintf("Meteor strike! %d hit", hits)
+	return true
 }
 
 // sellRefundRate: V5 Phase 1 — 卖塔退款比例 (对累计投入)。

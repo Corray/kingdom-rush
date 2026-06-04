@@ -1551,3 +1551,106 @@ func TestSlow_ArcherDoesNotSlow(t *testing.T) {
 		t.Errorf("archer must not slow")
 	}
 }
+
+// ============================================================
+// V5 Phase 5: 陨石雨主动技能 (CastMeteor + 冷却)
+// ============================================================
+
+func TestMeteor_DamagesAllInRadius(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{
+		{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 2},   // (2,0) 圈内
+		{Kind: EGlider, HP: 100, MaxHP: 100, PathIdx: 3}, // (3,0) 圈内 — 飞行也炸
+		{Kind: ENormal, HP: 100, MaxHP: 100, PathIdx: 5}, // (5,0) 距 (2,0)=3 圈外
+	}
+	if !g.CastMeteor(Point{2, 0}) {
+		t.Fatalf("cast should succeed when ready")
+	}
+	if g.Enemies[0].HP != 150-meteorDamage {
+		t.Errorf("boss in radius HP = %d, want %d", g.Enemies[0].HP, 150-meteorDamage)
+	}
+	if g.Enemies[1].HP != 100-meteorDamage {
+		t.Errorf("flying in radius must be hit (meteor falls from sky), HP = %d", g.Enemies[1].HP)
+	}
+	if g.Enemies[2].HP != 100 {
+		t.Errorf("out of radius should be untouched, HP = %d", g.Enemies[2].HP)
+	}
+	if !drainHas(g.DrainSounds(), SndMeteor) {
+		t.Errorf("cast should push SndMeteor")
+	}
+	if g.Msg == "" {
+		t.Errorf("cast should set Msg")
+	}
+}
+
+func TestMeteor_CooldownGating(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	if !g.CastMeteor(Point{2, 0}) {
+		t.Fatalf("first cast should succeed")
+	}
+	if g.MeteorCD != meteorCooldownS {
+		t.Fatalf("cast should start cooldown, CD = %v", g.MeteorCD)
+	}
+	if g.CastMeteor(Point{2, 0}) {
+		t.Fatalf("second cast during cooldown must fail")
+	}
+	// 冷却随 Update 衰减, 冷却完可再放。
+	// fixture 注意: 每帧重置存活敌人, 防止 wave 清场 → PhaseWon →
+	// Update 早退冷却停摆 (顺带避免 Won 路径写真实存档)
+	for i := 0; i < int(meteorCooldownS/0.1)+2; i++ {
+		g.Enemies = []*Enemy{{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0}}
+		g.spawned = 1
+		g.Update(0.1)
+	}
+	if g.MeteorCD != 0 {
+		t.Fatalf("cooldown should reach 0, got %v", g.MeteorCD)
+	}
+	if !g.CastMeteor(Point{2, 0}) {
+		t.Errorf("cast after cooldown should succeed")
+	}
+}
+
+func TestMeteor_KillGoesUnifiedPath(t *testing.T) {
+	// 家族再验证: 陨石杀 Spawner 必须召唤 (damageEnemy → killEnemy 路径)
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{{Kind: ESpawner, HP: 1, MaxHP: 35, PathIdx: 2}}
+	goldBefore := g.Gold
+	g.CastMeteor(Point{2, 0})
+	if !g.Enemies[0].Dead {
+		t.Fatalf("spawner should die from meteor")
+	}
+	normals := 0
+	for _, e := range g.Enemies {
+		if e.Kind == ENormal {
+			normals++
+		}
+	}
+	if normals != 2 {
+		t.Errorf("meteor-killed spawner should summon 2 normals, got %d", normals)
+	}
+	if g.Gold != goldBefore+enemySpecs[ESpawner].Reward {
+		t.Errorf("meteor kill should pay reward")
+	}
+}
+
+func TestMeteor_PhaseGating(t *testing.T) {
+	g := newTestGame()
+	g.Phase = PhaseLevelSelect
+	if g.CastMeteor(Point{2, 0}) {
+		t.Errorf("cast outside playing phase must fail")
+	}
+}
+
+func TestMeteor_LevelStartResets(t *testing.T) {
+	g := newTestGame()
+	g.MeteorCD = 10
+	g.StartLevel(0)
+	if g.MeteorCD != 0 {
+		t.Errorf("level start should reset meteor cooldown, got %v", g.MeteorCD)
+	}
+}
