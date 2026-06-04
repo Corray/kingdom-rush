@@ -223,6 +223,11 @@ func (eg *EbitenGame) handleInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
 			g.MoveCursor(1, 0)
 		}
+		// V5 Phase 4: 4 键选 Frost (1/2/3/4 与按钮顺序一致)
+		if inpututil.IsKeyJustPressed(ebiten.KeyDigit4) {
+			g.Selected = TFrost
+			g.Msg = "Selected Frost"
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyDigit1) {
 			g.Selected = TArcher
 			g.Msg = "Selected Archer"
@@ -606,6 +611,11 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			}
 			fillCircle(screen, cx, cy, radius, col)
 		}
+		// V5 Phase 4: 减速状态 → 半透明冰蓝覆盖圈
+		if e.SlowTimer > 0 {
+			fillCircle(screen, x+float32(cellPx)/2, y+float32(cellPx)/2,
+				float32(cellPx)/2-4, color.RGBA{R: 150, G: 200, B: 255, A: 90})
+		}
 		// HP bar 仍画 (sprite 之上, 跟随插值位置, 不旋转)
 		hpRatio := float32(e.HP) / float32(e.MaxHP)
 		if hpRatio < 0 {
@@ -806,7 +816,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// help row
 	helpY := selY + btnH + 8
 	drawText(screen,
-		" Arrows/Mouse: move | 1/2/3: select | Space/Click: build/upgrade | M: menu | -/=: vol | J: fx | Q/Esc: quit",
+		" Arrows/Mouse: move | 1-4: select | Space/Click: build/upgrade | M: menu | -/=: vol | J: fx | Q/Esc: quit",
 		4, helpY)
 
 	// banner

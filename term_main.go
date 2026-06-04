@@ -7,9 +7,10 @@
 // 流程: LevelSelect (1-9/0 选关) → Playing → Won/Lost → (M 返回菜单)
 //
 // 控制:
-//   Menu:   1-9, 0 选关 | Q/Esc 退出
-//   Game:   Arrows 移光标 | 1/2/3 选塔型 | Space 建塔/升塔
-//           M 回菜单 | Q/Esc 退出
+//
+//	Menu:   1-9, 0 选关 | Q/Esc 退出
+//	Game:   Arrows 移光标 | 1/2/3 选塔型 | Space 建塔/升塔
+//	        M 回菜单 | Q/Esc 退出
 package main
 
 import (

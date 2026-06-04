@@ -1,7 +1,8 @@
 // Level / Path / Wave 模型与解析逻辑。
 //
 // Level yaml schema:
-//   id, name, start_gold, start_lives, cps ([[x,y],...]), waves (["n5 f1",...])
+//
+//	id, name, start_gold, start_lives, cps ([[x,y],...]), waves (["n5 f1",...])
 //
 // ExpandPath: 把 control points 扩展为完整 path cells。相邻 cp 必须水平或
 // 垂直对齐 (V1.5 不支持斜线)。

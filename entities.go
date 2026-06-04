@@ -29,6 +29,7 @@ const (
 	TArcher TowerKind = iota
 	TCannon
 	TMagic
+	TFrost // V5 Phase 4: 低伤 + 命中减速 (sprite tile227, 调研确认未占用)
 )
 
 type TowerLevel struct {
@@ -37,6 +38,7 @@ type TowerLevel struct {
 	Range    float64
 	Cooldown float64
 	Splash   float64 // V5 Phase 3: 溅射半径 (cell), 0 = 单体 (仅 Cannon 非零)
+	Slow     float64 // V5 Phase 4: 命中减速系数 (速度乘数, 0 = 无; 仅 Frost 非零)
 	Char1    rune
 	Char2    rune
 }
@@ -73,9 +75,18 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 120, Damage: 50, Range: 4.0, Cooldown: 0.6, Char1: 'M', Char2: '3'},
 		},
 	},
+	// V5 Phase 4: 支援塔 — 伤害低, 价值在命中减速 (Slow = 速度乘数)
+	TFrost: {
+		Name: "Frost", Color: rgb(140, 200, 255), HitsFlying: true,
+		Levels: [3]TowerLevel{
+			{Cost: 70, Damage: 4, Range: 2.5, Cooldown: 0.8, Slow: 0.6, Char1: 'F', Char2: '1'},
+			{Cost: 50, Damage: 8, Range: 3.0, Cooldown: 0.7, Slow: 0.5, Char1: 'F', Char2: '2'},
+			{Cost: 90, Damage: 12, Range: 3.5, Cooldown: 0.6, Slow: 0.4, Char1: 'F', Char2: '3'},
+		},
+	},
 }
 
-func TowerKinds() []TowerKind { return []TowerKind{TArcher, TCannon, TMagic} }
+func TowerKinds() []TowerKind { return []TowerKind{TArcher, TCannon, TMagic, TFrost} }
 
 type Tower struct {
 	Pos      Point
@@ -161,6 +172,30 @@ type Enemy struct {
 	MaxHP   int
 	Dead    bool
 	Escaped bool
+	// V5 Phase 4: 减速状态效果 (SlowTimer > 0 时速度 × SlowFactor)
+	SlowFactor float64
+	SlowTimer  float64
+}
+
+// slowDurationS: V5 Phase 4 — 单次减速持续时间 (命中刷新)。
+const slowDurationS = 1.5
+
+// ApplySlow: 施加减速。不叠加取最强 (系数更小 = 更慢 = 更强),
+// 任何命中都刷新持续时间。
+func (e *Enemy) ApplySlow(factor float64) {
+	if e.SlowTimer <= 0 || factor < e.SlowFactor {
+		e.SlowFactor = factor
+	}
+	e.SlowTimer = slowDurationS
+}
+
+// EffectiveSpeed: 当前速度 (减速生效时打折)。
+func (e *Enemy) EffectiveSpeed() float64 {
+	speed := enemySpecs[e.Kind].Speed
+	if e.SlowTimer > 0 {
+		return speed * e.SlowFactor
+	}
+	return speed
 }
 
 func (e *Enemy) Pos(path []Point) Point {

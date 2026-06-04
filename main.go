@@ -3,13 +3,15 @@
 // kingdom-rush V2 desktop entry (ebiten,默认 build)。
 //
 // Build:
-//   go build .                  → ebiten desktop binary (default)
-//   go build -tags term .       → V1.7 terminal binary (opt-in,见 term_main.go)
+//
+//	go build .                  → ebiten desktop binary (default)
+//	go build -tags term .       → V1.7 terminal binary (opt-in,见 term_main.go)
 //
 // 控制:
-//   Menu:   1-9, 0 选关 | Q/Esc 退出
-//   Game:   Arrows 移光标 | 1/2/3 选塔型 | Space 建塔/升塔
-//           M 回菜单 | Q/Esc 退出
+//
+//	Menu:   1-9, 0 选关 | Q/Esc 退出
+//	Game:   Arrows 移光标 | 1/2/3 选塔型 | Space 建塔/升塔
+//	        M 回菜单 | Q/Esc 退出
 package main
 
 import (

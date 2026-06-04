@@ -1430,3 +1430,124 @@ func TestSplash_BossSplashKillCountsForHitStop(t *testing.T) {
 		t.Errorf("splash boss kill should count, BossKills = %d", g.BossKills)
 	}
 }
+
+// ============================================================
+// V5 Phase 4: 状态效果系统 (slow) + Frost 塔
+// ============================================================
+
+func TestSlow_SpecOnlyFrost(t *testing.T) {
+	for _, k := range []TowerKind{TArcher, TCannon, TMagic} {
+		for i, lv := range towerSpecs[k].Levels {
+			if lv.Slow != 0 {
+				t.Errorf("%s lvl%d should have no slow, got %v",
+					towerSpecs[k].Name, i+1, lv.Slow)
+			}
+		}
+	}
+	for i, lv := range towerSpecs[TFrost].Levels {
+		if lv.Slow <= 0 || lv.Slow >= 1 {
+			t.Errorf("Frost lvl%d slow should be in (0,1), got %v", i+1, lv.Slow)
+		}
+	}
+	if len(TowerKinds()) != 4 {
+		t.Errorf("TowerKinds should include Frost, got %d", len(TowerKinds()))
+	}
+}
+
+func TestSlow_EffectiveSpeed(t *testing.T) {
+	e := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20}
+	base := enemySpecs[ENormal].Speed
+	if e.EffectiveSpeed() != base {
+		t.Errorf("no slow: speed = %v, want %v", e.EffectiveSpeed(), base)
+	}
+	e.ApplySlow(0.5)
+	if e.EffectiveSpeed() != base*0.5 {
+		t.Errorf("slowed: speed = %v, want %v", e.EffectiveSpeed(), base*0.5)
+	}
+}
+
+func TestSlow_ExpiresAndRecovers(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	e := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 0}
+	e.ApplySlow(0.5)
+	g.Enemies = []*Enemy{e}
+	base := enemySpecs[ENormal].Speed
+	g.Update(0.1) // 减速期: 移动 0.5×base×0.1
+	wantIdx := base * 0.5 * 0.1
+	if e.PathIdx != wantIdx {
+		t.Errorf("slowed move: idx = %v, want %v", e.PathIdx, wantIdx)
+	}
+	// 推完剩余 timer (1.5s) → 恢复
+	for i := 0; i < 20; i++ {
+		g.Update(0.1)
+	}
+	if e.SlowTimer > 0 {
+		t.Fatalf("slow should expire, timer = %v", e.SlowTimer)
+	}
+	if e.EffectiveSpeed() != base {
+		t.Errorf("speed should recover to %v, got %v", base, e.EffectiveSpeed())
+	}
+}
+
+func TestSlow_NoStackTakesStrongest(t *testing.T) {
+	e := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20}
+	e.ApplySlow(0.4) // 强
+	e.SlowTimer = 0.5
+	e.ApplySlow(0.6) // 弱: 不应覆盖系数, 但刷新时间
+	if e.SlowFactor != 0.4 {
+		t.Errorf("weaker slow must not override, factor = %v", e.SlowFactor)
+	}
+	if e.SlowTimer != slowDurationS {
+		t.Errorf("any hit should refresh timer, got %v", e.SlowTimer)
+	}
+	e.ApplySlow(0.3) // 更强: 覆盖
+	if e.SlowFactor != 0.3 {
+		t.Errorf("stronger slow should override, factor = %v", e.SlowFactor)
+	}
+}
+
+func TestSlow_ExpiredThenWeakerApplies(t *testing.T) {
+	// 过期后弱减速也能生效 (不被残留旧系数挡住)
+	e := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20}
+	e.ApplySlow(0.3)
+	e.SlowTimer = 0 // 模拟过期
+	e.ApplySlow(0.6)
+	if e.SlowFactor != 0.6 {
+		t.Errorf("after expiry weaker slow should apply, factor = %v", e.SlowFactor)
+	}
+}
+
+func TestSlow_FrostShotApplies(t *testing.T) {
+	// 集成: Frost 塔命中施加减速 + 正常掉血
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TFrost, Level: 1}}
+	e := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	g.Update(0.05)
+	if e.SlowTimer <= 0 || e.SlowFactor != towerSpecs[TFrost].Levels[0].Slow {
+		t.Errorf("frost hit should slow: timer=%v factor=%v", e.SlowTimer, e.SlowFactor)
+	}
+	if e.HP != 150-towerSpecs[TFrost].Levels[0].Damage {
+		t.Errorf("frost hit should damage, HP = %d", e.HP)
+	}
+	if !drainHas(g.DrainSounds(), SndShootFrost) {
+		t.Errorf("frost shot should push SndShootFrost")
+	}
+}
+
+func TestSlow_ArcherDoesNotSlow(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	e := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	g.Update(0.05)
+	if e.SlowTimer > 0 {
+		t.Errorf("archer must not slow")
+	}
+}

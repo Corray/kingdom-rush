@@ -34,6 +34,9 @@ var oggShootCannon []byte
 //go:embed assets/sfx/shoot_magic.ogg
 var oggShootMagic []byte
 
+//go:embed assets/sfx/shoot_frost.ogg
+var oggShootFrost []byte
+
 //go:embed assets/sfx/enemy_death.ogg
 var oggEnemyDeath []byte
 
@@ -67,6 +70,7 @@ func initAudio() int {
 		SndShootArcher: oggShootArcher,
 		SndShootCannon: oggShootCannon,
 		SndShootMagic:  oggShootMagic,
+		SndShootFrost:  oggShootFrost,
 		SndEnemyDeath:  oggEnemyDeath,
 		SndBuild:       oggBuild,
 		SndUpgrade:     oggUpgrade,

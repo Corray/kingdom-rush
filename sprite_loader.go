@@ -37,6 +37,8 @@ const (
 	spriteTowerMagic1  = 206 // 1 rocket
 	spriteTowerMagic2  = 204 // 2 rockets
 	spriteTowerMagic3  = 205 // 4 rockets
+	spriteTowerFrost   = 227 // V5 Phase 4: 灰色炮塔 (调研确认未占用)
+	spriteFrostShot    = 276 // V5 Phase 4: 白色小圆弹
 	spriteEnemyNormal  = 248
 	spriteEnemyFast    = 246
 	spriteEnemyGlider  = 270
@@ -63,6 +65,8 @@ func bulletSpriteID(k TowerKind) int {
 		return spriteCannonball
 	case TMagic:
 		return spriteMagicMissile
+	case TFrost:
+		return spriteFrostShot
 	default: // TArcher 与默认
 		return spriteBullet
 	}
@@ -191,6 +195,8 @@ func towerSpriteID(kind TowerKind, level int) int {
 		default:
 			return spriteTowerMagic3
 		}
+	case TFrost:
+		return spriteTowerFrost
 	}
 	return spriteTowerArcher
 }

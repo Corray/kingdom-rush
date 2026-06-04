@@ -1,7 +1,8 @@
 //go:build term
 
 // Terminal (tcell) 渲染。V2 默认 build 用 ebiten,terminal 模式 opt-in:
-//   go build -tags term
+//
+//	go build -tags term
 //
 // V1.7 中 Renderer interface 实际未被 ebiten 复用(范式不同),V2 删除 interface,
 // TermRenderer 仍为 terminal main 直接调用。
@@ -39,10 +40,10 @@ func NewTermRenderer() (*TermRenderer, error) {
 	return &TermRenderer{scr: s}, nil
 }
 
-func (r *TermRenderer) Init() error             { return r.scr.Init() }
-func (r *TermRenderer) Fini()                   { r.scr.Fini() }
-func (r *TermRenderer) PollEvent() tcell.Event  { return r.scr.PollEvent() }
-func (r *TermRenderer) Sync()                   { r.scr.Sync() }
+func (r *TermRenderer) Init() error            { return r.scr.Init() }
+func (r *TermRenderer) Fini()                  { r.scr.Fini() }
+func (r *TermRenderer) PollEvent() tcell.Event { return r.scr.PollEvent() }
+func (r *TermRenderer) Sync()                  { r.scr.Sync() }
 
 var (
 	colPathBg   = tcell.NewRGBColor(139, 69, 19)

@@ -136,13 +136,15 @@ func (g *Game) Update(dt float64) {
 			g.spawned++
 		}
 	}
-	// move
+	// move (V5 Phase 4: 减速状态生效 + 计时衰减)
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		speed := enemySpecs[e.Kind].Speed
-		e.PathIdx += speed * dt
+		e.PathIdx += e.EffectiveSpeed() * dt
+		if e.SlowTimer > 0 {
+			e.SlowTimer -= dt
+		}
 		if e.PathIdx >= float64(len(g.Path)-1) {
 			e.Escaped = true
 			g.Lives--
@@ -173,6 +175,10 @@ func (g *Game) Update(dt float64) {
 			)
 			g.pushSound(shootSound(t.Kind)) // V4: 射击音按塔型分 (伤害即时结算, 不另设 hit 音)
 			g.damageEnemy(target, lvl.Damage)
+			// V5 Phase 4: Frost 命中减速 (击杀后施加无意义但无害)
+			if lvl.Slow > 0 {
+				target.ApplySlow(lvl.Slow)
+			}
 			// V5 Phase 3: Cannon 溅射 — 主目标位置 Splash 半径内
 			// 其他敌人吃 splashFactor 折扣伤害 (飞行过滤与主目标一致)
 			if lvl.Splash > 0 {

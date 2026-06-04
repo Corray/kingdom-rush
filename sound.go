@@ -14,6 +14,7 @@ const (
 	SndShootArcher SoundEvent = iota
 	SndShootCannon
 	SndShootMagic
+	SndShootFrost // V5 Phase 4
 	SndEnemyDeath
 	SndBuild
 	SndUpgrade
@@ -47,6 +48,8 @@ func shootSound(k TowerKind) SoundEvent {
 		return SndShootCannon
 	case TMagic:
 		return SndShootMagic
+	case TFrost:
+		return SndShootFrost
 	default:
 		return SndShootArcher
 	}
