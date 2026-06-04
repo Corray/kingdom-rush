@@ -1,0 +1,59 @@
+# V7 Phase 2: 测试门禁 + WASM 构建 + GitHub Pages 部署
+# push master 即发布; 测试不过不部署。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      # ebiten 在 linux 上编译 (cgo/X11/ALSA) 需要的系统库 — 测试门禁用
+      - name: Install ebiten build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libc6-dev libglu1-mesa-dev libgl1-mesa-dev \
+            libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev \
+            libxxf86vm-dev libasound2-dev pkg-config
+
+      - name: Test (gate)
+        run: go test ./... -count=1
+
+      - name: Build WASM (stripped)
+        run: |
+          GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o web/kingdom-rush.wasm .
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

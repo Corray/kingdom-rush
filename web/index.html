@@ -2,53 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gopher Defense</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gopher Defense — browser tower defense in Go</title>
+    <meta name="description" content="Gopher Defense — a tower defense game written in Go, running in your browser via WebAssembly. 20 levels, endless mode, 4 towers.">
+    <!-- 内联 favicon (SVG data URI) — 修掉历史 favicon 404 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏰</text></svg>">
     <style>
         body {
             margin: 0;
-            padding: 16px 0;
-            background: #1e1e28;
+            padding: 14px 0 24px;
+            background: #14141c;
             color: #eaeaea;
             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
             text-align: center;
         }
-        h2 { margin: 4px 0; font-weight: 500; color: #78dcff; }
-        p { margin: 6px 0; font-size: 12px; color: #aaa; }
+        h1 { margin: 4px 0 2px; font-weight: 600; font-size: 22px; color: #78dcff; }
+        .sub { margin: 2px 0 10px; font-size: 12px; color: #8a8a99; }
         kbd {
             background: #2a2a35;
             border: 1px solid #444;
+            border-bottom-width: 2px;
             border-radius: 3px;
             padding: 1px 5px;
             font-size: 11px;
             color: #ddd;
         }
+        .controls {
+            display: inline-block;
+            margin: 4px auto 8px;
+            font-size: 12px;
+            color: #aab;
+            line-height: 2;
+            max-width: 1000px;
+        }
         canvas {
             display: block;
-            margin: 10px auto;
-            border: 1px solid #444;
+            margin: 8px auto;
+            border: 1px solid #3a3a48;
+            border-radius: 4px;
             background: #1e1e28;
         }
         #loading {
             display: inline-block;
-            margin: 60px auto;
+            margin: 80px auto;
             font-size: 14px;
             color: #888;
         }
+        .foot { margin-top: 14px; font-size: 11px; color: #667; }
+        .foot a { color: #78dcff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <h2>Gopher Defense — Go + Ebiten + WASM</h2>
-    <p>
-        <kbd>Click canvas first to focus.</kbd>
-        Controls:
-        <kbd>Arrows</kbd> move ·
-        <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> tower select ·
-        <kbd>Space</kbd> build/upgrade ·
+    <h1>Gopher Defense</h1>
+    <p class="sub">A tower defense game written in Go · runs in your browser via WebAssembly · click the canvas to focus</p>
+
+    <div class="controls">
+        <kbd>←↑↓→</kbd>/mouse move ·
+        <kbd>1</kbd>-<kbd>4</kbd> tower ·
+        <kbd>Space</kbd>/click build/upgrade ·
+        <kbd>X</kbd>/right-click sell ·
+        <kbd>T</kbd> targeting ·
+        <kbd>R</kbd>+click meteor ·
         <kbd>M</kbd> menu ·
+        <kbd>D</kbd> difficulty ·
+        <kbd>E</kbd> endless ·
+        <kbd>-</kbd>/<kbd>=</kbd> volume ·
+        <kbd>J</kbd> effects ·
         <kbd>Q</kbd>/<kbd>Esc</kbd> quit
-    </p>
-    <p>Save persists in browser localStorage (per origin).</p>
-    <div id="loading">Loading WASM...</div>
+    </div>
+
+    <div id="loading">Loading WASM (~6 MB gzipped)&hellip;</div>
     <script src="wasm_exec.js"></script>
     <script>
         const go = new Go();
@@ -61,5 +84,12 @@
                 document.getElementById("loading").innerText = "Load failed: " + err;
             });
     </script>
+
+    <p class="foot">
+        Progress saves to your browser's localStorage ·
+        <a href="https://github.com/Corray/kingdom-rush">source on GitHub</a> (MIT) ·
+        art &amp; audio CC0 (Kenney, Juhani Junkala) ·
+        inspired by Kingdom Rush — not affiliated with Ironhide
+    </p>
 </body>
 </html>
