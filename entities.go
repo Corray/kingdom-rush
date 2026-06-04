@@ -79,7 +79,8 @@ func TowerKinds() []TowerKind { return []TowerKind{TArcher, TCannon, TMagic} }
 type Tower struct {
 	Pos      Point
 	Kind     TowerKind
-	Level    int // 1-3
+	Level    int        // 1-3
+	Target   TargetMode // V5 Phase 2: targeting 策略 (零值 First = 原行为)
 	cooldown float64
 }
 

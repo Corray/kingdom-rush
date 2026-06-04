@@ -161,24 +161,9 @@ func (g *Game) Update(dt float64) {
 		if t.cooldown > 0 {
 			continue
 		}
-		var target *Enemy
-		maxIdx := -1.0
-		for _, e := range g.Enemies {
-			if e.Dead || e.Escaped {
-				continue
-			}
-			eSpec := enemySpecs[e.Kind]
-			if eSpec.Flying && !towerSpec.HitsFlying {
-				continue
-			}
-			ep := e.Pos(g.Path)
-			dx := float64(ep.X - t.Pos.X)
-			dy := float64(ep.Y - t.Pos.Y)
-			if math.Sqrt(dx*dx+dy*dy) <= lvl.Range && e.PathIdx > maxIdx {
-				maxIdx = e.PathIdx
-				target = e
-			}
-		}
+		// V5 Phase 2: 目标选择抽 pickTarget 纯函数 (targeting.go),
+		// 按塔的 Target 策略选 (默认 First = 原"最前优先"行为)
+		target := pickTarget(t, g.Enemies, g.Path)
 		if target != nil {
 			target.HP -= lvl.Damage
 			t.cooldown = lvl.Cooldown
@@ -324,6 +309,19 @@ func (g *Game) SellTower() {
 		return
 	}
 	g.Msg = "No tower here to sell"
+}
+
+// CycleTargeting: V5 Phase 2 — 光标处塔的 targeting 策略循环切换
+// (First → Last → Strong → First)。塔级运行时状态, 不入存档。
+func (g *Game) CycleTargeting() {
+	for _, t := range g.Towers {
+		if t.Pos == g.Cursor {
+			t.Target = t.Target.Next()
+			g.Msg = fmt.Sprintf("%s targeting: %s", towerSpecs[t.Kind].Name, t.Target.Name())
+			return
+		}
+	}
+	g.Msg = "No tower here (T = targeting)"
 }
 
 // ToggleJuice: V4 Phase 5 — 屏幕反馈特效 (shake / 顿帧) 一键开关, 持久化。

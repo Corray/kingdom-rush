@@ -206,6 +206,10 @@ func (eg *EbitenGame) handleInput() {
 			inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)) {
 		g.SellTower()
 	}
+	// V5 Phase 2: T 键循环切换光标处塔的 targeting 策略
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyT) {
+		g.CycleTargeting()
+	}
 	if g.Phase == PhasePlaying {
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			g.MoveCursor(0, -1)
@@ -794,7 +798,8 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		} else {
 			hint = "MAX LEVEL"
 		}
-		hint += fmt.Sprintf(" | X=Sell +%dg", sellRefund(atTower.Kind, atTower.Level))
+		hint += fmt.Sprintf(" | X=Sell +%dg | T=%s",
+			sellRefund(atTower.Kind, atTower.Level), atTower.Target.Name())
 		drawText(screen, hint, btnX+8, selY+12)
 	}
 

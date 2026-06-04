@@ -1211,3 +1211,114 @@ func TestSell_SoldTowerStopsShooting(t *testing.T) {
 		t.Errorf("enemy should be untouched after tower sold")
 	}
 }
+
+// ============================================================
+// V5 Phase 2: targeting 策略 (pickTarget 重构回归 + 三策略)
+// ============================================================
+
+// 三敌人 fixture: 前(idx 3, HP 20) / 中(idx 2, HP 99) / 后(idx 1, HP 5)
+func targetingFixture() (*Tower, []*Enemy, []Point) {
+	path := []Point{{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}}
+	tower := &Tower{Pos: Point{2, 1}, Kind: TArcher, Level: 1}
+	enemies := []*Enemy{
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 3},
+		{Kind: ENormal, HP: 99, MaxHP: 99, PathIdx: 2},
+		{Kind: ENormal, HP: 5, MaxHP: 20, PathIdx: 1},
+	}
+	return tower, enemies, path
+}
+
+func TestTargeting_FirstMatchesLegacyBehavior(t *testing.T) {
+	// 重构回归: 零值 TargetFirst 必须选 path 最前 (原内联逻辑)
+	tower, enemies, path := targetingFixture()
+	if got := pickTarget(tower, enemies, path); got != enemies[0] {
+		t.Errorf("First should pick front-most (idx 3), got %+v", got)
+	}
+}
+
+func TestTargeting_LegacyFilters(t *testing.T) {
+	// 重构回归: dead/escaped/飞行/射程过滤与原逻辑一致
+	path := []Point{{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}}
+	cannon := &Tower{Pos: Point{2, 1}, Kind: TCannon, Level: 1} // HitsFlying=false
+	enemies := []*Enemy{
+		{Kind: EGlider, HP: 18, MaxHP: 18, PathIdx: 3},             // 飞行 → cannon 跳过
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 2, Dead: true}, // dead 跳过
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 1},
+	}
+	if got := pickTarget(cannon, enemies, path); got != enemies[2] {
+		t.Errorf("cannon should skip flying+dead, pick idx1 normal, got %+v", got)
+	}
+	// 射程外 → nil
+	far := &Tower{Pos: Point{2, 9}, Kind: TArcher, Level: 1} // dy=9 > range 3.5
+	if got := pickTarget(far, enemies, path); got != nil {
+		t.Errorf("out of range should return nil, got %+v", got)
+	}
+}
+
+func TestTargeting_Last(t *testing.T) {
+	tower, enemies, path := targetingFixture()
+	tower.Target = TargetLast
+	if got := pickTarget(tower, enemies, path); got != enemies[2] {
+		t.Errorf("Last should pick rear-most (idx 1), got %+v", got)
+	}
+}
+
+func TestTargeting_Strong(t *testing.T) {
+	tower, enemies, path := targetingFixture()
+	tower.Target = TargetStrong
+	if got := pickTarget(tower, enemies, path); got != enemies[1] {
+		t.Errorf("Strong should pick HP 99, got %+v", got)
+	}
+	// HP 平手 → 取最前
+	enemies[0].HP = 99
+	if got := pickTarget(tower, enemies, path); got != enemies[0] {
+		t.Errorf("Strong tie should pick front-most, got %+v", got)
+	}
+}
+
+func TestTargeting_NextCycles(t *testing.T) {
+	m := TargetFirst
+	seq := []TargetMode{TargetLast, TargetStrong, TargetFirst}
+	for i, want := range seq {
+		m = m.Next()
+		if m != want {
+			t.Fatalf("cycle step %d = %v, want %v", i, m, want)
+		}
+	}
+}
+
+func TestTargeting_CycleOnTower(t *testing.T) {
+	g := newTestGame()
+	g.Cursor = Point{10, 10}
+	g.TryAction() // build
+	g.CycleTargeting()
+	if g.Towers[0].Target != TargetLast {
+		t.Errorf("cycle should switch First → Last, got %v", g.Towers[0].Target)
+	}
+	if g.Msg == "" {
+		t.Errorf("cycle should set Msg")
+	}
+	g.Cursor = Point{5, 5} // 空地
+	g.CycleTargeting()
+	if g.Towers[0].Target != TargetLast {
+		t.Errorf("empty-cell cycle should not touch other towers")
+	}
+}
+
+func TestTargeting_StrongShootsHighHP(t *testing.T) {
+	// 集成: Strong 塔实际打中高 HP 敌人
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1, Target: TargetStrong}}
+	weak := &Enemy{Kind: ENormal, HP: 5, MaxHP: 20, PathIdx: 3}
+	strong := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 1}
+	g.Enemies = []*Enemy{weak, strong}
+	g.Update(0.05)
+	if strong.HP != 150-towerSpecs[TArcher].Levels[0].Damage {
+		t.Errorf("strong enemy should be hit, HP = %d", strong.HP)
+	}
+	if weak.HP != 5 {
+		t.Errorf("weak enemy should be untouched, HP = %d", weak.HP)
+	}
+}
