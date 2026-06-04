@@ -2048,3 +2048,98 @@ func TestEndless_LoseRecordsBest(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================
+// V6 Phase 4: 星级评分 (starsFor 纯函数 + RecordStars 取 max)
+// ============================================================
+
+func TestStars_ForBoundaries(t *testing.T) {
+	cases := []struct {
+		lives, start, want int
+	}{
+		{10, 10, 3}, // 满命
+		{7, 10, 2},  // 恰好 70% (边界)
+		{6, 10, 1},  // 69% → 1
+		{8, 10, 2},  // 80%
+		{1, 10, 1},  // 勉强通关
+		{1, 1, 3},   // 小基数满命
+		{3, 4, 2},   // 75%
+		{2, 3, 1},   // 66.7% < 70%
+	}
+	for _, c := range cases {
+		if got := starsFor(c.lives, c.start); got != c.want {
+			t.Errorf("starsFor(%d/%d) = %d, want %d", c.lives, c.start, got, c.want)
+		}
+	}
+}
+
+func TestStars_RecordMaxNoRegress(t *testing.T) {
+	s := NewSave()
+	if s.StarsFor(1) != 0 {
+		t.Errorf("未通关应为 0 星")
+	}
+	s.RecordStars(1, 2)
+	s.RecordStars(1, 1) // 更差成绩不降级
+	if s.StarsFor(1) != 2 {
+		t.Errorf("worse run must not regress, got %d", s.StarsFor(1))
+	}
+	s.RecordStars(1, 3)
+	if s.StarsFor(1) != 3 {
+		t.Errorf("better run should upgrade, got %d", s.StarsFor(1))
+	}
+}
+
+func TestStars_VictoryRecordsAndPersists(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame() // StartLives 5
+		g.prepTimer = 0
+		g.spawned = 1
+		g.Enemies = []*Enemy{{Kind: ENormal, HP: 0, MaxHP: 20, Dead: true}}
+		g.Update(0.1) // 满命通关 → 3 星
+		if g.Phase != PhaseWon {
+			t.Fatalf("expected won")
+		}
+		if g.Save.StarsFor(1) != 3 {
+			t.Errorf("full-lives victory should record 3 stars, got %d", g.Save.StarsFor(1))
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.StarsFor(1) != 3 {
+			t.Errorf("stars should persist, got %d", loaded.StarsFor(1))
+		}
+	})
+}
+
+func TestStars_PartialLivesVictory(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame() // StartLives 5
+		g.prepTimer = 0
+		g.spawned = 1
+		g.Lives = 3 // 60% < 70% → 1 星
+		g.Enemies = []*Enemy{{Kind: ENormal, HP: 0, MaxHP: 20, Dead: true}}
+		g.Update(0.1)
+		if g.Save.StarsFor(1) != 1 {
+			t.Errorf("60%% lives victory = %d stars, want 1", g.Save.StarsFor(1))
+		}
+		if g.Msg == "" {
+			t.Errorf("victory msg should include stars")
+		}
+	})
+}
+
+func TestStars_OldSaveCompat(t *testing.T) {
+	var s Save
+	if err := json.Unmarshal([]byte(`{"completed":{"1":true}}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.StarsFor(1) != 0 {
+		t.Errorf("old save (no stars field) should read 0, got %d", s.StarsFor(1))
+	}
+	// nil map 上 RecordStars 不 panic
+	s.RecordStars(1, 2)
+	if s.StarsFor(1) != 2 {
+		t.Errorf("record on nil map should init, got %d", s.StarsFor(1))
+	}
+}

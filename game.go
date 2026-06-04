@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 )
 
 const (
@@ -295,11 +296,15 @@ func (g *Game) Update(dt float64) {
 				g.pushSound(SndWin)
 				g.Phase = PhaseWon
 				g.Save.MarkCompleted(lv.ID)
+				// V6 Phase 4: 通关定星 (取 max 不降级), 与完成标记同次落盘
+				stars := starsFor(g.Lives, g.StartLives)
+				g.Save.RecordStars(lv.ID, stars)
+				starStr := strings.Repeat("*", stars)
 				if err := StoreSave(g.Save); err != nil {
 					// 不阻断游戏,仅在 msg 显示;玩家可手动重试或忽略
 					g.Msg = fmt.Sprintf("Victory! (save failed: %v)", err)
 				} else {
-					g.Msg = fmt.Sprintf("Victory! Level %d cleared & saved", lv.ID)
+					g.Msg = fmt.Sprintf("Victory! %s Level %d cleared & saved", starStr, lv.ID)
 				}
 			}
 		}
@@ -424,6 +429,19 @@ func (g *Game) recordBestWave(cleared int) {
 		g.Save.BestWave = cleared
 		_ = StoreSave(g.Save)
 	}
+}
+
+// starsFor: V6 Phase 4 — 通关定星 (纯函数)。
+// 3★ 满命 / 2★ 剩命 ≥ 70% / 1★ 通关。
+// 显示用 ASCII '*' (gomono 对 U+2605 字形覆盖不确定)。
+func starsFor(lives, startLives int) int {
+	if lives >= startLives {
+		return 3
+	}
+	if float64(lives) >= 0.7*float64(startLives) {
+		return 2
+	}
+	return 1
 }
 
 // V5 Phase 5: 陨石雨主动技能参数。

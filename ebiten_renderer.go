@@ -16,6 +16,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -506,8 +507,10 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 			status = "[LOCK]"
 		}
 
-		line := fmt.Sprintf("[%s] %s Lv%2d %-14s (w:%d g:%d l:%d)",
-			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
+		// V6 Phase 4: 星级显示 (ASCII '*', 最高 3)
+		stars := strings.Repeat("*", g.Save.StarsFor(lv.ID))
+		line := fmt.Sprintf("[%s] %s Lv%2d %-14s %-3s (w:%d g:%d l:%d)",
+			keyStr, status, lv.ID, lv.Name, stars, len(lv.Waves), lv.StartGold, lv.StartLives)
 		drawText(screen, line, x+10, y+12)
 	}
 

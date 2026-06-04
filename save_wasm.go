@@ -37,6 +37,9 @@ type Save struct {
 	// V6 Phase 3: endless 最佳纪录 (已清 wave 数, 取 max)。零值 =
 	// 无纪录, 旧存档自然兼容。家族: save.go。
 	BestWave int `json:"best_wave,omitempty"`
+	// V6 Phase 4: per-level 最高星 (levelID → 1-3)。nil map 读安全
+	// (返回 0), 旧存档自然兼容。家族: save.go。
+	Stars map[int]int `json:"stars,omitempty"`
 }
 
 const (
@@ -65,6 +68,21 @@ func (s *Save) SetVolumeLevel(v int) {
 		v = maxVolume
 	}
 	s.Volume = &v
+}
+
+// RecordStars: V6 Phase 4 — 记录通关星级, 取 max 不降级。
+func (s *Save) RecordStars(levelID, stars int) {
+	if s.Stars == nil {
+		s.Stars = map[int]int{}
+	}
+	if stars > s.Stars[levelID] {
+		s.Stars[levelID] = stars
+	}
+}
+
+// StarsFor: 该关最高星 (未通关 / 旧存档 → 0)。
+func (s *Save) StarsFor(levelID int) int {
+	return s.Stars[levelID]
 }
 
 func (s *Save) MarkCompleted(levelID int) {
