@@ -24,10 +24,37 @@ import (
 
 type Save struct {
 	Completed map[int]bool `json:"completed"`
+	// V4 Phase 2: 音量档 0-10。指针区分"未设置"(nil, 旧存档无此字段
+	// → 默认档) 与"显式 0"(静音)。家族注意: save_wasm.go 有同构定义。
+	Volume *int `json:"volume,omitempty"`
 }
+
+const (
+	defaultVolume = 7
+	maxVolume     = 10
+)
 
 func NewSave() Save {
 	return Save{Completed: map[int]bool{}}
+}
+
+// VolumeLevel: 当前音量档 0-10, 未设置返回默认档。
+func (s *Save) VolumeLevel() int {
+	if s.Volume == nil {
+		return defaultVolume
+	}
+	return *s.Volume
+}
+
+// SetVolumeLevel: 设音量档, clamp 到 [0, maxVolume]。
+func (s *Save) SetVolumeLevel(v int) {
+	if v < 0 {
+		v = 0
+	}
+	if v > maxVolume {
+		v = maxVolume
+	}
+	s.Volume = &v
 }
 
 func (s *Save) MarkCompleted(levelID int) {

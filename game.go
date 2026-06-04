@@ -278,6 +278,14 @@ func (g *Game) TryAction() {
 	g.Msg = fmt.Sprintf("Built %s", towerSpecs[g.Selected].Name)
 }
 
+// AdjustVolume: V4 Phase 2 — 音量档 ±delta (0-10), 立即持久化。
+// 存档失败不阻断 (音量是偏好设置, 丢失可重调)。
+func (g *Game) AdjustVolume(delta int) {
+	g.Save.SetVolumeLevel(g.Save.VolumeLevel() + delta)
+	_ = StoreSave(g.Save)
+	g.Msg = fmt.Sprintf("Volume %d/%d", g.Save.VolumeLevel(), maxVolume)
+}
+
 func (g *Game) CountAliveEnemies() int {
 	n := 0
 	for _, e := range g.Enemies {

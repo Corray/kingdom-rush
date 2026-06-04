@@ -89,14 +89,16 @@ func initAudio() int {
 	return failed
 }
 
-// playSounds: drain 出的事件逐个播放 (未初始化 / 缺音效静默跳过)。
-func playSounds(evs []SoundEvent) {
-	if audioCtx == nil {
+// playSounds: drain 出的事件按主音量逐个播放 (未初始化 / 缺音效静默跳过)。
+func playSounds(evs []SoundEvent, masterVol float64) {
+	if audioCtx == nil || masterVol <= 0 {
 		return
 	}
 	for _, ev := range evs {
 		if pcm, ok := sfxPCM[ev]; ok {
-			audioCtx.NewPlayerFromBytes(pcm).Play()
+			p := audioCtx.NewPlayerFromBytes(pcm)
+			p.SetVolume(masterVol)
+			p.Play()
 		}
 	}
 }

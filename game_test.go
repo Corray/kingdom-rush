@@ -7,7 +7,10 @@
 // 不覆盖: render layer (tcell screen 需 TTY) / main 事件循环 (集成测试)。
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 // ============================================================
 // ExpandPath
@@ -770,5 +773,103 @@ func TestSound_QueueCap(t *testing.T) {
 	}
 	if n := len(g.DrainSounds()); n != maxSoundQueue {
 		t.Errorf("queue should cap at %d, got %d", maxSoundQueue, n)
+	}
+}
+
+// ============================================================
+// V4 Phase 2: 音量档 (save.go) + AdjustVolume (game.go) + bgmFor (bgm.go)
+// ============================================================
+
+func TestVolume_DefaultWhenUnset(t *testing.T) {
+	s := NewSave()
+	if s.VolumeLevel() != defaultVolume {
+		t.Errorf("unset volume should default %d, got %d", defaultVolume, s.VolumeLevel())
+	}
+}
+
+func TestVolume_OldSaveJSONCompat(t *testing.T) {
+	// 旧存档无 volume 字段 → 默认档, 不能误判为 0 (静音)
+	var s Save
+	if err := json.Unmarshal([]byte(`{"completed":{"1":true}}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.VolumeLevel() != defaultVolume {
+		t.Errorf("old save should default volume %d, got %d", defaultVolume, s.VolumeLevel())
+	}
+	if !s.IsCompleted(1) {
+		t.Errorf("old save completed should survive")
+	}
+}
+
+func TestVolume_SetClamp(t *testing.T) {
+	s := NewSave()
+	s.SetVolumeLevel(-3)
+	if s.VolumeLevel() != 0 {
+		t.Errorf("clamp low: want 0, got %d", s.VolumeLevel())
+	}
+	s.SetVolumeLevel(99)
+	if s.VolumeLevel() != maxVolume {
+		t.Errorf("clamp high: want %d, got %d", maxVolume, s.VolumeLevel())
+	}
+}
+
+func TestVolume_ExplicitZeroPersists(t *testing.T) {
+	// 显式静音 (0) 与未设置 (默认 7) 必须区分 — 指针字段语义
+	withTempSavePath(t, func() {
+		s := NewSave()
+		s.SetVolumeLevel(0)
+		if err := StoreSave(s); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.VolumeLevel() != 0 {
+			t.Errorf("explicit mute should persist as 0, got %d", loaded.VolumeLevel())
+		}
+	})
+}
+
+func TestVolume_AdjustPersistsAndClamps(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.AdjustVolume(-1) // 7 → 6
+		if g.Save.VolumeLevel() != 6 {
+			t.Fatalf("want 6, got %d", g.Save.VolumeLevel())
+		}
+		if g.Msg == "" {
+			t.Errorf("volume change should set Msg")
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.VolumeLevel() != 6 {
+			t.Errorf("volume should persist, got %d", loaded.VolumeLevel())
+		}
+		for i := 0; i < 20; i++ {
+			g.AdjustVolume(+1)
+		}
+		if g.Save.VolumeLevel() != maxVolume {
+			t.Errorf("repeated +1 should clamp at %d", maxVolume)
+		}
+	})
+}
+
+func TestBGM_TrackForPhase(t *testing.T) {
+	cases := []struct {
+		phase GamePhase
+		want  bgmTrack
+	}{
+		{PhaseLevelSelect, bgmMenu},
+		{PhasePlaying, bgmBattle},
+		{PhaseWon, bgmNone},
+		{PhaseLost, bgmNone},
+	}
+	for _, c := range cases {
+		if got := bgmFor(c.phase); got != c.want {
+			t.Errorf("bgmFor(%v) = %v, want %v", c.phase, got, c.want)
+		}
 	}
 }

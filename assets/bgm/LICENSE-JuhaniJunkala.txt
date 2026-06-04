@@ -1,0 +1,18 @@
+BGM 素材来源 — Juhani Junkala (juhanijunkala.com), License: CC0
+http://creativecommons.org/publicdomain/zero/1.0/
+
+下载日期: 2026-06-04
+来源: OpenGameArt "4 Chiptunes (Adventure)"
+https://opengameart.org/content/4-chiptunes-adventure
+页面 license 标注 CC0 + 包内 INFO.txt 作者声明:
+"These music tracks have been released under CC0 creative commons
+license. You can do anything you want with these tunes."
+
+文件映射 (本目录文件 ← 包内原文件):
+
+| 本目录 | 原文件 |
+|--------|--------|
+| menu.ogg | Juhani Junkala [Chiptune Adventures] 4. Stage Select.ogg |
+| battle.ogg | Juhani Junkala [Chiptune Adventures] 1. Stage 1.ogg |
+
+自愿 attribution (CC0 不强制): Music by Juhani Junkala

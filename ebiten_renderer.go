@@ -68,6 +68,10 @@ func NewEbitenGame(g *Game) *EbitenGame {
 	if n := initAudio(); n > 0 {
 		fmt.Println("warning:", n, "sfx failed to decode (those sounds muted)")
 	}
+	// V4 Phase 2: BGM 常驻 player (依赖 initAudio 的 audioCtx)
+	if n := initBGM(); n > 0 {
+		fmt.Println("warning:", n, "bgm track(s) failed to load (music muted)")
+	}
 	return &EbitenGame{game: g, last: time.Now()}
 }
 
@@ -85,7 +89,10 @@ func (eg *EbitenGame) Update() error {
 	eg.game.Update(dt)
 	// V4 Phase 1: drain SFX 队列并播放 (handleInput 的 build/upgrade
 	// 与 Update 的 shoot/death/wave/win/lose 事件都在本帧消费)
-	playSounds(eg.game.DrainSounds())
+	// V4 Phase 2: 主音量 = 存档音量档/10, BGM 状态机每帧驱动
+	masterVol := float64(eg.game.Save.VolumeLevel()) / float64(maxVolume)
+	playSounds(eg.game.DrainSounds(), masterVol)
+	updateBGM(eg.game.Phase, masterVol, dt)
 	return nil
 }
 
@@ -114,6 +121,13 @@ func (eg *EbitenGame) handleInput() {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
 		g.BackToMenu()
+	}
+	// V4 Phase 2: 音量档 -/= (全 phase 生效, 0 档 = 静音)
+	if inpututil.IsKeyJustPressed(ebiten.KeyMinus) {
+		g.AdjustVolume(-1)
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) {
+		g.AdjustVolume(+1)
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.Phase == PhasePlaying {
 		g.TryAction()
@@ -267,6 +281,10 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
 	drawText(screen,
 		" Kingdom Rush V3  —  Select Level", 20, 10)
+	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
+	drawText(screen,
+		fmt.Sprintf("Vol %d/%d (-/=)", g.Save.VolumeLevel(), maxVolume),
+		windowW-130, 10)
 
 	completed := 0
 	for _, lv := range g.Levels {
@@ -379,6 +397,10 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	title := fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	drawText(screen, title, 8, 8)
+	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
+	drawText(screen,
+		fmt.Sprintf("Vol %d/%d", g.Save.VolumeLevel(), maxVolume),
+		windowW-80, 8)
 
 	// V3 Phase 6: ALL cells grass tile (背景统一, path overlay 之上)
 	if tilesheet != nil {
