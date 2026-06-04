@@ -282,6 +282,47 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 
 ---
 
+## V7 — 发布版（active，2026-06-04 启动）
+
+### 方向决策记录
+
+**拍板：** V6 收尾三候选中用户选 b) 发布版（2026-06-04）。同时拍板两项外向决策：
+1. **改名发布**——"Kingdom Rush" 是 Ironhide 注册商标，对外名改为 **Gopher Defense**（Go 吉祥物 + TD），标注 "inspired by Kingdom Rush"；仓库名/module 名保留
+2. **转 public + GitHub Pages**——Actions 自动构建部署，push 即发布
+
+**已知翻车场景（反例）：** 改名只改门面、游戏内残留旧名 → grep 验收兜底；Pages 部署后 WASM 加载路径/缓存问题 → 线上 URL playwright 实测（不只看 workflow 绿）。
+
+### 现状基线（2026-06-04 实测）
+
+- 仓库 PRIVATE / 无 README / index.html 停留 V2.5 门面（键位缺 V5/V6 全部新键）[已验证]
+- 改名涉及面：用户可见字符串 6 处（term/ebiten menu + HUD title + window title + index.html ×3）[已验证: grep]
+- **不改名单**：存档路径 `~/.kingdom-rush` / localStorage key / module 名 / wasm 文件名——改存档 key = 丢用户进度，技术标识符与对外名解耦
+- 素材 license 全 CC0 已溯源（assets/*/LICENSE-*），发布合规基础齐
+
+### Phase 计划
+
+#### Phase 1 — 改名 + README + 门面
+
+- **范围：** 6 处用户可见字符串改 Gopher Defense；README.md（特性/截图/键位表/三端构建指南/素材 attribution/版本史链接/"inspired by" 标注/存档位置说明）；截图 2-3 张入库 `docs/screenshots/`
+- **验收：** `grep "Kingdom Rush"` 用户可见层零残留（注释/存档 key 白名单除外）；README 完整可读；截图入库
+
+#### Phase 2 — Pages 部署工程
+
+- **范围：** index.html 重写（新名/全键位表/loading 美化/内联 favicon 修 404）；GitHub Actions workflow（build wasm `-ldflags "-s -w"` 减体积 + actions/deploy-pages）；执行 `gh repo edit --visibility public`（已拍板授权）+ 开 Pages
+- **验收：** workflow 绿；Pages URL 浏览器可玩（playwright 线上实测，注意这次没有换端口问题——线上 URL 天然新 origin）
+
+#### Phase 3 — 发布收尾
+
+- **范围：** GitHub Release v7.0（release notes 链 Pages URL + 版本史摘要）；仓库 metadata（description / homepage / topics）；license 清单终核；全量回归
+- **验收：** Release 页可见；repo 门面齐；124+ tests 绿
+
+### 工程约定
+
+- 改名 = 纯字符串替换，不动逻辑；每 phase 三 build + 全量测试照常
+- V7 收尾打 `v7.0` tag
+
+---
+
 ## 变更记录
 
 | 日期 | 变更 |
@@ -292,3 +333,4 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 | 2026-06-04 | V5 收尾：tag `v5.0`（8ee77f5），版本史补 V5 行，收尾记录（纪律兑现 ×4 + 未竟项 ×4），V6 候选标记（内容扩展，待拍板）|
 | 2026-06-04 | V6 启动：用户拍板内容扩展，Phase 1-4 规划（关卡 11-20 + 菜单两列 → 难度模式 → endless → 星级）；内容数据测试兜底纪律 + endless seed 注入约束 |
 | 2026-06-04 | V6 收尾：tag `v6.0`（d2d4bf1），版本史补 V6 行，收尾记录（纪律兑现 ×5 + 未竟项 ×4），下一版三候选记录（平衡打磨 / 发布 / 新机制，未拍板）|
+| 2026-06-04 | V7 启动：用户拍板发布版 + 两项外向决策（改名 Gopher Defense / 转 public+Pages）；Phase 1-3 规划（改名+README → Pages 部署 → Release 收尾）；存档 key 不改名单明确 |
