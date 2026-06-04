@@ -418,7 +418,7 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	strokeRect(screen, 0, 0, float32(windowW), 50,
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
 	drawText(screen,
-		" Kingdom Rush V3  —  Select Level", 20, 10)
+		" Gopher Defense  —  Select Level", 20, 10)
 	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
 	drawText(screen,
 		fmt.Sprintf("Vol %d/%d (-/=)", g.Save.VolumeLevel(), maxVolume),
@@ -550,10 +550,10 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// title (V6 Phase 2: 非 Normal 难度标注; Phase 3: endless 专用格式)
 	var title string
 	if g.Endless {
-		title = fmt.Sprintf(" KR V3 — Endless — Wave %d (best: %d) ",
+		title = fmt.Sprintf(" Gopher Defense — Endless — Wave %d (best: %d) ",
 			g.WaveIdx+1, g.Save.BestWave)
 	} else {
-		title = fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
+		title = fmt.Sprintf(" Gopher Defense — Lv %d: %s — Wave %d/%d ",
 			lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	}
 	if g.Save.Difficulty != DiffNormal {

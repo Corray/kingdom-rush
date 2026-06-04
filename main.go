@@ -41,7 +41,7 @@ func main() {
 	g := NewGame(levels, save)
 
 	ebiten.SetWindowSize(windowW, windowH)
-	ebiten.SetWindowTitle("Kingdom Rush V2")
+	ebiten.SetWindowTitle("Gopher Defense")
 	ebiten.SetTPS(60)
 
 	eg := NewEbitenGame(g)

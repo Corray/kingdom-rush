@@ -91,7 +91,7 @@ func (r *TermRenderer) drawLevelSelect(g *Game) {
 	stHelp := tcell.StyleDefault.Foreground(colHelpFg)
 	stMsg := tcell.StyleDefault.Foreground(colPrepFg)
 
-	drawString(r.scr, 0, 0, " Kingdom Rush V1.7  —  Select Level", stTitle)
+	drawString(r.scr, 0, 0, " Gopher Defense  —  Select Level", stTitle)
 	drawString(r.scr, 0, 1, " ===================================", stHelp)
 
 	completed := 0
