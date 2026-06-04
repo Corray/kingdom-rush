@@ -272,12 +272,13 @@ func TestUpdate_NoOpWhenNotPlaying(t *testing.T) {
 // ============================================================
 
 func TestLoadLevels_10Levels(t *testing.T) {
+	// V6 Phase 1: 10 → 20 关 (测试名保留防 diff 噪音, 语义为"全量加载")
 	levels, err := LoadLevels()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if len(levels) != 10 {
-		t.Errorf("expected 10 levels, got %d", len(levels))
+	if len(levels) != 20 {
+		t.Errorf("expected 20 levels, got %d", len(levels))
 	}
 	for _, lv := range levels {
 		if len(lv.Path) < 2 {
@@ -1652,5 +1653,111 @@ func TestMeteor_LevelStartResets(t *testing.T) {
 	g.StartLevel(0)
 	if g.MeteorCD != 0 {
 		t.Errorf("level start should reset meteor cooldown, got %v", g.MeteorCD)
+	}
+}
+
+// ============================================================
+// V6 Phase 1: 关卡 11-20 数据完整性 + 菜单两列 hitbox
+// ============================================================
+
+func TestLevels_IntegrityAll(t *testing.T) {
+	levels, err := LoadLevels()
+	if err != nil {
+		t.Fatalf("LoadLevels failed: %v", err)
+	}
+	if len(levels) != 20 {
+		t.Fatalf("want 20 levels, got %d", len(levels))
+	}
+	for i, lv := range levels {
+		// unlock 链连续 (IsUnlocked 依赖 ID = 前一关 ID+1)
+		if lv.ID != i+1 {
+			t.Errorf("level[%d] ID = %d, unlock 链要求连续", i, lv.ID)
+		}
+		if len(lv.Path) < 2 {
+			t.Errorf("Lv%d path too short: %d", lv.ID, len(lv.Path))
+		}
+		// 起终点约定: x=0 进场, x=29 离场 (全 20 关一致)
+		if lv.Path[0].X != 0 {
+			t.Errorf("Lv%d path should start at x=0, got %v", lv.ID, lv.Path[0])
+		}
+		if lv.Path[len(lv.Path)-1].X != mapW-1 {
+			t.Errorf("Lv%d path should end at x=%d, got %v", lv.ID, mapW-1, lv.Path[len(lv.Path)-1])
+		}
+		// 全 path cell 在地图内
+		for _, p := range lv.Path {
+			if p.X < 0 || p.X >= mapW || p.Y < 0 || p.Y >= mapH {
+				t.Errorf("Lv%d path cell %v out of map %dx%d", lv.ID, p, mapW, mapH)
+			}
+		}
+		if len(lv.Waves) < 3 {
+			t.Errorf("Lv%d should have ≥3 waves, got %d", lv.ID, len(lv.Waves))
+		}
+		for w, wave := range lv.Waves {
+			if len(wave.Enemies) == 0 {
+				t.Errorf("Lv%d wave %d empty", lv.ID, w+1)
+			}
+		}
+		if lv.StartGold < 100 || lv.StartLives < 3 {
+			t.Errorf("Lv%d 起始资源异常: gold %d lives %d", lv.ID, lv.StartGold, lv.StartLives)
+		}
+	}
+}
+
+func TestLevels_DifficultyRampsUp(t *testing.T) {
+	// 粗粒度难度单调性: 后 10 关总敌量 ≥ 前 10 关均值 (防 yaml 抄错)
+	levels, err := LoadLevels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 实战敌量加权: Spawner 死后召唤 2 normals → 计 3
+	total := func(lv Level) int {
+		n := 0
+		for _, w := range lv.Waves {
+			for _, k := range w.Enemies {
+				if k == ESpawner {
+					n += 3
+				} else {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	firstHalfSum := 0
+	for _, lv := range levels[:10] {
+		firstHalfSum += total(lv)
+	}
+	avg := firstHalfSum / 10
+	for _, lv := range levels[10:] {
+		if total(lv) < avg {
+			t.Errorf("Lv%d 总敌量 %d < 前 10 关均值 %d (难度曲线倒挂?)", lv.ID, total(lv), avg)
+		}
+	}
+}
+
+func TestMenu_RowAtPixelTwoColumns(t *testing.T) {
+	const startY, rowH = 60, 36
+	cases := []struct {
+		mx, my int
+		want   int
+		wantOK bool
+	}{
+		{10, startY + 5, 0, true},                     // 左列首行
+		{10, startY + 9*rowH + 5, 9, true},            // 左列末行
+		{windowW - 10, startY + 5, 10, true},          // 右列首行 = Lv11
+		{windowW - 10, startY + 9*rowH + 5, 19, true}, // 右列末行 = Lv20
+		{10, startY - 5, 0, false},                    // 上方界外
+		{10, startY + 10*rowH + 5, 0, false},          // 下方界外
+	}
+	for _, c := range cases {
+		got, ok := menuRowAtPixel(c.mx, c.my, 20)
+		if ok != c.wantOK || (ok && got != c.want) {
+			t.Errorf("menuRowAtPixel(%d,%d) = (%d,%v), want (%d,%v)",
+				c.mx, c.my, got, ok, c.want, c.wantOK)
+		}
+	}
+	// 10 关存档兼容: 右列点击不应命中 (numLevels=10)
+	if _, ok := menuRowAtPixel(windowW-10, startY+5, 10); ok {
+		t.Errorf("右列在只有 10 关时不应命中")
 	}
 }

@@ -294,10 +294,10 @@ func (eg *EbitenGame) handleInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyDigit0) {
 			g.StartLevel(9)
 		}
-		// V2.7: menu 阶段鼠标点击 row 启动关卡
+		// V2.7: menu 阶段鼠标点击 row 启动关卡 (V6: 两列 hitbox)
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			_, my := ebiten.CursorPosition()
-			if i, ok := menuRowAtPixel(my, len(g.Levels)); ok {
+			mx, my := ebiten.CursorPosition()
+			if i, ok := menuRowAtPixel(mx, my, len(g.Levels)); ok {
 				g.StartLevel(i)
 			}
 		}
@@ -346,13 +346,30 @@ func pixelToCell(mx, my int) (Point, bool) {
 	return Point{X: gx, Y: gy}, true
 }
 
-// menuRowAtPixel 返回鼠标所在的 level select row index (0..len(levels)-1), false 表示不在行上
+// menuRowsPerCol: V6 Phase 1 — 两列布局, 每列关卡数。
+const menuRowsPerCol = 10
+
+// menuRowAtPixel 返回鼠标所在的 level select index (0..numLevels-1)。
 // V3 Phase 5a: layout 重排 (startY 50→60, rowH 22→36 配合 box-style 渲染)
-func menuRowAtPixel(my, numLevels int) (int, bool) {
+// V6 Phase 1: 两列布局 — 左列 0-9, 右列 10-19 (按 windowW/2 分界)
+func menuRowAtPixel(mx, my, numLevels int) (int, bool) {
 	const startY = 60
 	const rowH = 36
-	i := (my - startY) / rowH
-	if i < 0 || i >= numLevels {
+	// V6 修复既有 bug: Go 负数整除向零截断, my 略小于 startY 时
+	// (my-startY)/rowH == 0 误命中首行 (点 title 区误启动关卡)
+	if my < startY {
+		return 0, false
+	}
+	row := (my - startY) / rowH
+	if row >= menuRowsPerCol {
+		return 0, false
+	}
+	col := 0
+	if mx >= windowW/2 {
+		col = 1
+	}
+	i := col*menuRowsPerCol + row
+	if i >= numLevels {
 		return 0, false
 	}
 	return i, true
@@ -410,28 +427,32 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 
 	// V3 Phase 5a: 每关 row 用 box (panel + border)
 	// 状态颜色: 通关绿底, 锁定灰底, 默认深底; hover unlocked 加金边
-	_, mouseY := ebiten.CursorPosition()
-	mouseX, _ := ebiten.CursorPosition()
+	// V6 Phase 1: 两列布局 (10 关/列), stats 压缩适配列宽
+	mouseX, mouseY := ebiten.CursorPosition()
 	const (
 		rowStartY = 60
 		rowH      = 36
 		rowMargin = 2
 		rowX      = 8
+		colGap    = 8
 	)
-	rowW := windowW - rowX*2
+	colW := (windowW - rowX*2 - colGap) / 2
 
 	for i, lv := range g.Levels {
-		y := rowStartY + i*rowH
-		key := i + 1
-		keyStr := fmt.Sprintf("%d", key)
-		if key == 10 {
+		colIdx := i / menuRowsPerCol
+		x := rowX + colIdx*(colW+colGap)
+		y := rowStartY + (i%menuRowsPerCol)*rowH
+		keyStr := "-" // 11-20 无键位, 鼠标点击
+		if i < 9 {
+			keyStr = fmt.Sprintf("%d", i+1)
+		} else if i == 9 {
 			keyStr = "0"
 		}
 
 		isCompleted := g.Save.IsCompleted(lv.ID)
 		isUnlocked := g.Save.IsUnlocked(lv.ID)
 		isHover := mouseY >= y && mouseY < y+rowH-rowMargin &&
-			mouseX >= rowX && mouseX < rowX+rowW
+			mouseX >= x && mouseX < x+colW
 
 		// Box bg
 		var bgCol color.RGBA
@@ -446,8 +467,8 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		if isHover && isUnlocked {
 			bgCol = color.RGBA{R: 60, G: 80, B: 110, A: 240}
 		}
-		fillRect(screen, float32(rowX), float32(y),
-			float32(rowW), float32(rowH-rowMargin), bgCol)
+		fillRect(screen, float32(x), float32(y),
+			float32(colW), float32(rowH-rowMargin), bgCol)
 
 		// Box border
 		var borderCol color.RGBA
@@ -462,8 +483,8 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		if isHover && isUnlocked {
 			borderCol = color.RGBA{R: 255, G: 220, B: 80, A: 255} // 金
 		}
-		strokeRect(screen, float32(rowX), float32(y),
-			float32(rowW), float32(rowH-rowMargin), borderCol, 2)
+		strokeRect(screen, float32(x), float32(y),
+			float32(colW), float32(rowH-rowMargin), borderCol, 2)
 
 		// Status indicator (left side)
 		status := "[    ]"
@@ -473,15 +494,15 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 			status = "[LOCK]"
 		}
 
-		line := fmt.Sprintf("[%s]  %s  Lv %2d  %-18s    (waves:%d  gold:%d  lives:%d)",
+		line := fmt.Sprintf("[%s] %s Lv%2d %-14s (w:%d g:%d l:%d)",
 			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
-		drawText(screen, line, rowX+12, y+12)
+		drawText(screen, line, x+10, y+12)
 	}
 
-	// Help row + msg
-	helpY := rowStartY + len(g.Levels)*rowH + 8
+	// Help row + msg (V6: 按每列最大行数定位)
+	helpY := rowStartY + menuRowsPerCol*rowH + 8
 	drawText(screen,
-		" Click row or press 1-9 / 0 to start | Q/Esc to quit",
+		" Click row to start (1-9/0 for Lv 1-10) | Q/Esc to quit",
 		20, helpY)
 	if g.Msg != "" {
 		drawText(screen, " "+g.Msg, 20, helpY+18)
