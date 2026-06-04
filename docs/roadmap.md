@@ -14,6 +14,7 @@
 | V0 ~ V1.7 | Terminal TD | tcell 渲染、wave/塔/敌核心循环、多关卡、unlock 系统 + JSON 存档（~/.kingdom-rush）、33 tests | `v1.0` | `6e44720` |
 | V2 ~ V2.7 | Ebiten 桌面 + WASM | 双 build（默认 ebiten / `-tags term` 保留 V1.7）、WASM + localStorage 存档、Makefile、攻击视觉特效、鼠标输入 + 射程圈 | `v2.0` | `20f5a87` |
 | V3 Phase 1-6b + V3.6 | Sprite/UI 美化 + 内容 | Kenney CC0 sprite 全替换、bullet 飞行动画、HUD/menu 美化、Go Mono truetype 字体、程序化 path 绘制 + 描边、Spawner 敌型（第 5 种）、39 tests | `v3.0` | `b108a26` |
+| V4 Phase 1-5 | 音频 + Game Feel | SFX 管线（9 音效 Kenney CC0）、BGM 双轨 + 音量档持久化（Juhani Junkala CC0）、走动/死亡动画（程序化插值+旋转+摆动）、伤害飘字 + 金币反馈、shake + boss 顿帧 + J 开关、72 tests | `v4.0` | `5936799` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -25,7 +26,29 @@
 
 ---
 
-## V4 — 音频 + Game Feel（active，2026-06-04 拍板）
+## V4 — 音频 + Game Feel（已收尾 2026-06-04，tag `v4.0`）
+
+> Phase 1-5 全部完成（含可选 Phase 5，用户拍板做）。以下为规划原文存档 + 末尾收尾记录。
+
+### V4 收尾记录（2026-06-04）
+
+**完成度：** 5/5 phase，测试 39 → 72，全程三 build（desktop / term / WASM）保持绿。
+
+**未竟项（不阻塞收尾）：**
+
+| 项 | 来源 | 去向 |
+|----|------|------|
+| 独立 hit 音（弹着时序）| Phase 1 偏离记录——伤害即时结算，shoot+hit 同帧叠播浑浊 | 若未来做"bullet 飞行期间伤害延迟结算"再议 |
+| 音色搭配 / bgmBaseVol 0.4 平衡微调 | Phase 1/2 待听感项，收尾时用户未提出调整 | 调参入口保留（映射表换文件 / 改常量一行）|
+| 飘字像素级截图验证 | Phase 4 playwright tab 错乱，按迭代上限停手 | 逻辑单测 + 同模式渲染分支佐证；用户实玩可见 |
+
+**验证遗留风险（盲点声明）：** shake 强度 / 顿帧时长 / 飘字密度均按"弱强度默认"设计但未经长时间实玩压测，若实际体验过强，J 键可整体关闭（shake+顿帧），飘字无开关——若被反馈干扰需补开关。
+
+**下一版候选：** V5 — Gameplay 深度（卖塔 / targeting 策略 / Cannon AoE / 减速塔 / 主动技能），V4 方向决策时已标记。启动前需用户拍板。
+
+---
+
+### 以下为 V4 规划原文（2026-06-04 拍板时写入，存档不改）
 
 ### 方向决策记录
 
@@ -100,3 +123,4 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-06-04 | 初建：V0→V3 版本史回填 + V3 收尾（v1.0/v2.0/v3.0 tag）+ V4 方向拍板（音频 + Game Feel）+ Phase 1-5 规划 |
+| 2026-06-04 | V4 收尾：tag `v4.0`（5936799），版本史补 V4 行，收尾记录（未竟项 ×3 + 盲点声明），V5 候选标记（Gameplay 深度，待拍板）|
