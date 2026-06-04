@@ -187,13 +187,18 @@ func (g *Game) Update(dt float64) {
 				makeHitEffect(target.Pos(g.Path)),
 			)
 			g.pushSound(shootSound(t.Kind)) // V4: 射击音按塔型分 (伤害即时结算, 不另设 hit 音)
+			// V4 Phase 3/4: 插值坐标 (对齐渲染层平滑位置), 死亡动画 + 飘字共用
+			hfx, hfy := pathLerp(g.Path, target.PathIdx)
+			g.Effects = append(g.Effects, makeDamageText(hfx, hfy, lvl.Damage))
 			if target.HP <= 0 {
 				target.Dead = true
 				g.pushSound(SndEnemyDeath)
-				// V4 Phase 3: 死亡动画 (插值坐标对齐渲染层平滑位置)
-				dfx, dfy := pathLerp(g.Path, target.PathIdx)
-				g.Effects = append(g.Effects, makeDeathEffect(dfx, dfy, target.Kind))
-				g.Gold += enemySpecs[target.Kind].Reward
+				reward := enemySpecs[target.Kind].Reward
+				// 赏金飘字右偏 0.3 cell, 与伤害字错开
+				g.Effects = append(g.Effects,
+					makeDeathEffect(hfx, hfy, target.Kind),
+					makeGoldText(hfx+0.3, hfy, reward))
+				g.Gold += reward
 				// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
 				if target.Kind == ESpawner {
 					normSpec := enemySpecs[ENormal]

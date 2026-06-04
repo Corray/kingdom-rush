@@ -8,6 +8,8 @@
 // 仅 ebiten 渲染消费 (terminal mode 忽略,保持 V1.7 体验)。
 package main
 
+import "strconv"
+
 const maxEffects = 200
 
 type EffectKind int
@@ -16,16 +18,18 @@ const (
 	EShoot EffectKind = iota
 	EHit
 	EDeath // V4 Phase 3: 敌人死亡动画 (sprite 放大 + fade out)
+	EText  // V4 Phase 4: 飘字 (伤害数字 / 金币获取, 上飘 + fade out)
 )
 
 type Effect struct {
 	Kind   EffectKind
 	From   Point     // EShoot: 塔位; EHit: 敌人位(同 To)
 	To     Point     // 敌人位 (shoot 终点 / hit 中心)
-	Color  RGB       // shoot 颜色随塔型, hit 通常红
+	Color  RGB       // shoot 颜色随塔型, hit 通常红; EText 文字色
 	Tower  TowerKind // V3 Phase 3b: 决定 bullet sprite (仅 EShoot 有意义)
 	Enemy  EnemyKind // V4 Phase 3: 死亡 enemy 的 sprite (仅 EDeath 有意义)
-	FX, FY float64   // V4 Phase 3: 插值路径坐标 cell float (仅 EDeath — 对齐平滑移动位置)
+	FX, FY float64   // V4 Phase 3/4: 插值路径坐标 cell float (EDeath / EText — 对齐平滑移动位置)
+	Text   string    // V4 Phase 4: 飘字内容 (仅 EText 有意义)
 	TTL    float64
 	MaxTTL float64
 }
@@ -88,5 +92,31 @@ func makeDeathEffect(fx, fy float64, kind EnemyKind) *Effect {
 		FY:     fy,
 		TTL:    0.35,
 		MaxTTL: 0.35,
+	}
+}
+
+// makeDamageText: V4 Phase 4 — 命中伤害数字 (浅黄, 上飘 0.5s)。
+func makeDamageText(fx, fy float64, dmg int) *Effect {
+	return &Effect{
+		Kind:   EText,
+		Text:   strconv.Itoa(dmg),
+		Color:  RGB{255, 235, 140},
+		FX:     fx,
+		FY:     fy,
+		TTL:    0.5,
+		MaxTTL: 0.5,
+	}
+}
+
+// makeGoldText: V4 Phase 4 — 击杀赏金 "+Ng" (金色, 上飘 0.8s 比伤害字长)。
+func makeGoldText(fx, fy float64, amount int) *Effect {
+	return &Effect{
+		Kind:   EText,
+		Text:   "+" + strconv.Itoa(amount) + "g",
+		Color:  RGB{255, 200, 40},
+		FX:     fx,
+		FY:     fy,
+		TTL:    0.8,
+		MaxTTL: 0.8,
 	}
 }

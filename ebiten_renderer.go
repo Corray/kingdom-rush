@@ -53,6 +53,10 @@ type EbitenGame struct {
 	game *Game
 	last time.Time
 	quit bool
+	// V4 Phase 4: HUD 金币闪烁 (金币增加时高亮 0.5s)
+	lastGold  int
+	lastPhase GamePhase
+	goldFlash float64
 }
 
 func NewEbitenGame(g *Game) *EbitenGame {
@@ -93,6 +97,19 @@ func (eg *EbitenGame) Update() error {
 	masterVol := float64(eg.game.Save.VolumeLevel()) / float64(maxVolume)
 	playSounds(eg.game.DrainSounds(), masterVol)
 	updateBGM(eg.game.Phase, masterVol, dt)
+	// V4 Phase 4: 金币增加 → HUD 闪烁 (phase 切换时只同步不闪,
+	// 防止 StartLevel 重置 Gold 触发假闪)
+	if eg.game.Phase != eg.lastPhase {
+		eg.lastPhase = eg.game.Phase
+		eg.lastGold = eg.game.Gold
+		eg.goldFlash = 0
+	} else if eg.game.Gold > eg.lastGold {
+		eg.goldFlash = 0.5
+	}
+	eg.lastGold = eg.game.Gold
+	if eg.goldFlash > 0 {
+		eg.goldFlash -= dt
+	}
 	return nil
 }
 
@@ -603,6 +620,15 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				col.A = uint8(255 * fx.Alpha())
 				fillCircle(screen, dx+float32(cellPx)/2, dy+float32(cellPx)/2, r, col)
 			}
+		} else if fx.Kind == EText {
+			// V4 Phase 4: 飘字 — 上飘 14px + fade out, 水平居中于 cell
+			tx, ty := cellPosF(fx.FX, fx.FY)
+			rise := (1 - fx.Alpha()) * 14
+			tcol := color.RGBA{R: fx.Color.R, G: fx.Color.G, B: fx.Color.B,
+				A: uint8(255 * fx.Alpha())}
+			// gomono 12pt 字宽 ~7px, 按字数水平居中
+			textX := int(tx) + cellPx/2 - len(fx.Text)*7/2
+			drawTextCol(screen, fx.Text, textX, int(ty)-int(rise)-4, tcol)
 		} else { // EHit: fire sprite,fade out + 略微缩小
 			if tilesheet != nil {
 				scaleFactor := 0.6 + 0.4*fx.Alpha()
@@ -628,11 +654,16 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// V3 Phase 4: status row 用 sprite icon for Gold / Lives
 	statusY := topBarH + gameAreaH + 8
 	curX := 8
-	// $ icon + gold value
+	// $ icon + gold value (V4 Phase 4: 金币增加后 0.5s 内金色高亮)
 	if tilesheet != nil {
 		drawTileAt(screen, spriteGold, float32(curX), float32(statusY-2), 0.55, 1.0)
 	}
-	drawText(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY)
+	if eg.goldFlash > 0 {
+		drawTextCol(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY,
+			color.RGBA{R: 255, G: 200, B: 40, A: 255})
+	} else {
+		drawText(screen, fmt.Sprintf("%d", g.Gold), curX+24, statusY)
+	}
 	curX += 80
 	// + icon + lives
 	if tilesheet != nil {

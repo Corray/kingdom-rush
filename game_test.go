@@ -9,6 +9,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -417,16 +418,16 @@ func TestEffects_AddOnShoot(t *testing.T) {
 		t.Fatalf("pre: expected 0 effects, got %d", len(g.Effects))
 	}
 	g.Update(0.1) // Archer cd 0.6, 但 cooldown 初始 0 → 第一帧即射击
-	// shoot + hit = 2 effects
-	if len(g.Effects) != 2 {
-		t.Fatalf("expected 2 effects (shoot+hit), got %d", len(g.Effects))
+	// V4 Phase 4 起: shoot + hit + 伤害飘字 = 3 effects
+	if len(g.Effects) != 3 {
+		t.Fatalf("expected 3 effects (shoot+hit+dmg text), got %d", len(g.Effects))
 	}
 	kinds := map[EffectKind]int{}
 	for _, e := range g.Effects {
 		kinds[e.Kind]++
 	}
-	if kinds[EShoot] != 1 || kinds[EHit] != 1 {
-		t.Errorf("expected 1 EShoot + 1 EHit, got %v", kinds)
+	if kinds[EShoot] != 1 || kinds[EHit] != 1 || kinds[EText] != 1 {
+		t.Errorf("expected 1 EShoot + 1 EHit + 1 EText, got %v", kinds)
 	}
 }
 
@@ -975,5 +976,65 @@ func TestDeathEffect_Expires(t *testing.T) {
 	effects := decayEffects([]*Effect{fx}, 0.4) // TTL 0.35 < 0.4
 	if len(effects) != 0 {
 		t.Errorf("death effect should expire after TTL")
+	}
+}
+
+// ============================================================
+// V4 Phase 4: 飘字 effect (伤害数字 + 击杀赏金)
+// ============================================================
+
+func TestTextEffect_Makers(t *testing.T) {
+	d := makeDamageText(1, 2, 12)
+	if d.Kind != EText || d.Text != "12" || d.FX != 1 || d.FY != 2 {
+		t.Errorf("damage text wrong: %+v", d)
+	}
+	gtx := makeGoldText(0, 0, 25)
+	if gtx.Kind != EText || gtx.Text != "+25g" {
+		t.Errorf("gold text wrong: %+v", gtx)
+	}
+	if gtx.MaxTTL <= d.MaxTTL {
+		t.Errorf("gold text should outlive damage text")
+	}
+}
+
+func TestTextEffect_DamageOnHit(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	// 高 HP 保证只命中不击杀
+	g.Enemies = []*Enemy{{Kind: EBoss, HP: 500, MaxHP: 500, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	var dmgText *Effect
+	for _, fx := range g.Effects {
+		if fx.Kind == EText {
+			dmgText = fx
+		}
+	}
+	if dmgText == nil {
+		t.Fatalf("hit should push damage text")
+	}
+	wantDmg := towerSpecs[TArcher].Levels[0].Damage
+	if dmgText.Text != fmt.Sprintf("%d", wantDmg) {
+		t.Errorf("damage text = %q, want %d", dmgText.Text, wantDmg)
+	}
+}
+
+func TestTextEffect_GoldOnKill(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 1, MaxHP: 20, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	found := false
+	want := fmt.Sprintf("+%dg", enemySpecs[ENormal].Reward)
+	for _, fx := range g.Effects {
+		if fx.Kind == EText && fx.Text == want {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("kill should push gold text %q, effects: %d", want, len(g.Effects))
 	}
 }

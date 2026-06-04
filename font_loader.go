@@ -55,3 +55,12 @@ func drawText(screen *ebiten.Image, str string, x, y int) {
 	}
 	etext.Draw(screen, str, gameFontFace, x, y+fontAscent, textWhite)
 }
+
+// drawTextCol: V4 Phase 4 — 带色变体 (飘字 / HUD 闪烁), 坐标系同 drawText。
+// col 的 alpha 生效, 飘字 fade out 用。
+func drawTextCol(screen *ebiten.Image, str string, x, y int, col color.Color) {
+	if gameFontFace == nil {
+		return
+	}
+	etext.Draw(screen, str, gameFontFace, x, y+fontAscent, col)
+}
