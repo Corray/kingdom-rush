@@ -118,9 +118,65 @@
 
 ---
 
+## V5 — Gameplay 深度（active，2026-06-04 启动）
+
+### 方向决策记录
+
+**拍板：** V4 方向决策（2026-06-04）时已将本方向列为候选 V5 并记录内容；V4 收尾同日用户指示"启动 V5"，视为拍板生效。备选方向的对比矩阵见 V4 决策记录段，不重复。
+
+**主题：** 战术深度——V4 收尾时的已知短板（targeting 写死最前优先、全塔单体伤害、不能卖塔、无状态效果、无主动操作）逐项补齐。
+
+**已知翻车场景（反例）：** 每个 phase 都动核心战斗循环（`game.go` shoot/move），回归风险高于 V4 的渲染层改动——对策：pickTarget / killEnemy 等先重构为纯函数再扩展，测试先行。平衡性（退款比例 / 溅射衰减 / 减速幅度）数值全部常量化，实玩后可一行调。
+
+### 现状基线（2026-06-04 实测）
+
+- targeting：shoot 循环内联"最远 PathIdx 优先"，无策略选择 [已验证: game.go]
+- 伤害：全塔单体即时结算；击杀处理（音效/动画/赏金/Spawner 召唤）内联在 shoot 循环 [已验证]
+- 塔操作：只有建/升（TryAction），无卖
+- 敌人：无状态效果字段（speed 直接查 spec）
+- `TowerLevel.Cost` 为逐级增量 → 卖塔退款可纯函数累计 [已验证: entities.go:35]
+- 测试基线 72/72；term build 输入层保持 V1.7 体验（V2 起惯例，V5 新操作仅接 ebiten 输入）
+
+### Phase 计划
+
+#### Phase 1 — 卖塔
+
+- **范围：** 光标在塔上按 X（或右键）卖塔；退款 = 已投入（逐级 Cost 累计）× `sellRefundRate`（常量 0.7）；塔移除 + 金币入账（HUD flash 自动生效）+ Msg + 卖塔 SFX（Kenney interface pack 补 1 个音效，沿用既有下载链路）
+- **验收：** 退款数值纯函数单测；卖后塔消失不再射击；term build 不受影响
+
+#### Phase 2 — Targeting 策略
+
+- **范围：** Tower 加 `Targeting` enum（First 默认 = 现状 / Last / Strong 最高 HP）；先把内联目标选择重构为纯函数 `pickTarget`（行为不变回归），再扩策略；光标在塔上按 T 循环切换；塔上 HUD 提示当前策略
+- **验收：** 三策略各自选对目标的单测；重构后旧行为回归（First == 现状）
+
+#### Phase 3 — Cannon AoE 溅射
+
+- **范围：** `TowerLevel` 加 `Splash float64`（仅 Cannon 非零，半径 cell 单位，随级别增长）；主目标全额伤害，半径内其他敌人 50% 溅射（`splashFactor` 常量）；**前置重构：** 击杀处理（音效/动画/赏金/Spawner）抽 `killEnemy` helper——溅射致死与主目标致死走同一路径，防 fix-pattern-scan 家族漏（Spawner 召唤逻辑只能有一份）
+- **验收：** 溅射多杀单测（含溅射杀 Spawner 触发召唤）；Archer/Magic 无溅射回归
+
+#### Phase 4 — 状态效果系统 + 减速载体
+
+- **范围：** Enemy 加状态效果（先做 slow：`slowFactor` + `slowTimer`，move 循环按系数减速，过期恢复，不叠加取最强）；**载体待 phase 开工时定**——选项 a) 新塔型（前置：PIL 裁 tilesheet 调研可用 tower sprite，V3.6 实证风险）b) Magic 塔升级附带减速 c) 现有 sprite 换色变体。框架先行，载体后定
+- **验收：** 减速生效/过期/不叠加单测；满屏减速场景性能无感知劣化
+
+#### Phase 5 — 主动技能（陨石雨）
+
+- **范围：** R 键进入瞄准 → 点击释放：半径内全敌 AoE 伤害 + 火焰特效 + shake 复用（Phase 5 juice）+ 冷却（`meteorCooldownS` 常量，HUD 显示冷却条）；再按 R 取消瞄准（**不用 Esc——已绑退出**）
+- **验收：** 范围伤害/冷却 gating 单测；瞄准态 UI 可见；冷却条显示
+
+### 工程约定（延续 V4）
+
+- commit 风格 `feat: V5 Phase N — <主题>`，body 含 verify 段（三 build + tests + 实测）
+- 核心循环改动测试先行：重构步（pickTarget / killEnemy）单独验证行为不变，再加新功能
+- 平衡性数值全常量化；WASM 验证优先静态可见对象（V4 Phase 4 教训）
+- V5 收尾打 `v5.0` tag
+
+---
+
 ## 变更记录
 
 | 日期 | 变更 |
 |------|------|
 | 2026-06-04 | 初建：V0→V3 版本史回填 + V3 收尾（v1.0/v2.0/v3.0 tag）+ V4 方向拍板（音频 + Game Feel）+ Phase 1-5 规划 |
 | 2026-06-04 | V4 收尾：tag `v4.0`（5936799），版本史补 V4 行，收尾记录（未竟项 ×3 + 盲点声明），V5 候选标记（Gameplay 深度，待拍板）|
+| 2026-06-04 | V5 启动：用户拍板 Gameplay 深度，Phase 1-5 规划（卖塔 → targeting 策略 → Cannon AoE → 状态效果/减速 → 主动技能）；核心循环改动定"重构先行 + 测试先行"纪律 |
