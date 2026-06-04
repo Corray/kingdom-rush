@@ -15,6 +15,7 @@ type EffectKind int
 const (
 	EShoot EffectKind = iota
 	EHit
+	EDeath // V4 Phase 3: 敌人死亡动画 (sprite 放大 + fade out)
 )
 
 type Effect struct {
@@ -23,6 +24,8 @@ type Effect struct {
 	To     Point     // 敌人位 (shoot 终点 / hit 中心)
 	Color  RGB       // shoot 颜色随塔型, hit 通常红
 	Tower  TowerKind // V3 Phase 3b: 决定 bullet sprite (仅 EShoot 有意义)
+	Enemy  EnemyKind // V4 Phase 3: 死亡 enemy 的 sprite (仅 EDeath 有意义)
+	FX, FY float64   // V4 Phase 3: 插值路径坐标 cell float (仅 EDeath — 对齐平滑移动位置)
 	TTL    float64
 	MaxTTL float64
 }
@@ -72,5 +75,18 @@ func makeHitEffect(at Point) *Effect {
 		Color:  RGB{255, 220, 80},
 		TTL:    0.4,
 		MaxTTL: 0.4,
+	}
+}
+
+// makeDeathEffect: V4 Phase 3 — 敌人死亡动画 (渲染为 enemy sprite
+// 放大 + fade out)。fx/fy 用插值路径坐标, 与走动渲染位置无缝衔接。
+func makeDeathEffect(fx, fy float64, kind EnemyKind) *Effect {
+	return &Effect{
+		Kind:   EDeath,
+		Enemy:  kind,
+		FX:     fx,
+		FY:     fy,
+		TTL:    0.35,
+		MaxTTL: 0.35,
 	}
 }

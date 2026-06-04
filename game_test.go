@@ -873,3 +873,107 @@ func TestBGM_TrackForPhase(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================
+// V4 Phase 3: 走动动画纯数学 (anim.go) + 死亡动画 effect
+// ============================================================
+
+func TestAnim_PathLerpMidpoint(t *testing.T) {
+	path := []Point{{0, 0}, {1, 0}, {1, 1}}
+	x, y := pathLerp(path, 0.5)
+	if x != 0.5 || y != 0 {
+		t.Errorf("lerp(0.5) = (%v,%v), want (0.5,0)", x, y)
+	}
+	x, y = pathLerp(path, 1.5)
+	if x != 1 || y != 0.5 {
+		t.Errorf("lerp(1.5) = (%v,%v), want (1,0.5)", x, y)
+	}
+}
+
+func TestAnim_PathLerpClamps(t *testing.T) {
+	path := []Point{{2, 3}, {3, 3}}
+	x, y := pathLerp(path, -1)
+	if x != 2 || y != 3 {
+		t.Errorf("lerp(-1) should clamp to start, got (%v,%v)", x, y)
+	}
+	x, y = pathLerp(path, 99)
+	if x != 3 || y != 3 {
+		t.Errorf("lerp(99) should clamp to end, got (%v,%v)", x, y)
+	}
+}
+
+func TestAnim_PathDir(t *testing.T) {
+	path := []Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
+	cases := []struct {
+		idx    float64
+		dx, dy int
+	}{
+		{0.5, 1, 0},  // 向右
+		{1.5, 0, 1},  // 向下
+		{2.5, -1, 0}, // 向左
+		{99, -1, 0},  // 越界 clamp 到末段
+	}
+	for _, c := range cases {
+		dx, dy := pathDir(path, c.idx)
+		if dx != c.dx || dy != c.dy {
+			t.Errorf("pathDir(%v) = (%d,%d), want (%d,%d)", c.idx, dx, dy, c.dx, c.dy)
+		}
+	}
+}
+
+func TestAnim_BobBounded(t *testing.T) {
+	for i := 0.0; i < 10; i += 0.1 {
+		if b := bobOffset(i); b > bobAmp || b < -bobAmp {
+			t.Fatalf("bob(%v) = %v exceeds ±%v", i, b, bobAmp)
+		}
+	}
+	if bobOffset(0) != 0 {
+		t.Errorf("bob(0) should be 0")
+	}
+}
+
+func TestAnim_DirAngle(t *testing.T) {
+	if dirAngle(1, 0) != 0 {
+		t.Errorf("right should be 0 rad")
+	}
+	if a := dirAngle(0, 1); a < 1.5 || a > 1.6 {
+		t.Errorf("down should be ~π/2, got %v", a)
+	}
+	if dirAngle(0, 0) != 0 {
+		t.Errorf("zero dir should default 0")
+	}
+}
+
+func TestDeathEffect_PushedOnKill(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{{Kind: EFast, HP: 1, MaxHP: 10, PathIdx: 1.5}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	var death *Effect
+	for _, fx := range g.Effects {
+		if fx.Kind == EDeath {
+			death = fx
+		}
+	}
+	if death == nil {
+		t.Fatalf("kill should push EDeath effect")
+	}
+	if death.Enemy != EFast {
+		t.Errorf("death effect should carry enemy kind EFast, got %v", death.Enemy)
+	}
+	// Update 顺序: 先 move 后 shoot — 死亡位置 = 移动后的插值位置
+	wantFX := 1.5 + enemySpecs[EFast].Speed*0.05
+	if death.FX != wantFX || death.FY != 0 {
+		t.Errorf("death pos should be (%v,0), got (%v,%v)", wantFX, death.FX, death.FY)
+	}
+}
+
+func TestDeathEffect_Expires(t *testing.T) {
+	fx := makeDeathEffect(1, 1, ENormal)
+	effects := decayEffects([]*Effect{fx}, 0.4) // TTL 0.35 < 0.4
+	if len(effects) != 0 {
+		t.Errorf("death effect should expire after TTL")
+	}
+}

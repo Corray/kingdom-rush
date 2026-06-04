@@ -217,6 +217,11 @@ func cellPos(p Point) (float32, float32) {
 	return float32(p.X * cellPx), float32(topBarH + p.Y*cellPx)
 }
 
+// cellPosF: V4 Phase 3 — 浮点 cell 坐标 → 像素 (平滑插值移动用)。
+func cellPosF(fx, fy float64) (float32, float32) {
+	return float32(fx * float64(cellPx)), float32(topBarH) + float32(fy*float64(cellPx))
+}
+
 // pixelToCell 把屏幕像素坐标转回 game cell, 返回 (cell, inGameArea)。
 // 鼠标在 game area 外(top/bottom UI bar)时返回 false。
 func pixelToCell(mx, my int) (Point, bool) {
@@ -490,18 +495,25 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	}
 
 	// V3: enemies 用 sprite (Boss 放大 1.4x)
+	// V4 Phase 3: 程序化走动动画 — 平滑插值移动 (替换逐格跳动) +
+	// 朝向旋转 (sprite 朝右为基准) + 垂直于行进方向的摆动
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		p := e.Pos(g.Path)
-		x, y := cellPos(p)
+		lx, ly := pathLerp(g.Path, e.PathIdx)
+		ddx, ddy := pathDir(g.Path, e.PathIdx)
+		bob := float32(bobOffset(e.PathIdx))
+		x, y := cellPosF(lx, ly)
+		x += float32(-ddy) * bob // 摆动轴 = 行进方向的垂直向量
+		y += float32(ddx) * bob
 		if tilesheet != nil {
+			scale := 1.0
 			if e.Kind == EBoss {
-				drawTileScaled(screen, enemySpriteID(e.Kind), x, y, 1.4)
-			} else {
-				drawTile(screen, enemySpriteID(e.Kind), x, y)
+				scale = 1.4
 			}
+			drawTileRot(screen, enemySpriteID(e.Kind), x, y, scale, 1.0,
+				dirAngle(ddx, ddy))
 		} else {
 			spec := enemySpecs[e.Kind]
 			cx := x + float32(cellPx)/2
@@ -516,7 +528,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			}
 			fillCircle(screen, cx, cy, radius, col)
 		}
-		// HP bar 仍画 (sprite 之上)
+		// HP bar 仍画 (sprite 之上, 跟随插值位置, 不旋转)
 		hpRatio := float32(e.HP) / float32(e.MaxHP)
 		if hpRatio < 0 {
 			hpRatio = 0
@@ -578,6 +590,18 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				drawTileAt(screen, bulletSpriteID(fx.Tower), bulletX, bulletY, 0.55, 1.0)
 			} else {
 				vector.StrokeLine(screen, cx1, cy1, cx2, cy2, 2, c, true)
+			}
+		} else if fx.Kind == EDeath {
+			// V4 Phase 3: 死亡动画 — enemy sprite 放大 (1→1.6) + fade out
+			dx, dy := cellPosF(fx.FX, fx.FY)
+			if tilesheet != nil {
+				grow := 1.0 + (1.0-fx.Alpha())*0.6
+				drawTileAt(screen, enemySpriteID(fx.Enemy), dx, dy, grow, fx.Alpha())
+			} else {
+				r := float32(cellPx) / 3 * (1 + float32(1-fx.Alpha()))
+				col := ebitenColor(enemySpecs[fx.Enemy].Color)
+				col.A = uint8(255 * fx.Alpha())
+				fillCircle(screen, dx+float32(cellPx)/2, dy+float32(cellPx)/2, r, col)
 			}
 		} else { // EHit: fire sprite,fade out + 略微缩小
 			if tilesheet != nil {

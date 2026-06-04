@@ -190,6 +190,9 @@ func (g *Game) Update(dt float64) {
 			if target.HP <= 0 {
 				target.Dead = true
 				g.pushSound(SndEnemyDeath)
+				// V4 Phase 3: 死亡动画 (插值坐标对齐渲染层平滑位置)
+				dfx, dfy := pathLerp(g.Path, target.PathIdx)
+				g.Effects = append(g.Effects, makeDeathEffect(dfx, dfy, target.Kind))
 				g.Gold += enemySpecs[target.Kind].Reward
 				// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
 				if target.Kind == ESpawner {

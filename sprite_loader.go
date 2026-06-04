@@ -3,7 +3,8 @@
 // Kenney TD top-down tilesheet 加载 + sprite atlas (V3 接入)。
 //
 // Pack: kenney_tower-defense-top-down (CC0, public domain)
-//       https://kenney.nl/assets/tower-defense-top-down
+//
+//	https://kenney.nl/assets/tower-defense-top-down
 //
 // Tilesheet: 1472×832 px, 23 cols × 13 rows × 64 px tile
 // 编号: tile001 在 (col=0, row=0), tileN 在 (col=(N-1)%23, row=(N-1)/23)
@@ -29,13 +30,13 @@ const (
 
 // 关键 sprite ID 映射 (按 visual id, 详细 catalog 见 ADR-004)
 const (
-	spriteGrass       = 24
-	spriteDirtPath    = 200
-	spriteTowerArcher = 249
-	spriteTowerCannon = 250
-	spriteTowerMagic1 = 206 // 1 rocket
-	spriteTowerMagic2 = 204 // 2 rockets
-	spriteTowerMagic3 = 205 // 4 rockets
+	spriteGrass        = 24
+	spriteDirtPath     = 200
+	spriteTowerArcher  = 249
+	spriteTowerCannon  = 250
+	spriteTowerMagic1  = 206 // 1 rocket
+	spriteTowerMagic2  = 204 // 2 rockets
+	spriteTowerMagic3  = 205 // 4 rockets
 	spriteEnemyNormal  = 248
 	spriteEnemyFast    = 246
 	spriteEnemyGlider  = 270
@@ -93,6 +94,26 @@ func drawTileAt(dst *ebiten.Image, tileID int, x, y float32, scaleMul, alpha flo
 	// 居中: scaleMul != 1 时,offset 把 sprite 居中到 cell
 	offset := (1.0 - scaleMul) * float64(cellPx) / 2
 	op.GeoM.Translate(float64(x)+offset, float64(y)+offset)
+	if alpha < 1.0 {
+		op.ColorScale.ScaleAlpha(float32(alpha))
+	}
+	dst.DrawImage(sub, op)
+}
+
+// drawTileRot: V4 Phase 3 — 以 tile 中心为轴旋转 angle (弧度) 绘制。
+// 变换顺序: 平移中心到原点 → 旋转 → 缩放 → 平移到 cell 中心。
+// scaleMul / alpha 语义同 drawTileAt。
+func drawTileRot(dst *ebiten.Image, tileID int, x, y float32, scaleMul, alpha, angle float64) {
+	sub := tileSubImage(tileID)
+	if sub == nil {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-float64(sheetTileSrc)/2, -float64(sheetTileSrc)/2)
+	op.GeoM.Rotate(angle)
+	scale := float64(cellPx) / float64(sheetTileSrc) * scaleMul
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x)+float64(cellPx)/2, float64(y)+float64(cellPx)/2)
 	if alpha < 1.0 {
 		op.ColorScale.ScaleAlpha(float32(alpha))
 	}
