@@ -76,8 +76,12 @@ func (g *Game) StartLevel(idx int) {
 	g.Enemies = nil
 	g.Effects = nil
 	g.Gold = lv.StartGold
-	g.Lives = lv.StartLives
-	g.StartLives = lv.StartLives
+	// V6 Phase 2: 难度调整起始 lives (clamp ≥ 1)
+	g.Lives = lv.StartLives + g.Save.Difficulty.Spec().LivesBonus
+	if g.Lives < 1 {
+		g.Lives = 1
+	}
+	g.StartLives = g.Lives
 	g.WaveIdx = 0
 	g.Cursor = Point{15, 10}
 	g.Selected = TArcher
@@ -134,14 +138,12 @@ func (g *Game) Update(dt float64) {
 	if cur == nil {
 		return
 	}
-	// spawn
+	// spawn (V6 Phase 2: 经 newEnemy 施加难度系数)
 	if g.prepTimer == 0 && g.spawned < len(cur.Enemies) {
 		g.spawnTimer += dt
 		if g.spawnTimer >= spawnGapS {
 			g.spawnTimer = 0
-			kind := cur.Enemies[g.spawned]
-			spec := enemySpecs[kind]
-			g.Enemies = append(g.Enemies, &Enemy{Kind: kind, HP: spec.HP, MaxHP: spec.HP})
+			g.Enemies = append(g.Enemies, newEnemy(cur.Enemies[g.spawned], 0, g.Save.Difficulty))
 			g.spawned++
 		}
 	}
@@ -318,20 +320,31 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 	if e.Kind == EBoss {
 		g.BossKills++ // V4 Phase 5: 渲染层观察此计数触发顿帧
 	}
-	reward := enemySpecs[e.Kind].Reward
+	// V6 Phase 2: 赏金按难度打折/加成
+	reward := int(math.Round(float64(enemySpecs[e.Kind].Reward) * g.Save.Difficulty.Spec().RewardMul))
 	// 赏金飘字右偏 0.3 cell, 与伤害字错开
 	g.Effects = append(g.Effects,
 		makeDeathEffect(fx, fy, e.Kind),
 		makeGoldText(fx+0.3, fy, reward))
 	g.Gold += reward
 	// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
+	// (V6 Phase 2: 召唤物同样吃难度系数 — newEnemy 统一施加点)
 	if e.Kind == ESpawner {
-		normSpec := enemySpecs[ENormal]
 		g.Enemies = append(g.Enemies,
-			&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: e.PathIdx},
-			&Enemy{Kind: ENormal, HP: normSpec.HP, MaxHP: normSpec.HP, PathIdx: e.PathIdx},
+			newEnemy(ENormal, e.PathIdx, g.Save.Difficulty),
+			newEnemy(ENormal, e.PathIdx, g.Save.Difficulty),
 		)
 	}
+}
+
+// newEnemy: V6 Phase 2 — 敌人生成唯一入口 (wave spawn + Spawner 召唤
+// 共用), 难度 HP 系数在此统一施加。家族约束: 新增生成来源必须经此。
+func newEnemy(kind EnemyKind, pathIdx float64, d Difficulty) *Enemy {
+	hp := int(math.Round(float64(enemySpecs[kind].HP) * d.Spec().HPMul))
+	if hp < 1 {
+		hp = 1
+	}
+	return &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx}
 }
 
 // V5 Phase 5: 陨石雨主动技能参数。
@@ -402,6 +415,13 @@ func (g *Game) SellTower() {
 		return
 	}
 	g.Msg = "No tower here to sell"
+}
+
+// CycleDifficulty: V6 Phase 2 — menu 阶段切换难度, 立即持久化。
+func (g *Game) CycleDifficulty() {
+	g.Save.Difficulty = g.Save.Difficulty.Next()
+	_ = StoreSave(g.Save)
+	g.Msg = "Difficulty: " + g.Save.Difficulty.Spec().Name
 }
 
 // CycleTargeting: V5 Phase 2 — 光标处塔的 targeting 策略循环切换

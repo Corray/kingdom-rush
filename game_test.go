@@ -1761,3 +1761,118 @@ func TestMenu_RowAtPixelTwoColumns(t *testing.T) {
 		t.Errorf("右列在只有 10 关时不应命中")
 	}
 }
+
+// ============================================================
+// V6 Phase 2: 难度模式 (difficulty.go + newEnemy 统一施加点)
+// ============================================================
+
+func TestDifficulty_SpecTable(t *testing.T) {
+	n := DiffNormal.Spec()
+	if n.HPMul != 1.0 || n.RewardMul != 1.0 || n.LivesBonus != 0 {
+		t.Errorf("Normal 必须是恒等系数 (现状回归基线): %+v", n)
+	}
+	e, h := DiffEasy.Spec(), DiffHard.Spec()
+	if e.HPMul >= 1 || e.LivesBonus <= 0 || e.RewardMul < 1 {
+		t.Errorf("Easy 应更宽松: %+v", e)
+	}
+	if h.HPMul <= 1 || h.LivesBonus >= 0 || h.RewardMul > 1 {
+		t.Errorf("Hard 应更严苛: %+v", h)
+	}
+	// 非法值回退 Normal (防手改存档 HPMul 0 炸局)
+	if Difficulty(99).Spec() != difficultySpecs[DiffNormal] {
+		t.Errorf("invalid difficulty should fall back to Normal")
+	}
+}
+
+func TestDifficulty_NewEnemyHPScaling(t *testing.T) {
+	base := enemySpecs[EBoss].HP // 150
+	if e := newEnemy(EBoss, 0, DiffNormal); e.HP != base || e.MaxHP != base {
+		t.Errorf("normal HP = %d, want %d", e.HP, base)
+	}
+	if e := newEnemy(EBoss, 0, DiffHard); e.HP != 210 { // 150×1.4
+		t.Errorf("hard boss HP = %d, want 210", e.HP)
+	}
+	if e := newEnemy(EBoss, 0, DiffEasy); e.HP != 105 { // 150×0.7
+		t.Errorf("easy boss HP = %d, want 105", e.HP)
+	}
+}
+
+func TestDifficulty_StartLivesBonus(t *testing.T) {
+	g := newTestGameMultiLevel() // L1 StartLives 5
+	g.Save.Difficulty = DiffEasy
+	g.StartLevel(0)
+	if g.Lives != 8 || g.StartLives != 8 { // 5+3
+		t.Errorf("easy lives = %d/%d, want 8/8", g.Lives, g.StartLives)
+	}
+	g.BackToMenu()
+	g.Save.Difficulty = DiffHard
+	g.StartLevel(0)
+	if g.Lives != 3 { // 5-2
+		t.Errorf("hard lives = %d, want 3", g.Lives)
+	}
+}
+
+func TestDifficulty_RewardScaling(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Save.Difficulty = DiffHard
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 1, MaxHP: 20, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	goldBefore := g.Gold
+	g.Update(0.05)
+	want := 8 // round(10 × 0.8)
+	if g.Gold != goldBefore+want {
+		t.Errorf("hard kill reward = %d, want %d", g.Gold-goldBefore, want)
+	}
+}
+
+func TestDifficulty_SpawnerSummonInheritsDifficulty(t *testing.T) {
+	// 家族验收: 召唤物也吃 HP 系数 (newEnemy 统一施加点)
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Save.Difficulty = DiffHard
+	g.Enemies = []*Enemy{{Kind: ESpawner, HP: 1, MaxHP: 35, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	wantHP := 28 // round(20 × 1.4)
+	for _, e := range g.Enemies {
+		if e.Kind == ENormal && e.HP != wantHP {
+			t.Errorf("hard 召唤物 HP = %d, want %d", e.HP, wantHP)
+		}
+	}
+}
+
+func TestDifficulty_CyclePersistsAndCompat(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		if g.Save.Difficulty != DiffNormal {
+			t.Fatalf("default should be Normal")
+		}
+		g.CycleDifficulty() // → Hard
+		if g.Save.Difficulty != DiffHard || g.Msg == "" {
+			t.Errorf("cycle should go Normal→Hard + Msg, got %v", g.Save.Difficulty)
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Difficulty != DiffHard {
+			t.Errorf("difficulty should persist, got %v", loaded.Difficulty)
+		}
+		g.CycleDifficulty() // → Easy
+		g.CycleDifficulty() // → Normal
+		if g.Save.Difficulty != DiffNormal {
+			t.Errorf("3 cycles should return to Normal")
+		}
+	})
+	// 旧存档 JSON 无 difficulty 字段 → Normal
+	var s Save
+	if err := json.Unmarshal([]byte(`{"completed":{"1":true}}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.Difficulty != DiffNormal {
+		t.Errorf("old save should default Normal, got %v", s.Difficulty)
+	}
+}

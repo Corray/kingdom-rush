@@ -281,6 +281,10 @@ func (eg *EbitenGame) handleInput() {
 		return
 	}
 	if g.Phase == PhaseLevelSelect {
+		// V6 Phase 2: D 键循环切换难度 (Normal → Hard → Easy)
+		if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+			g.CycleDifficulty()
+		}
 		digitKeys := []ebiten.Key{
 			ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4,
 			ebiten.KeyDigit5, ebiten.KeyDigit6, ebiten.KeyDigit7, ebiten.KeyDigit8,
@@ -414,6 +418,10 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	drawText(screen,
 		fmt.Sprintf("Vol %d/%d (-/=)", g.Save.VolumeLevel(), maxVolume),
 		windowW-130, 10)
+	// V6 Phase 2: 难度显示 (右上角第二行, D 切换)
+	drawText(screen,
+		fmt.Sprintf("Diff: %s (D)", g.Save.Difficulty.Spec().Name),
+		windowW-130, 28)
 
 	completed := 0
 	for _, lv := range g.Levels {
@@ -526,9 +534,12 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	strokeRect(screen, 0, 0, float32(windowW), float32(topBarH),
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
 
-	// title
+	// title (V6 Phase 2: 非 Normal 难度标注)
 	title := fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
+	if g.Save.Difficulty != DiffNormal {
+		title += fmt.Sprintf("[%s] ", g.Save.Difficulty.Spec().Name)
+	}
 	drawText(screen, title, 8, 8)
 	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
 	drawText(screen,

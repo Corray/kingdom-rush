@@ -31,6 +31,9 @@ type Save struct {
 	// V4 Phase 5: 屏幕反馈特效 (shake/顿帧) 关闭开关。bool 零值 =
 	// 默认开启, 旧存档无字段自然兼容, 不需指针。家族: save.go。
 	JuiceOff bool `json:"juice_off,omitempty"`
+	// V6 Phase 2: 难度偏好。零值 = DiffNormal (现状行为), 旧存档
+	// 自然兼容; 非法值由 Difficulty.Spec() 回退。家族: save.go。
+	Difficulty Difficulty `json:"difficulty,omitempty"`
 }
 
 const (
