@@ -15,6 +15,7 @@
 | V2 ~ V2.7 | Ebiten 桌面 + WASM | 双 build（默认 ebiten / `-tags term` 保留 V1.7）、WASM + localStorage 存档、Makefile、攻击视觉特效、鼠标输入 + 射程圈 | `v2.0` | `20f5a87` |
 | V3 Phase 1-6b + V3.6 | Sprite/UI 美化 + 内容 | Kenney CC0 sprite 全替换、bullet 飞行动画、HUD/menu 美化、Go Mono truetype 字体、程序化 path 绘制 + 描边、Spawner 敌型（第 5 种）、39 tests | `v3.0` | `b108a26` |
 | V4 Phase 1-5 | 音频 + Game Feel | SFX 管线（9 音效 Kenney CC0）、BGM 双轨 + 音量档持久化（Juhani Junkala CC0）、走动/死亡动画（程序化插值+旋转+摆动）、伤害飘字 + 金币反馈、shake + boss 顿帧 + J 开关、72 tests | `v4.0` | `5936799` |
+| V5 Phase 1-5 | Gameplay 深度 | 卖塔（退款 70%）、targeting 策略（First/Last/Strong）、Cannon AoE 溅射、状态效果系统 + Frost 塔（第 4 塔型）、陨石雨主动技能（R 瞄准 + 25s 冷却）、killEnemy/pickTarget 重构、102 tests | `v5.0` | `8ee77f5` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -118,7 +119,34 @@
 
 ---
 
-## V5 — Gameplay 深度（active，2026-06-04 启动）
+## V5 — Gameplay 深度（已收尾 2026-06-04，tag `v5.0`）
+
+> Phase 1-5 全部完成。以下为规划原文存档 + 头部收尾记录。
+
+### V5 收尾记录（2026-06-04）
+
+**完成度：** 5/5 phase，测试 72 → 102，三 build 全程绿。战术短板五项全清（卖塔 / targeting / AoE / 状态效果 / 主动操作）。
+
+**工程纪律兑现：**
+- 重构先行 ×2（pickTarget / killEnemy）均以"既有测试零改动全过"作回归证据
+- killEnemy 统一击杀路径家族约束三次兑现（溅射杀 / 陨石杀 Spawner 均触发召唤，单测锁定）
+- 测试先行实际拦截 1 个实现 bug（卖塔退款 IEEE754 截断）
+- playwright tab 复用工具债（V4 P4 起 ≥2 例）以"换端口 = 新 origin"workaround 关闭
+
+**未竟项（不阻塞收尾）：**
+
+| 项 | 说明 | 去向 |
+|----|------|------|
+| 数值平衡未实玩压测 | 退款 0.7 / 溅射 0.5 / 减速 0.6-0.4 / 陨石 60 伤 25s | 全常量化，实玩反馈一行可调 |
+| term build 不支持 V5 新操作 | 卖塔/切策略/陨石未接 term 输入；且 term HUD 显示 4 塔但 '4' 键未接（仅 1/2/3）| V2 起"term 冻结 V1.7 体验"惯例；若要补 Frost 选择是 term_main 一行 case |
+| Frost 塔 sprite 灰色原版 | 未做冰蓝 tint（视觉区分靠形状 + 按钮文字 + 减速圈）| 若反馈混淆再加 tint 管线 |
+| 陨石释放瞬间视觉未截图 | 火海 + shake 组合效果（game-over 抢跑）| 逻辑全单测；用户实玩可见 |
+
+**下一版候选：** V6 — 内容扩展（关卡 11-20 / 难度模式 / endless / 星级评分），V4 方向矩阵中的第三项——gameplay 系统已深化，"同配方重复"的反对理由已减弱。启动前需用户拍板。
+
+---
+
+### 以下为 V5 规划原文（2026-06-04 启动时写入，存档不改）
 
 ### 方向决策记录
 
@@ -180,3 +208,4 @@
 | 2026-06-04 | 初建：V0→V3 版本史回填 + V3 收尾（v1.0/v2.0/v3.0 tag）+ V4 方向拍板（音频 + Game Feel）+ Phase 1-5 规划 |
 | 2026-06-04 | V4 收尾：tag `v4.0`（5936799），版本史补 V4 行，收尾记录（未竟项 ×3 + 盲点声明），V5 候选标记（Gameplay 深度，待拍板）|
 | 2026-06-04 | V5 启动：用户拍板 Gameplay 深度，Phase 1-5 规划（卖塔 → targeting 策略 → Cannon AoE → 状态效果/减速 → 主动技能）；核心循环改动定"重构先行 + 测试先行"纪律 |
+| 2026-06-04 | V5 收尾：tag `v5.0`（8ee77f5），版本史补 V5 行，收尾记录（纪律兑现 ×4 + 未竟项 ×4），V6 候选标记（内容扩展，待拍板）|
