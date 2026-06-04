@@ -34,6 +34,9 @@ type Save struct {
 	// V6 Phase 2: 难度偏好。零值 = DiffNormal (现状行为), 旧存档
 	// 自然兼容; 非法值由 Difficulty.Spec() 回退。家族: save.go。
 	Difficulty Difficulty `json:"difficulty,omitempty"`
+	// V6 Phase 3: endless 最佳纪录 (已清 wave 数, 取 max)。零值 =
+	// 无纪录, 旧存档自然兼容。家族: save.go。
+	BestWave int `json:"best_wave,omitempty"`
 }
 
 const (

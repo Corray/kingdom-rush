@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 )
 
 const (
@@ -39,13 +40,19 @@ type Game struct {
 	SoundEvents []SoundEvent // V4: SFX 事件队列 (sound.go, 渲染层每帧 drain)
 	BossKills   int          // V4 Phase 5: boss 击杀累计 (渲染层观察增量触发顿帧, 同 goldFlash 模式)
 	MeteorCD    float64      // V5 Phase 5: 陨石雨剩余冷却秒 (0 = 可用)
-	Gold        int
-	Lives       int
-	StartLives  int
-	WaveIdx     int
-	Cursor      Point
-	Selected    TowerKind
-	Msg         string
+
+	// V6 Phase 3: Endless mode
+	Endless    bool
+	endlessLv  Level      // 合成关卡 (path + 动态增长的 waves)
+	endlessRng *rand.Rand // seed 注入, 确定性可测
+
+	Gold       int
+	Lives      int
+	StartLives int
+	WaveIdx    int
+	Cursor     Point
+	Selected   TowerKind
+	Msg        string
 
 	prepTimer  float64
 	spawned    int
@@ -65,8 +72,38 @@ func (g *Game) StartLevel(idx int) {
 		g.Msg = fmt.Sprintf("Level %d locked — clear Level %d first", lv.ID, lv.ID-1)
 		return
 	}
-	g.Phase = PhasePlaying
+	g.Endless = false
 	g.LevelIdx = idx
+	g.beginRun(lv)
+	g.Msg = fmt.Sprintf("Level %d: %s — get ready!", lv.ID, lv.Name)
+}
+
+// StartEndless: V6 Phase 3 — 进入 endless mode。seed 注入 (确定性
+// 可测; 生产入口传时间戳)。
+func (g *Game) StartEndless(seed int64) {
+	g.Endless = true
+	g.LevelIdx = -1
+	g.endlessRng = rand.New(rand.NewSource(seed))
+	path, err := ExpandPath(endlessCPs)
+	if err != nil {
+		// endlessCPs 是静态常量且有测试锁定, 此处仅防御
+		g.Msg = "endless path error: " + err.Error()
+		return
+	}
+	g.endlessLv = Level{
+		ID: 0, Name: "Endless",
+		StartGold: endlessStartGold, StartLives: endlessStartLives,
+		Path:  path,
+		Waves: []WaveSpec{{Enemies: genEndlessWave(1, g.endlessRng)}},
+	}
+	g.beginRun(g.endlessLv)
+	g.Msg = fmt.Sprintf("Endless — survive! (best: wave %d)", g.Save.BestWave)
+}
+
+// beginRun: V6 Phase 3 抽取 — 关卡进入公共初始化 (StartLevel /
+// StartEndless 共用, 行为不变)。
+func (g *Game) beginRun(lv Level) {
+	g.Phase = PhasePlaying
 	g.Path = lv.Path
 	g.pathLookup = make(map[Point]bool, len(lv.Path))
 	for _, p := range lv.Path {
@@ -89,7 +126,6 @@ func (g *Game) StartLevel(idx int) {
 	g.spawned = 0
 	g.spawnTimer = 0
 	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
-	g.Msg = fmt.Sprintf("Level %d: %s — get ready!", lv.ID, lv.Name)
 }
 
 func (g *Game) BackToMenu() {
@@ -102,6 +138,9 @@ func (g *Game) pathContains(p Point) bool {
 }
 
 func (g *Game) currentLevel() *Level {
+	if g.Endless {
+		return &g.endlessLv // V6 Phase 3: 合成关卡 (waves 动态增长)
+	}
 	if g.LevelIdx < 0 || g.LevelIdx >= len(g.Levels) {
 		return nil
 	}
@@ -143,7 +182,7 @@ func (g *Game) Update(dt float64) {
 		g.spawnTimer += dt
 		if g.spawnTimer >= spawnGapS {
 			g.spawnTimer = 0
-			g.Enemies = append(g.Enemies, newEnemy(cur.Enemies[g.spawned], 0, g.Save.Difficulty))
+			g.Enemies = append(g.Enemies, g.spawnEnemy(cur.Enemies[g.spawned], 0))
 			g.spawned++
 		}
 	}
@@ -161,6 +200,12 @@ func (g *Game) Update(dt float64) {
 			g.Lives--
 			if g.Lives <= 0 {
 				g.pushSound(SndLose)
+				// V6 Phase 3: endless 落败结算纪录
+				if g.Endless {
+					g.recordBestWave(g.WaveIdx)
+					g.Msg = fmt.Sprintf("Endless over — cleared %d waves (best: %d)",
+						g.WaveIdx, g.Save.BestWave)
+				}
 				g.Phase = PhaseLost
 				return
 			}
@@ -225,7 +270,20 @@ func (g *Game) Update(dt float64) {
 		}
 		if !alive {
 			lv := g.currentLevel()
-			if g.WaveIdx+1 < len(lv.Waves) {
+			if g.Endless {
+				// V6 Phase 3: endless 永不 Won — 生成下一波 + 推进纪录
+				g.WaveIdx++
+				g.recordBestWave(g.WaveIdx)
+				g.endlessLv.Waves = append(g.endlessLv.Waves,
+					WaveSpec{Enemies: genEndlessWave(g.WaveIdx+1, g.endlessRng)})
+				g.prepTimer = wavePrepS
+				g.spawned = 0
+				g.spawnTimer = 0
+				g.Enemies = nil
+				g.Gold += waveBonus
+				g.Msg = fmt.Sprintf("Wave %d cleared! +%dg (best: %d)",
+					g.WaveIdx, waveBonus, g.Save.BestWave)
+			} else if g.WaveIdx+1 < len(lv.Waves) {
 				g.WaveIdx++
 				g.prepTimer = wavePrepS
 				g.spawned = 0
@@ -331,20 +389,41 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 	// (V6 Phase 2: 召唤物同样吃难度系数 — newEnemy 统一施加点)
 	if e.Kind == ESpawner {
 		g.Enemies = append(g.Enemies,
-			newEnemy(ENormal, e.PathIdx, g.Save.Difficulty),
-			newEnemy(ENormal, e.PathIdx, g.Save.Difficulty),
+			g.spawnEnemy(ENormal, e.PathIdx),
+			g.spawnEnemy(ENormal, e.PathIdx),
 		)
 	}
 }
 
-// newEnemy: V6 Phase 2 — 敌人生成唯一入口 (wave spawn + Spawner 召唤
-// 共用), 难度 HP 系数在此统一施加。家族约束: 新增生成来源必须经此。
+// newEnemy: V6 Phase 2 — 难度 HP 系数施加 (纯函数, 可测)。
 func newEnemy(kind EnemyKind, pathIdx float64, d Difficulty) *Enemy {
 	hp := int(math.Round(float64(enemySpecs[kind].HP) * d.Spec().HPMul))
 	if hp < 1 {
 		hp = 1
 	}
 	return &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx}
+}
+
+// spawnEnemy: V6 Phase 3 — 敌人生成唯一入口 (wave spawn + Spawner
+// 召唤共用): newEnemy 难度基础值 + endless 后期 HP 缩放。
+// 家族约束: 新增生成来源必须经此, 否则 endless 缩放会漏。
+func (g *Game) spawnEnemy(kind EnemyKind, pathIdx float64) *Enemy {
+	e := newEnemy(kind, pathIdx, g.Save.Difficulty)
+	if g.Endless {
+		if s := endlessHPScale(g.WaveIdx + 1); s > 1 {
+			e.HP = int(math.Round(float64(e.HP) * s))
+			e.MaxHP = e.HP
+		}
+	}
+	return e
+}
+
+// recordBestWave: V6 Phase 3 — endless 纪录取 max, 立即持久化。
+func (g *Game) recordBestWave(cleared int) {
+	if cleared > g.Save.BestWave {
+		g.Save.BestWave = cleared
+		_ = StoreSave(g.Save)
+	}
 }
 
 // V5 Phase 5: 陨石雨主动技能参数。

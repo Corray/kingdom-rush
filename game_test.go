@@ -10,6 +10,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"testing"
 )
 
@@ -1875,4 +1876,175 @@ func TestDifficulty_CyclePersistsAndCompat(t *testing.T) {
 	if s.Difficulty != DiffNormal {
 		t.Errorf("old save should default Normal, got %v", s.Difficulty)
 	}
+}
+
+// ============================================================
+// V6 Phase 3: Endless mode (生成器确定性 + 纪录 + 永不 Won)
+// ============================================================
+
+func TestEndless_GeneratorDeterministic(t *testing.T) {
+	r1 := rand.New(rand.NewSource(42))
+	r2 := rand.New(rand.NewSource(42))
+	for n := 1; n <= 10; n++ {
+		w1 := genEndlessWave(n, r1)
+		w2 := genEndlessWave(n, r2)
+		if !kindsEqual(w1, w2) {
+			t.Fatalf("wave %d: same seed should give same sequence", n)
+		}
+	}
+}
+
+func TestEndless_BudgetExactAndMonotonic(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	prev := 0
+	for n := 1; n <= 15; n++ {
+		wave := genEndlessWave(n, rng)
+		cost := 0
+		for _, k := range wave {
+			cost += enemyCost[k]
+		}
+		want := endlessBaseBudget + n*endlessBudgetInc
+		if cost != want {
+			t.Errorf("wave %d total cost = %d, want %d (预算恰好花完)", n, cost, want)
+		}
+		if cost <= prev {
+			t.Errorf("wave %d strength %d should exceed wave %d's %d", n, cost, n-1, prev)
+		}
+		prev = cost
+	}
+}
+
+func TestEndless_PoolGating(t *testing.T) {
+	// 前期 wave 不该出现高级敌型 (多 seed 验证)
+	for seed := int64(0); seed < 20; seed++ {
+		rng := rand.New(rand.NewSource(seed))
+		for n := 1; n <= 7; n++ {
+			for _, k := range genEndlessWave(n, rng) {
+				if k == EBoss {
+					t.Fatalf("seed %d wave %d: boss 不应在 wave 8 前出现", seed, n)
+				}
+				if n < 3 && k == EGlider {
+					t.Fatalf("seed %d wave %d: glider 不应在 wave 3 前出现", seed, n)
+				}
+				if n < 5 && k == ESpawner {
+					t.Fatalf("seed %d wave %d: spawner 不应在 wave 5 前出现", seed, n)
+				}
+			}
+		}
+	}
+}
+
+func TestEndless_HPScale(t *testing.T) {
+	if endlessHPScale(1) != 1.0 || endlessHPScale(10) != 1.0 {
+		t.Errorf("wave ≤10 不缩放")
+	}
+	if s := endlessHPScale(20); s != 1.5 {
+		t.Errorf("wave 20 scale = %v, want 1.5", s)
+	}
+}
+
+func TestEndless_StartAndNeverWon(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.BackToMenu()
+		g.StartEndless(42)
+		if !g.Endless || g.Phase != PhasePlaying {
+			t.Fatalf("endless should start playing")
+		}
+		if g.currentLevel().Name != "Endless" || len(g.Path) == 0 {
+			t.Fatalf("endless level not set up")
+		}
+		if g.Lives != endlessStartLives {
+			t.Errorf("endless lives = %d, want %d", g.Lives, endlessStartLives)
+		}
+		// 模拟清掉 wave 1 → 应生成 wave 2 而非 Won
+		g.prepTimer = 0
+		g.spawned = len(g.currentWave().Enemies)
+		g.Enemies = nil
+		g.Update(0.05)
+		if g.Phase == PhaseWon {
+			t.Fatalf("endless must never reach PhaseWon")
+		}
+		if g.WaveIdx != 1 || len(g.endlessLv.Waves) != 2 {
+			t.Errorf("wave clear should advance + generate next: idx=%d waves=%d",
+				g.WaveIdx, len(g.endlessLv.Waves))
+		}
+		if g.Save.BestWave != 1 {
+			t.Errorf("clearing wave 1 should record best=1, got %d", g.Save.BestWave)
+		}
+	})
+}
+
+func TestEndless_BestWaveMaxAndPersist(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.Save.BestWave = 5
+		g.recordBestWave(3) // 更差: 不降级
+		if g.Save.BestWave != 5 {
+			t.Errorf("worse run must not regress record, got %d", g.Save.BestWave)
+		}
+		g.recordBestWave(8)
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.BestWave != 8 {
+			t.Errorf("best wave should persist, got %d", loaded.BestWave)
+		}
+	})
+	// 旧存档兼容
+	var s Save
+	if err := json.Unmarshal([]byte(`{"completed":{}}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.BestWave != 0 {
+		t.Errorf("old save best should be 0")
+	}
+}
+
+func TestEndless_LateWaveHPScaling(t *testing.T) {
+	// 家族验收: endless 后期 spawn (含召唤) 吃 HP 缩放
+	g := newTestGame()
+	g.Endless = true
+	g.WaveIdx = 19 // wave 20 → scale 1.5
+	e := g.spawnEnemy(ENormal, 0)
+	if e.HP != 30 { // 20 × 1.5
+		t.Errorf("endless wave 20 normal HP = %d, want 30", e.HP)
+	}
+	// 普通关卡不缩放
+	g.Endless = false
+	if e := g.spawnEnemy(ENormal, 0); e.HP != 20 {
+		t.Errorf("non-endless HP = %d, want 20", e.HP)
+	}
+}
+
+func TestEndless_LoseRecordsBest(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.BackToMenu()
+		g.StartEndless(42)
+		// 模拟已清 4 波: 补齐 waves 数组使 WaveIdx=4 合法
+		// (否则 currentWave 返回 nil, Update 早退不进 move 循环)
+		for i := 0; i < 4; i++ {
+			g.endlessLv.Waves = append(g.endlessLv.Waves,
+				WaveSpec{Enemies: []EnemyKind{ENormal}})
+		}
+		g.WaveIdx = 4
+		g.prepTimer = 0
+		g.spawned = 1
+		g.Lives = 1
+		// 敌人走到终点触发 lose
+		g.Enemies = []*Enemy{{Kind: EFast, HP: 12, MaxHP: 12,
+			PathIdx: float64(len(g.Path) - 1)}}
+		g.Update(0.5)
+		if g.Phase != PhaseLost {
+			t.Fatalf("expected PhaseLost, got %v", g.Phase)
+		}
+		if g.Save.BestWave != 4 {
+			t.Errorf("lose should record cleared waves 4, got %d", g.Save.BestWave)
+		}
+		if g.Msg == "" {
+			t.Errorf("endless lose should set record Msg")
+		}
+	})
 }

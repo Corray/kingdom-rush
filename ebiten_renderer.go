@@ -285,6 +285,10 @@ func (eg *EbitenGame) handleInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyD) {
 			g.CycleDifficulty()
 		}
+		// V6 Phase 3: E 键进入 endless (seed = 时间戳; 测试走注入)
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			g.StartEndless(time.Now().UnixNano())
+		}
 		digitKeys := []ebiten.Key{
 			ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4,
 			ebiten.KeyDigit5, ebiten.KeyDigit6, ebiten.KeyDigit7, ebiten.KeyDigit8,
@@ -509,11 +513,17 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 
 	// Help row + msg (V6: 按每列最大行数定位)
 	helpY := rowStartY + menuRowsPerCol*rowH + 8
+	// V6 Phase 3: endless 入口 + 纪录
+	endlessLine := " [E] Endless mode — no best record yet"
+	if g.Save.BestWave > 0 {
+		endlessLine = fmt.Sprintf(" [E] Endless mode — best: wave %d", g.Save.BestWave)
+	}
+	drawText(screen, endlessLine, 20, helpY)
 	drawText(screen,
 		" Click row to start (1-9/0 for Lv 1-10) | Q/Esc to quit",
-		20, helpY)
+		20, helpY+18)
 	if g.Msg != "" {
-		drawText(screen, " "+g.Msg, 20, helpY+18)
+		drawText(screen, " "+g.Msg, 20, helpY+36)
 	}
 }
 
@@ -534,9 +544,15 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	strokeRect(screen, 0, 0, float32(windowW), float32(topBarH),
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
 
-	// title (V6 Phase 2: 非 Normal 难度标注)
-	title := fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
-		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
+	// title (V6 Phase 2: 非 Normal 难度标注; Phase 3: endless 专用格式)
+	var title string
+	if g.Endless {
+		title = fmt.Sprintf(" KR V3 — Endless — Wave %d (best: %d) ",
+			g.WaveIdx+1, g.Save.BestWave)
+	} else {
+		title = fmt.Sprintf(" KR V3 — Lv %d: %s — Wave %d/%d ",
+			lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
+	}
 	if g.Save.Difficulty != DiffNormal {
 		title += fmt.Sprintf("[%s] ", g.Save.Difficulty.Spec().Name)
 	}
