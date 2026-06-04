@@ -16,6 +16,7 @@
 | V3 Phase 1-6b + V3.6 | Sprite/UI 美化 + 内容 | Kenney CC0 sprite 全替换、bullet 飞行动画、HUD/menu 美化、Go Mono truetype 字体、程序化 path 绘制 + 描边、Spawner 敌型（第 5 种）、39 tests | `v3.0` | `b108a26` |
 | V4 Phase 1-5 | 音频 + Game Feel | SFX 管线（9 音效 Kenney CC0）、BGM 双轨 + 音量档持久化（Juhani Junkala CC0）、走动/死亡动画（程序化插值+旋转+摆动）、伤害飘字 + 金币反馈、shake + boss 顿帧 + J 开关、72 tests | `v4.0` | `5936799` |
 | V5 Phase 1-5 | Gameplay 深度 | 卖塔（退款 70%）、targeting 策略（First/Last/Strong）、Cannon AoE 溅射、状态效果系统 + Frost 塔（第 4 塔型）、陨石雨主动技能（R 瞄准 + 25s 冷却）、killEnemy/pickTarget 重构、102 tests | `v5.0` | `8ee77f5` |
+| V6 Phase 1-4 | 内容扩展 | 关卡 11-20（菜单两列）、难度三档（Normal/Hard/Easy）、Endless mode（预算制生成器 + seed 确定性）、星级评分、beginRun/spawnEnemy 重构、124 tests | `v6.0` | `d2d4bf1` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -201,7 +202,38 @@
 
 ---
 
-## V6 — 内容扩展（active，2026-06-04 启动）
+## V6 — 内容扩展（已收尾 2026-06-04，tag `v6.0`）
+
+> Phase 1-4 全部完成。以下为规划原文存档 + 头部收尾记录。
+
+### V6 收尾记录（2026-06-04）
+
+**完成度：** 4/4 phase，测试 102 → 124。游戏终态：20 关 + 3 难度 + endless + 星级，4 塔 5 敌全系统三端（桌面/终端/浏览器）。
+
+**纪律兑现：**
+- 内容数据测试兜底落地（20 关完整性 / unlock 链 / 难度单调性——Spawner 加权）
+- seed 注入确定性铁律（首次引入随机性即立规，20-seed 门禁测试）
+- save family 第 3/4/5 轮零失同步（Difficulty / BestWave / Stars）
+- 统一施加点 ×2 新增（newEnemy 难度系数 / spawnEnemy endless 缩放——召唤物不漏）
+- 测试拦截既有 bug 第 3 例（V3 Phase 5a 起的负数整除 hitbox 误命中）
+
+**未竟项（不阻塞收尾）：**
+
+| 项 | 说明 | 去向 |
+|----|------|------|
+| 新关卡曲线 + endless 平衡未实玩压测 | AI 设计内容的固有限制 | 数值全常量化，实玩反馈一行可调 |
+| term 菜单 20 关在矮终端可能溢出 | 规划时记录，未实际验证 term 渲染 | term 冻结惯例；用户报障再处理 |
+| V6 新操作未接 term（D/E 键）| 惯例延伸（V5 起累计：卖塔/策略/陨石/难度/endless）| term 定位已事实降级为"V1.7 兼容保留"|
+| 星级/纪录纯 ASCII 呈现 | gomono 字形覆盖保守决策 | 若引入图标字体或 sprite 星标再美化 |
+
+**下一版候选（未拍板，三选或另提）：**
+a) 平衡打磨版——用户实玩反馈驱动的数值/手感调整批次
+b) 发布版——itch.io / GitHub Pages 部署 + README + 截图 + 玩法说明
+c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
+
+---
+
+### 以下为 V6 规划原文（2026-06-04 启动时写入，存档不改）
 
 ### 方向决策记录
 
@@ -259,3 +291,4 @@
 | 2026-06-04 | V5 启动：用户拍板 Gameplay 深度，Phase 1-5 规划（卖塔 → targeting 策略 → Cannon AoE → 状态效果/减速 → 主动技能）；核心循环改动定"重构先行 + 测试先行"纪律 |
 | 2026-06-04 | V5 收尾：tag `v5.0`（8ee77f5），版本史补 V5 行，收尾记录（纪律兑现 ×4 + 未竟项 ×4），V6 候选标记（内容扩展，待拍板）|
 | 2026-06-04 | V6 启动：用户拍板内容扩展，Phase 1-4 规划（关卡 11-20 + 菜单两列 → 难度模式 → endless → 星级）；内容数据测试兜底纪律 + endless seed 注入约束 |
+| 2026-06-04 | V6 收尾：tag `v6.0`（d2d4bf1），版本史补 V6 行，收尾记录（纪律兑现 ×5 + 未竟项 ×4），下一版三候选记录（平衡打磨 / 发布 / 新机制，未拍板）|
