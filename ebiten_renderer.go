@@ -57,6 +57,12 @@ type EbitenGame struct {
 	lastGold  int
 	lastPhase GamePhase
 	goldFlash float64
+	// V4 Phase 5: screen shake (lives 丢失) + boss 击杀顿帧
+	lastLives     int
+	lastBossKills int
+	shake         float64       // shake 剩余时间
+	hitStop       float64       // 顿帧剩余时间 (世界冻结, 渲染继续)
+	offscreen     *ebiten.Image // shake 时整帧偏移用缓冲
 }
 
 func NewEbitenGame(g *Game) *EbitenGame {
@@ -90,6 +96,11 @@ func (eg *EbitenGame) Update() error {
 	}
 	eg.last = now
 	eg.handleInput()
+	// V4 Phase 5: 顿帧 — 世界冻结 (跳过 game.Update), 输入/渲染继续
+	if eg.hitStop > 0 {
+		eg.hitStop -= dt
+		return nil
+	}
 	eg.game.Update(dt)
 	// V4 Phase 1: drain SFX 队列并播放 (handleInput 的 build/upgrade
 	// 与 Update 的 shoot/death/wave/win/lose 事件都在本帧消费)
@@ -99,26 +110,62 @@ func (eg *EbitenGame) Update() error {
 	updateBGM(eg.game.Phase, masterVol, dt)
 	// V4 Phase 4: 金币增加 → HUD 闪烁 (phase 切换时只同步不闪,
 	// 防止 StartLevel 重置 Gold 触发假闪)
+	// V4 Phase 5: lives 减少 → shake / boss 击杀 → 顿帧 (同模式观察,
+	// JuiceOff 时不触发)
 	if eg.game.Phase != eg.lastPhase {
 		eg.lastPhase = eg.game.Phase
 		eg.lastGold = eg.game.Gold
+		eg.lastLives = eg.game.Lives
+		eg.lastBossKills = eg.game.BossKills
 		eg.goldFlash = 0
-	} else if eg.game.Gold > eg.lastGold {
-		eg.goldFlash = 0.5
+		eg.shake = 0
+		eg.hitStop = 0
+	} else {
+		if eg.game.Gold > eg.lastGold {
+			eg.goldFlash = 0.5
+		}
+		if !eg.game.Save.JuiceOff {
+			if eg.game.Lives < eg.lastLives {
+				eg.shake = shakeDuration
+			}
+			if eg.game.BossKills > eg.lastBossKills {
+				eg.hitStop = hitStopS
+			}
+		}
 	}
 	eg.lastGold = eg.game.Gold
+	eg.lastLives = eg.game.Lives
+	eg.lastBossKills = eg.game.BossKills
 	if eg.goldFlash > 0 {
 		eg.goldFlash -= dt
+	}
+	if eg.shake > 0 {
+		eg.shake -= dt
 	}
 	return nil
 }
 
 func (eg *EbitenGame) Draw(screen *ebiten.Image) {
-	screen.Fill(eColBg)
+	// V4 Phase 5: shake 激活时画到离屏缓冲, 再整帧偏移 blit
+	target := screen
+	if eg.shake > 0 {
+		if eg.offscreen == nil {
+			eg.offscreen = ebiten.NewImage(windowW, windowH)
+		}
+		target = eg.offscreen
+	}
+	target.Fill(eColBg)
 	if eg.game.Phase == PhaseLevelSelect {
-		eg.drawLevelSelect(screen)
+		eg.drawLevelSelect(target)
 	} else {
-		eg.drawGame(screen)
+		eg.drawGame(target)
+	}
+	if target != screen {
+		dx, dy := shakeOffset(eg.shake)
+		screen.Fill(eColBg) // 偏移后露出的边缘用背景色补
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(dx, dy)
+		screen.DrawImage(eg.offscreen, op)
 	}
 }
 
@@ -145,6 +192,10 @@ func (eg *EbitenGame) handleInput() {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) {
 		g.AdjustVolume(+1)
+	}
+	// V4 Phase 5: J 键开关屏幕反馈特效 (shake/顿帧)
+	if inpututil.IsKeyJustPressed(ebiten.KeyJ) {
+		g.ToggleJuice()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.Phase == PhasePlaying {
 		g.TryAction()
@@ -743,7 +794,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// help row
 	helpY := selY + btnH + 8
 	drawText(screen,
-		" Arrows/Mouse: move | 1/2/3: select | Space/Click: build/upgrade | M: menu | Q/Esc: quit",
+		" Arrows/Mouse: move | 1/2/3: select | Space/Click: build/upgrade | M: menu | -/=: vol | J: fx | Q/Esc: quit",
 		4, helpY)
 
 	// banner

@@ -1038,3 +1038,70 @@ func TestTextEffect_GoldOnKill(t *testing.T) {
 		t.Errorf("kill should push gold text %q, effects: %d", want, len(g.Effects))
 	}
 }
+
+// ============================================================
+// V4 Phase 5: screen shake / 顿帧 (anim.go 纯数学 + game.go 触发源)
+// ============================================================
+
+func TestShake_OffsetBoundedAndZero(t *testing.T) {
+	if dx, dy := shakeOffset(0); dx != 0 || dy != 0 {
+		t.Errorf("expired shake should be (0,0), got (%v,%v)", dx, dy)
+	}
+	if dx, dy := shakeOffset(-1); dx != 0 || dy != 0 {
+		t.Errorf("negative remaining should be (0,0)")
+	}
+	for r := 0.01; r <= shakeDuration+0.1; r += 0.02 {
+		dx, dy := shakeOffset(r)
+		if dx > shakeMaxAmp || dx < -shakeMaxAmp || dy > shakeMaxAmp || dy < -shakeMaxAmp {
+			t.Fatalf("shake(%v) = (%v,%v) exceeds ±%v", r, dx, dy, shakeMaxAmp)
+		}
+	}
+}
+
+func TestJuice_BossKillCounter(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{{Kind: EBoss, HP: 1, MaxHP: 100, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	if g.BossKills != 1 {
+		t.Errorf("boss kill should increment BossKills, got %d", g.BossKills)
+	}
+}
+
+func TestJuice_NormalKillNoCount(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 1, MaxHP: 20, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	if g.BossKills != 0 {
+		t.Errorf("normal kill should not increment BossKills, got %d", g.BossKills)
+	}
+}
+
+func TestJuice_TogglePersists(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		if g.Save.JuiceOff {
+			t.Fatalf("juice should default ON (JuiceOff=false)")
+		}
+		g.ToggleJuice()
+		if !g.Save.JuiceOff || g.Msg == "" {
+			t.Errorf("toggle should set JuiceOff + Msg")
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !loaded.JuiceOff {
+			t.Errorf("JuiceOff should persist")
+		}
+		g.ToggleJuice() // 再切回
+		if g.Save.JuiceOff {
+			t.Errorf("second toggle should restore ON")
+		}
+	})
+}

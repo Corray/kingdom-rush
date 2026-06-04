@@ -28,6 +28,9 @@ type Save struct {
 	// V4 Phase 2: 音量档 0-10。指针区分"未设置"(nil, 旧存档无此字段
 	// → 默认档) 与"显式 0"(静音)。家族注意: save.go 有同构定义。
 	Volume *int `json:"volume,omitempty"`
+	// V4 Phase 5: 屏幕反馈特效 (shake/顿帧) 关闭开关。bool 零值 =
+	// 默认开启, 旧存档无字段自然兼容, 不需指针。家族: save.go。
+	JuiceOff bool `json:"juice_off,omitempty"`
 }
 
 const (

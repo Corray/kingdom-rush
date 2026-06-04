@@ -37,6 +37,7 @@ type Game struct {
 	Enemies     []*Enemy
 	Effects     []*Effect    // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
 	SoundEvents []SoundEvent // V4: SFX 事件队列 (sound.go, 渲染层每帧 drain)
+	BossKills   int          // V4 Phase 5: boss 击杀累计 (渲染层观察增量触发顿帧, 同 goldFlash 模式)
 	Gold        int
 	Lives       int
 	StartLives  int
@@ -193,6 +194,9 @@ func (g *Game) Update(dt float64) {
 			if target.HP <= 0 {
 				target.Dead = true
 				g.pushSound(SndEnemyDeath)
+				if target.Kind == EBoss {
+					g.BossKills++ // V4 Phase 5: 渲染层观察此计数触发顿帧
+				}
 				reward := enemySpecs[target.Kind].Reward
 				// 赏金飘字右偏 0.3 cell, 与伤害字错开
 				g.Effects = append(g.Effects,
@@ -292,6 +296,17 @@ func (g *Game) AdjustVolume(delta int) {
 	g.Save.SetVolumeLevel(g.Save.VolumeLevel() + delta)
 	_ = StoreSave(g.Save)
 	g.Msg = fmt.Sprintf("Volume %d/%d", g.Save.VolumeLevel(), maxVolume)
+}
+
+// ToggleJuice: V4 Phase 5 — 屏幕反馈特效 (shake / 顿帧) 一键开关, 持久化。
+func (g *Game) ToggleJuice() {
+	g.Save.JuiceOff = !g.Save.JuiceOff
+	_ = StoreSave(g.Save)
+	if g.Save.JuiceOff {
+		g.Msg = "Screen effects: OFF"
+	} else {
+		g.Msg = "Screen effects: ON"
+	}
 }
 
 func (g *Game) CountAliveEnemies() int {

@@ -62,3 +62,24 @@ func dirAngle(dx, dy int) float64 {
 	}
 	return math.Atan2(float64(dy), float64(dx))
 }
+
+// V4 Phase 5: screen shake (lives 丢失) — 弱强度默认 (roadmap 约束:
+// 过度使用伤体验), 振幅随剩余时间线性衰减。
+const (
+	shakeDuration = 0.3 // 秒
+	shakeMaxAmp   = 4.0 // 最大偏移 px
+	hitStopS      = 0.12
+)
+
+// shakeOffset: 剩余时间 → 帧偏移 (确定性 sin/cos 抖动, 无随机数)。
+func shakeOffset(remaining float64) (float64, float64) {
+	if remaining <= 0 {
+		return 0, 0
+	}
+	if remaining > shakeDuration {
+		remaining = shakeDuration
+	}
+	amp := shakeMaxAmp * (remaining / shakeDuration)
+	t := (shakeDuration - remaining) * 60
+	return math.Sin(t*1.9) * amp, math.Cos(t*2.3) * amp
+}
