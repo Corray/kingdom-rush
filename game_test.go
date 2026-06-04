@@ -636,3 +636,139 @@ func kindsEqual(a, b []EnemyKind) bool {
 	}
 	return true
 }
+
+// ============================================================
+// V4 Phase 1: SoundEvent 队列 (sound.go + game.go 触发点)
+// 只测触发 (事件入队), 不测播放 (audio_player.go 是 !term 渲染层)。
+// ============================================================
+
+func drainHas(evs []SoundEvent, want SoundEvent) bool {
+	for _, e := range evs {
+		if e == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSound_BuildPushesEvent(t *testing.T) {
+	g := newTestGame()
+	g.Cursor = Point{10, 10} // off-path
+	g.TryAction()
+	if !drainHas(g.DrainSounds(), SndBuild) {
+		t.Errorf("build should push SndBuild")
+	}
+}
+
+func TestSound_FailedBuildPushesNothing(t *testing.T) {
+	g := newTestGame()
+	g.Gold = 0
+	g.Cursor = Point{10, 10}
+	g.TryAction()
+	if len(g.DrainSounds()) != 0 {
+		t.Errorf("failed build (no gold) should push no sound")
+	}
+}
+
+func TestSound_UpgradePushesEvent(t *testing.T) {
+	g := newTestGame()
+	g.Cursor = Point{10, 10}
+	g.TryAction()   // build
+	g.DrainSounds() // 清掉 build 事件
+	g.Gold = 1000   // 保证升级买得起
+	g.TryAction()   // upgrade (光标在塔上)
+	if !drainHas(g.DrainSounds(), SndUpgrade) {
+		t.Errorf("upgrade should push SndUpgrade")
+	}
+}
+
+func TestSound_ShootAndDeathPush(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	// 敌人在塔射程内, HP 低保证一击致死
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 1, MaxHP: 20, PathIdx: 1}}
+	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1}}
+	g.Update(0.05)
+	evs := g.DrainSounds()
+	if !drainHas(evs, SndShootArcher) {
+		t.Errorf("archer shot should push SndShootArcher, got %v", evs)
+	}
+	if !drainHas(evs, SndEnemyDeath) {
+		t.Errorf("kill should push SndEnemyDeath, got %v", evs)
+	}
+}
+
+func TestSound_ShootKindPerTower(t *testing.T) {
+	if shootSound(TArcher) != SndShootArcher ||
+		shootSound(TCannon) != SndShootCannon ||
+		shootSound(TMagic) != SndShootMagic {
+		t.Errorf("shootSound mapping wrong")
+	}
+}
+
+func TestSound_WaveStartOnPrepEnd(t *testing.T) {
+	g := newTestGame() // StartLevel 后 prepTimer = wavePrepS
+	g.Update(wavePrepS + 1)
+	if !drainHas(g.DrainSounds(), SndWaveStart) {
+		t.Errorf("prep timer 归零应 push SndWaveStart")
+	}
+	// 再 update 不应重复触发
+	g.Update(0.1)
+	if drainHas(g.DrainSounds(), SndWaveStart) {
+		t.Errorf("wave start 每 wave 只触发一次")
+	}
+}
+
+func TestSound_WinPushes(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.prepTimer = 0
+		g.spawned = 1
+		g.Enemies = []*Enemy{{Kind: ENormal, HP: 0, MaxHP: 20, Dead: true}}
+		g.Update(0.1)
+		if g.Phase != PhaseWon {
+			t.Fatalf("expected PhaseWon")
+		}
+		if !drainHas(g.DrainSounds(), SndWin) {
+			t.Errorf("victory should push SndWin")
+		}
+	})
+}
+
+func TestSound_LosePushes(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Lives = 1
+	// 敌人直接走到终点 (path len 6, PathIdx 超出即 escape)
+	g.Enemies = []*Enemy{{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 4.9}}
+	g.spawned = 1
+	g.Update(1.0) // speed 1.x × 1s 足够越过末端
+	if g.Phase != PhaseLost {
+		t.Fatalf("expected PhaseLost, lives=%d", g.Lives)
+	}
+	if !drainHas(g.DrainSounds(), SndLose) {
+		t.Errorf("defeat should push SndLose")
+	}
+}
+
+func TestSound_DrainClears(t *testing.T) {
+	g := newTestGame()
+	g.pushSound(SndBuild)
+	if len(g.DrainSounds()) != 1 {
+		t.Fatalf("first drain should return 1 event")
+	}
+	if len(g.DrainSounds()) != 0 {
+		t.Errorf("second drain should be empty")
+	}
+}
+
+func TestSound_QueueCap(t *testing.T) {
+	g := newTestGame()
+	for i := 0; i < maxSoundQueue*2; i++ {
+		g.pushSound(SndBuild)
+	}
+	if n := len(g.DrainSounds()); n != maxSoundQueue {
+		t.Errorf("queue should cap at %d, got %d", maxSoundQueue, n)
+	}
+}

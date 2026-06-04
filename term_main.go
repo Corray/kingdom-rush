@@ -83,6 +83,7 @@ func main() {
 			dt := now.Sub(last).Seconds()
 			last = now
 			g.Update(dt)
+			g.DrainSounds() // V4: term build 无音频, drain 丢弃防队列积压
 			r.Draw(g)
 		}
 	}

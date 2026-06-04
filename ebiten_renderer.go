@@ -64,6 +64,10 @@ func NewEbitenGame(g *Game) *EbitenGame {
 	if err := loadGameFont(); err != nil {
 		fmt.Println("warning: font load failed:", err, "(falling back to bitmap font)")
 	}
+	// V4 Phase 1: SFX 解码 (失败不致命, 缺失音效静默跳过)
+	if n := initAudio(); n > 0 {
+		fmt.Println("warning:", n, "sfx failed to decode (those sounds muted)")
+	}
 	return &EbitenGame{game: g, last: time.Now()}
 }
 
@@ -79,6 +83,9 @@ func (eg *EbitenGame) Update() error {
 	eg.last = now
 	eg.handleInput()
 	eg.game.Update(dt)
+	// V4 Phase 1: drain SFX 队列并播放 (handleInput 的 build/upgrade
+	// 与 Update 的 shoot/death/wave/win/lose 事件都在本帧消费)
+	playSounds(eg.game.DrainSounds())
 	return nil
 }
 

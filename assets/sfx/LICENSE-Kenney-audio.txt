@@ -1,0 +1,24 @@
+SFX 素材来源 — Kenney (www.kenney.nl), License: CC0 (Creative Commons Zero)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+下载日期: 2026-06-04, 来源页面 + 包内 License.txt 均确认 CC0
+(crediting not mandatory, 本文件自愿 attribution + 溯源)
+
+来源包 (3 个):
+- Interface Sounds 1.0  https://kenney.nl/assets/interface-sounds
+- Impact Sounds 1.0     https://kenney.nl/assets/impact-sounds
+- Digital Audio         https://kenney.nl/assets/digital-audio
+
+文件映射 (本目录文件 ← 包内原文件):
+
+| 本目录 | 原文件 | 包 |
+|--------|--------|-----|
+| shoot_archer.ogg | Audio/pluck_001.ogg | Interface Sounds |
+| shoot_cannon.ogg | Audio/impactPlank_medium_000.ogg | Impact Sounds |
+| shoot_magic.ogg | Audio/laser4.ogg | Digital Audio |
+| enemy_death.ogg | Audio/impactSoft_medium_000.ogg | Impact Sounds |
+| build.ogg | Audio/impactWood_medium_000.ogg | Impact Sounds |
+| upgrade.ogg | Audio/powerUp5.ogg | Digital Audio |
+| wave_start.ogg | Audio/threeTone1.ogg | Digital Audio |
+| win.ogg | Audio/powerUp1.ogg | Digital Audio |
+| lose.ogg | Audio/zapThreeToneDown.ogg | Digital Audio |

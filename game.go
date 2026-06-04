@@ -31,18 +31,19 @@ type Game struct {
 	LevelIdx int
 	Save     Save // 存档:已完成关卡 + unlock 状态
 
-	Path       []Point
-	pathLookup map[Point]bool
-	Towers     []*Tower
-	Enemies    []*Enemy
-	Effects    []*Effect // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
-	Gold       int
-	Lives      int
-	StartLives int
-	WaveIdx    int
-	Cursor     Point
-	Selected   TowerKind
-	Msg        string
+	Path        []Point
+	pathLookup  map[Point]bool
+	Towers      []*Tower
+	Enemies     []*Enemy
+	Effects     []*Effect    // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
+	SoundEvents []SoundEvent // V4: SFX 事件队列 (sound.go, 渲染层每帧 drain)
+	Gold        int
+	Lives       int
+	StartLives  int
+	WaveIdx     int
+	Cursor      Point
+	Selected    TowerKind
+	Msg         string
 
 	prepTimer  float64
 	spawned    int
@@ -114,8 +115,9 @@ func (g *Game) Update(dt float64) {
 	}
 	if g.prepTimer > 0 {
 		g.prepTimer -= dt
-		if g.prepTimer < 0 {
+		if g.prepTimer <= 0 {
 			g.prepTimer = 0
+			g.pushSound(SndWaveStart) // V4: prep 倒计时归零 = wave 开打 (每 wave 恰一次)
 		}
 	}
 	cur := g.currentWave()
@@ -144,6 +146,7 @@ func (g *Game) Update(dt float64) {
 			e.Escaped = true
 			g.Lives--
 			if g.Lives <= 0 {
+				g.pushSound(SndLose)
 				g.Phase = PhaseLost
 				return
 			}
@@ -183,8 +186,10 @@ func (g *Game) Update(dt float64) {
 				makeShootEffect(t.Pos, target.Pos(g.Path), towerSpec.Color, t.Kind),
 				makeHitEffect(target.Pos(g.Path)),
 			)
+			g.pushSound(shootSound(t.Kind)) // V4: 射击音按塔型分 (伤害即时结算, 不另设 hit 音)
 			if target.HP <= 0 {
 				target.Dead = true
+				g.pushSound(SndEnemyDeath)
 				g.Gold += enemySpecs[target.Kind].Reward
 				// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
 				if target.Kind == ESpawner {
@@ -219,6 +224,7 @@ func (g *Game) Update(dt float64) {
 				g.Gold += waveBonus
 				g.Msg = fmt.Sprintf("Wave %d cleared! +%dg, prep for next", g.WaveIdx, waveBonus)
 			} else {
+				g.pushSound(SndWin)
 				g.Phase = PhaseWon
 				g.Save.MarkCompleted(lv.ID)
 				if err := StoreSave(g.Save); err != nil {
@@ -253,6 +259,7 @@ func (g *Game) TryAction() {
 		}
 		g.Gold -= cost
 		atTower.Level++
+		g.pushSound(SndUpgrade)
 		g.Msg = fmt.Sprintf("Upgraded to lvl %d", atTower.Level)
 		return
 	}
@@ -267,6 +274,7 @@ func (g *Game) TryAction() {
 	}
 	g.Towers = append(g.Towers, &Tower{Pos: g.Cursor, Kind: g.Selected, Level: 1})
 	g.Gold -= spec.Cost
+	g.pushSound(SndBuild)
 	g.Msg = fmt.Sprintf("Built %s", towerSpecs[g.Selected].Name)
 }
 
