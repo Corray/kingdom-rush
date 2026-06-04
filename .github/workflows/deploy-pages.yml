@@ -32,10 +32,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libc6-dev libglu1-mesa-dev libgl1-mesa-dev \
             libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev \
-            libxxf86vm-dev libasound2-dev pkg-config
+            libxxf86vm-dev libasound2-dev pkg-config xvfb
 
+      # ebiten 包 init 需要 DISPLAY (即使测试不开窗口) — xvfb 虚拟屏
       - name: Test (gate)
-        run: go test ./... -count=1
+        run: xvfb-run -a go test ./... -count=1
 
       - name: Build WASM (stripped)
         run: |
