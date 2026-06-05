@@ -30,7 +30,7 @@ const (
 
 // 关键 sprite ID 映射 (按 visual id, 详细 catalog 见 ADR-004)
 const (
-	spriteGrass        = 24
+	spriteGrass        = 25 // V7.1: 24 是泥土+草边过渡 tile, 平铺成竖条纹 (V3 起选错); 25 = 无缝纯草
 	spriteDirtPath     = 200
 	spriteTowerArcher  = 249
 	spriteTowerCannon  = 250
