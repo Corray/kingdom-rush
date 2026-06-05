@@ -1,5 +1,9 @@
 # Gopher Defense
 
+[![Deploy](https://github.com/Corray/kingdom-rush/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/Corray/kingdom-rush/actions/workflows/deploy-pages.yml)
+[![Play](https://img.shields.io/badge/play-in_browser-78dcff)](https://corray.github.io/kingdom-rush/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A tower defense game written in Go — playable on **desktop**, in the **terminal**, and in your **browser** (WASM).
 
 > Inspired by Kingdom Rush (Ironhide Game Studio). This is a non-commercial,
@@ -34,6 +38,8 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 | `X` / right click | Sell tower (70% refund) |
 | `T` | Cycle targeting strategy of tower at cursor |
 | `R`, then click | Meteor strike (25s cooldown); `R` again cancels |
+| `P` | Pause / resume |
+| `F` | Toggle game speed (1x / 2x) |
 | `M` | Back to menu |
 | `D` | Cycle difficulty (in menu) |
 | `E` | Endless mode (in menu) |

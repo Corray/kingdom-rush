@@ -66,6 +66,9 @@ type EbitenGame struct {
 	offscreen     *ebiten.Image // shake 时整帧偏移用缓冲
 	// V5 Phase 5: 陨石雨瞄准态 (UI 模式, 不入 game 逻辑)
 	aiming bool
+	// V7.3 C1/C2: 暂停 + 倍速 (renderer 层 UI 模式, term 不受影响)
+	paused  bool
+	speed2x bool
 }
 
 func NewEbitenGame(g *Game) *EbitenGame {
@@ -104,6 +107,16 @@ func (eg *EbitenGame) Update() error {
 		eg.hitStop -= dt
 		return nil
 	}
+	// V7.3 C1: 暂停 — 同顿帧语义, 但 BGM/音量继续走 (不静音)
+	if eg.paused {
+		masterVol := float64(eg.game.Save.VolumeLevel()) / float64(maxVolume)
+		updateBGM(eg.game.Phase, masterVol, dt)
+		return nil
+	}
+	// V7.3 C2: 倍速 — 模拟步长 ×2 (cooldown/prep/移动同步加速, 公平)
+	if eg.speed2x {
+		dt *= 2
+	}
 	eg.game.Update(dt)
 	// V4 Phase 1: drain SFX 队列并播放 (handleInput 的 build/upgrade
 	// 与 Update 的 shoot/death/wave/win/lose 事件都在本帧消费)
@@ -124,6 +137,8 @@ func (eg *EbitenGame) Update() error {
 		eg.shake = 0
 		eg.hitStop = 0
 		eg.aiming = false // V5 Phase 5: phase 切换取消瞄准
+		eg.paused = false // V7.3: 换局重置
+		eg.speed2x = false
 	} else {
 		if eg.game.Gold > eg.lastGold {
 			eg.goldFlash = 0.5
@@ -197,9 +212,27 @@ func (eg *EbitenGame) handleInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) {
 		g.AdjustVolume(+1)
 	}
-	// V4 Phase 5: J 键开关屏幕反馈特效 (shake/顿帧)
+	// V4 Phase 5: J 键开关屏幕反馈特效 (shake/顿帧 + V7.3 起含飘字)
 	if inpututil.IsKeyJustPressed(ebiten.KeyJ) {
 		g.ToggleJuice()
+	}
+	// V7.3 C1: P 键暂停 (世界冻结, 渲染/输入继续)
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyP) {
+		eg.paused = !eg.paused
+		if eg.paused {
+			g.Msg = "PAUSED (P to resume)"
+		} else {
+			g.Msg = "Resumed"
+		}
+	}
+	// V7.3 C2: F 键倍速 1x/2x
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		eg.speed2x = !eg.speed2x
+		if eg.speed2x {
+			g.Msg = "Speed x2"
+		} else {
+			g.Msg = "Speed x1"
+		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.Phase == PhasePlaying {
 		g.TryAction()
@@ -582,6 +615,12 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	if g.Save.Difficulty != DiffNormal {
 		title += fmt.Sprintf("[%s] ", g.Save.Difficulty.Spec().Name)
 	}
+	// V7.3 C1/C2: 暂停/倍速状态入标题
+	if eg.paused {
+		title += "[PAUSED] "
+	} else if eg.speed2x {
+		title += "[x2] "
+	}
 	drawText(screen, title, 8, 8)
 	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
 	drawText(screen,
@@ -666,7 +705,12 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	for _, t := range g.Towers {
 		x, y := cellPos(t.Pos)
 		if tilesheet != nil {
-			drawTile(screen, towerSpriteID(t.Kind, t.Level), x, y)
+			if t.Kind == TFrost { // V7.3 D1: 冰蓝 tint 提辨识度
+				drawTileTint(screen, towerSpriteID(t.Kind, t.Level), x, y,
+					frostTintR, frostTintG, frostTintB)
+			} else {
+				drawTile(screen, towerSpriteID(t.Kind, t.Level), x, y)
+			}
 			// level badge: mini digit sprite at top-right
 			badgeScale := 0.45
 			miniSize := float32(cellPx) * float32(badgeScale)
@@ -806,6 +850,10 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				fillCircle(screen, dx+float32(cellPx)/2, dy+float32(cellPx)/2, r, col)
 			}
 		} else if fx.Kind == EText {
+			// V7.3 D2: 飘字并入 J 开关 (game 层照 push, 渲染层过滤)
+			if g.Save.JuiceOff {
+				continue
+			}
 			// V4 Phase 4: 飘字 — 上飘 14px + fade out, 水平居中于 cell
 			tx, ty := cellPosF(fx.FX, fx.FY)
 			rise := (1 - fx.Alpha()) * 14
@@ -901,8 +949,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			float32(btnW), float32(btnH), borderCol, 2)
 		// mini tower sprite (32×32 at left)
 		if tilesheet != nil {
-			drawTileAt(screen, towerSpriteID(k, 1),
-				float32(btnX+1), float32(selY+1), 1.0, 1.0)
+			if k == TFrost { // V7.3 D1: 按钮与场上一致 tint
+				drawTileTint(screen, towerSpriteID(k, 1),
+					float32(btnX+1), float32(selY+1),
+					frostTintR, frostTintG, frostTintB)
+			} else {
+				drawTileAt(screen, towerSpriteID(k, 1),
+					float32(btnX+1), float32(selY+1), 1.0, 1.0)
+			}
 		}
 		// label 2 行: [N]Name 在上, Cost 在下
 		// V7.2 M2: 选中名金色; cost 买得起绿 / 买不起红

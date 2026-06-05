@@ -143,7 +143,15 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 				g.Selected = TMagic
 				g.Msg = "Selected Magic"
 			}
-		case '4', '5', '6', '7', '8', '9':
+		case '4':
+			// V7.3 E1: playing 选 Frost (修复 HUD 显示 4 塔但选不了的不一致)
+			if g.Phase == PhaseLevelSelect {
+				g.StartLevel(3)
+			} else if g.Phase == PhasePlaying {
+				g.Selected = TFrost
+				g.Msg = "Selected Frost"
+			}
+		case '5', '6', '7', '8', '9':
 			if g.Phase == PhaseLevelSelect {
 				idx := int(e.Rune() - '1')
 				g.StartLevel(idx)

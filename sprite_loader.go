@@ -156,6 +156,23 @@ func tileSubImage(tileID int) *ebiten.Image {
 	return tilesheet.SubImage(rect).(*ebiten.Image)
 }
 
+// drawTileTint: V7.3 D1 — 带颜色乘数绘制 (Frost 塔冰蓝 tint 用)。
+func drawTileTint(dst *ebiten.Image, tileID int, x, y float32, cr, cg, cb float32) {
+	sub := tileSubImage(tileID)
+	if sub == nil {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	scale := float64(cellPx) / float64(sheetTileSrc)
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	op.ColorScale.Scale(cr, cg, cb, 1)
+	dst.DrawImage(sub, op)
+}
+
+// frostTint: Frost 塔的冰蓝色乘数 (灰色原 sprite × 此值 = 偏蓝)。
+const frostTintR, frostTintG, frostTintB = 0.7, 0.95, 1.3
+
 // drawTile 在指定屏幕位置画 tile, 自动按 cellPx 缩放
 func drawTile(dst *ebiten.Image, tileID int, x, y float32) {
 	sub := tileSubImage(tileID)
