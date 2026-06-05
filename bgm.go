@@ -21,17 +21,10 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
 )
-
-//go:embed assets/bgm/menu.ogg
-var oggBgmMenu []byte
-
-//go:embed assets/bgm/battle.ogg
-var oggBgmBattle []byte
 
 type bgmTrack int
 
@@ -64,39 +57,64 @@ func bgmFor(p GamePhase) bgmTrack {
 	}
 }
 
-// initBGM: 流式解码 + InfiniteLoop 包装为常驻 Player (暂停态)。
-// 依赖 initAudio 先建好 audioCtx。返回失败轨道数。
+// V7.4 B1: BGM 数据异步到达通道 — 资产提供层 (embed / fetch) 与
+// 解码注册解耦。fetch goroutine 只投递 bytes, 解码与 map 写入
+// 一律在主线程 updateBGM poll (无锁无 data race)。
+type bgmArrival struct {
+	tr   bgmTrack
+	data []byte
+}
+
+var bgmDataCh = make(chan bgmArrival, 2)
+
+// queueBGMData: 资产提供层投递入口 (native 同步 / wasm fetch goroutine)。
+func queueBGMData(tr bgmTrack, data []byte) {
+	select {
+	case bgmDataCh <- bgmArrival{tr: tr, data: data}:
+	default: // 容量 2 (轨道数), 重复投递丢弃
+	}
+}
+
+// initBGM: 建空 player 表 + 触发资产加载 (native 立即投递 /
+// wasm 后台 fetch)。返回非 0 表示 audio 不可用。
 func initBGM() int {
 	if audioCtx == nil {
 		return 2
 	}
-	raw := map[bgmTrack][]byte{
-		bgmMenu:   oggBgmMenu,
-		bgmBattle: oggBgmBattle,
+	bgmPlayers = make(map[bgmTrack]*audio.Player, 2)
+	loadBGMAssets()
+	return 0
+}
+
+// registerArrivedBGM: 主线程消费到达的轨道数据 — 解码 + 建 player;
+// 若该轨正是当前期望轨 (迟到场景), 注册即起播。
+func registerArrivedBGM(m bgmArrival) {
+	s, err := vorbis.DecodeWithSampleRate(audioSampleRate, bytes.NewReader(m.data))
+	if err != nil {
+		return // 静默: BGM 缺失不阻断游戏
 	}
-	bgmPlayers = make(map[bgmTrack]*audio.Player, len(raw))
-	failed := 0
-	for tr, b := range raw {
-		s, err := vorbis.DecodeWithSampleRate(audioSampleRate, bytes.NewReader(b))
-		if err != nil {
-			failed++
-			continue
-		}
-		loop := audio.NewInfiniteLoop(s, s.Length())
-		p, err := audioCtx.NewPlayer(loop)
-		if err != nil {
-			failed++
-			continue
-		}
-		bgmPlayers[tr] = p
+	loop := audio.NewInfiniteLoop(s, s.Length())
+	p, err := audioCtx.NewPlayer(loop)
+	if err != nil {
+		return
 	}
-	return failed
+	bgmPlayers[m.tr] = p
+	if m.tr == bgmCurrent {
+		_ = p.Rewind()
+		p.Play()
+	}
 }
 
 // updateBGM: 每帧驱动切换状态机 + 应用音量。
 func updateBGM(phase GamePhase, masterVol, dt float64) {
 	if bgmPlayers == nil {
 		return
+	}
+	// V7.4 B1: poll 异步到达的轨道 (每帧最多一条, 足够)
+	select {
+	case m := <-bgmDataCh:
+		registerArrivedBGM(m)
+	default:
 	}
 	target := bgmFor(phase)
 	if bgmCurrent != target {

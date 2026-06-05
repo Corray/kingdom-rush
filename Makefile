@@ -35,7 +35,8 @@ web/wasm_exec.js: $(WASM_EXEC_SRC)
 web/kingdom-rush.wasm: $(wildcard *.go) assets/levels.yaml
 	@mkdir -p web
 	GOOS=js GOARCH=wasm go build -o web/kingdom-rush.wasm .
-	@echo "WASM built: web/kingdom-rush.wasm"
+	@mkdir -p web/bgm && cp assets/bgm/*.ogg web/bgm/
+	@echo "WASM built: web/kingdom-rush.wasm (+ bgm/ fetch assets)"
 	@echo "Serve with: make serve"
 
 serve: wasm

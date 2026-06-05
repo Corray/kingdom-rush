@@ -51,6 +51,7 @@ build/
 # WASM build artifacts (从 GOROOT/lib/wasm 拷贝 + go build wasm 产出)
 /web/wasm_exec.js
 /web/kingdom-rush.wasm
+/web/bgm/
 
 # install 状态文件（resume 用）
 /.install-state.json
