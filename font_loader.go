@@ -21,11 +21,15 @@ import (
 )
 
 var (
-	gameFontFace font.Face
-	textWhite    = color.RGBA{R: 240, G: 240, B: 240, A: 255}
+	gameFontFace  font.Face
+	titleFontFace font.Face // V7.2 M1: 20pt 标题字 (消 V3 P5c 未竟项"多字号")
+	textWhite     = color.RGBA{R: 240, G: 240, B: 240, A: 255}
 )
 
-const fontAscent = 10 // 12pt gomono ascent, top-left → baseline 偏移
+const (
+	fontAscent      = 10 // 12pt gomono ascent, top-left → baseline 偏移
+	titleFontAscent = 17 // 20pt
+)
 
 func loadGameFont() error {
 	if gameFontFace != nil {
@@ -44,7 +48,25 @@ func loadGameFont() error {
 		return err
 	}
 	gameFontFace = face
+	// V7.2 M1: 标题字号 (同一 ttf 第二个 face)
+	tface, err := opentype.NewFace(tt, &opentype.FaceOptions{
+		Size:    20,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return err
+	}
+	titleFontFace = tface
 	return nil
+}
+
+// drawTextBigCol: V7.2 M1 — 20pt 标题字带色变体, 坐标系同 drawText。
+func drawTextBigCol(screen *ebiten.Image, str string, x, y int, col color.Color) {
+	if titleFontFace == nil {
+		return
+	}
+	etext.Draw(screen, str, titleFontFace, x, y+titleFontAscent, col)
 }
 
 // drawText: 兼容 ebitenutil.DebugPrintAt (top-left anchor) 坐标系

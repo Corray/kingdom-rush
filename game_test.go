@@ -2143,3 +2143,53 @@ func TestStars_OldSaveCompat(t *testing.T) {
 		t.Errorf("record on nil map should init, got %d", s.StarsFor(1))
 	}
 }
+
+// ============================================================
+// V7.2 M3: 地图装饰生成 (确定性 + path 避让)
+// ============================================================
+
+func TestDecor_DeterministicAndAvoidsPath(t *testing.T) {
+	levels, err := LoadLevels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lv := levels[0]
+	lookup := map[Point]bool{}
+	for _, p := range lv.Path {
+		lookup[p] = true
+	}
+	d1 := genDecor(lv, lookup)
+	d2 := genDecor(lv, lookup)
+	if len(d1) != len(d2) {
+		t.Fatalf("same level should give same decor count: %d vs %d", len(d1), len(d2))
+	}
+	for i := range d1 {
+		if d1[i] != d2[i] {
+			t.Fatalf("decor[%d] differs: %+v vs %+v (确定性破坏)", i, d1[i], d2[i])
+		}
+	}
+	for _, ds := range d1 {
+		if lookup[ds.Pos] {
+			t.Errorf("decor at %v overlaps path", ds.Pos)
+		}
+		if ds.Kind < 0 || ds.Kind > 3 {
+			t.Errorf("decor kind %d out of range", ds.Kind)
+		}
+	}
+	// 密度 sanity: 7% × ~420 非 path cell ≈ 30, 容差 10-60
+	if len(d1) < 10 || len(d1) > 60 {
+		t.Errorf("decor count %d outside sane range", len(d1))
+	}
+}
+
+func TestDecor_GeneratedOnRunStart(t *testing.T) {
+	g := newTestGame()
+	if len(g.Decor) == 0 {
+		t.Errorf("StartLevel should generate decor")
+	}
+	g.BackToMenu()
+	g.StartEndless(42)
+	if len(g.Decor) == 0 {
+		t.Errorf("StartEndless should generate decor")
+	}
+}

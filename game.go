@@ -47,6 +47,9 @@ type Game struct {
 	endlessLv  Level      // 合成关卡 (path + 动态增长的 waves)
 	endlessRng *rand.Rand // seed 注入, 确定性可测
 
+	// V7.2 M3: 地图装饰 (纯视觉, ebiten 渲染消费, term 忽略)
+	Decor []DecorSpot
+
 	Gold       int
 	Lives      int
 	StartLives int
@@ -127,6 +130,32 @@ func (g *Game) beginRun(lv Level) {
 	g.spawned = 0
 	g.spawnTimer = 0
 	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
+	g.Decor = genDecor(lv, g.pathLookup)
+}
+
+// DecorSpot: V7.2 M3 — 地图装饰点 (kind 0=树 1=灌木 2=小灌木 3=石头)。
+type DecorSpot struct {
+	Pos  Point
+	Kind int
+}
+
+// genDecor: 按 level ID 确定性散布装饰 (seed 注入惯例, 同关恒同布局)。
+// 仅避开 path; 塔可建在装饰上 (装饰纯视觉, 塔渲染在其上)。
+func genDecor(lv Level, pathLookup map[Point]bool) []DecorSpot {
+	rng := rand.New(rand.NewSource(int64(lv.ID)*7919 + 42))
+	var out []DecorSpot
+	for y := 0; y < mapH; y++ {
+		for x := 0; x < mapW; x++ {
+			p := Point{X: x, Y: y}
+			if pathLookup[p] {
+				continue
+			}
+			if rng.Float64() < 0.07 {
+				out = append(out, DecorSpot{Pos: p, Kind: rng.Intn(4)})
+			}
+		}
+	}
+	return out
 }
 
 func (g *Game) BackToMenu() {

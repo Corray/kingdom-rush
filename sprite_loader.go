@@ -56,6 +56,11 @@ const (
 	// V3 Phase 4: UI icon
 	spriteGold  = 287 // $ symbol (gold counter)
 	spriteLives = 289 // + cross (lives counter)
+	// V7.2 M3: 地图装饰 (透明底独立 sprite, 调研见 /tmp/rows4-6)
+	spriteDecorTree   = 134
+	spriteDecorBush   = 131
+	spriteDecorBushSm = 132
+	spriteDecorRock   = 137
 )
 
 // bulletSpriteID 按塔型返回投射物 sprite
@@ -216,4 +221,18 @@ func enemySpriteID(kind EnemyKind) int {
 		return spriteEnemySpawner
 	}
 	return spriteEnemyNormal
+}
+
+// decorSpriteID: V7.2 M3 — 装饰 kind (0-3) → sprite。
+func decorSpriteID(kind int) int {
+	switch kind {
+	case 1:
+		return spriteDecorBush
+	case 2:
+		return spriteDecorBushSm
+	case 3:
+		return spriteDecorRock
+	default:
+		return spriteDecorTree
+	}
 }

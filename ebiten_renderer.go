@@ -417,26 +417,33 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		color.RGBA{R: 15, G: 15, B: 25, A: 230})
 	strokeRect(screen, 0, 0, float32(windowW), 50,
 		color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
-	drawText(screen,
-		" Gopher Defense  —  Select Level", 20, 10)
+	// V7.2 M1: 大标题 (20pt 青) + 副标题/统计灰阶层次
+	drawTextBigCol(screen, "Gopher Defense", 20, 6,
+		color.RGBA{R: 120, G: 220, B: 255, A: 255})
+	drawTextCol(screen, "Select Level", 220, 14,
+		color.RGBA{R: 140, G: 140, B: 160, A: 255})
 	// V4 Phase 2: 音量档显示 (右上角, -/= 调节)
-	drawText(screen,
+	drawTextCol(screen,
 		fmt.Sprintf("Vol %d/%d (-/=)", g.Save.VolumeLevel(), maxVolume),
-		windowW-130, 10)
+		windowW-130, 10, color.RGBA{R: 170, G: 170, B: 190, A: 255})
 	// V6 Phase 2: 难度显示 (右上角第二行, D 切换)
-	drawText(screen,
+	drawTextCol(screen,
 		fmt.Sprintf("Diff: %s (D)", g.Save.Difficulty.Spec().Name),
-		windowW-130, 28)
+		windowW-130, 28, color.RGBA{R: 170, G: 170, B: 190, A: 255})
 
-	completed := 0
+	completed, totalStars := 0, 0
 	for _, lv := range g.Levels {
 		if g.Save.IsCompleted(lv.ID) {
 			completed++
 		}
+		totalStars += g.Save.StarsFor(lv.ID)
 	}
-	drawText(screen,
-		fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels)),
-		20, 28)
+	drawTextCol(screen,
+		fmt.Sprintf("Progress %d/%d", completed, len(g.Levels)),
+		20, 32, color.RGBA{R: 140, G: 140, B: 160, A: 255})
+	drawTextCol(screen,
+		fmt.Sprintf("Stars %d/%d", totalStars, len(g.Levels)*3),
+		160, 32, color.RGBA{R: 255, G: 200, B: 40, A: 255})
 
 	// V3 Phase 5a: 每关 row 用 box (panel + border)
 	// 状态颜色: 通关绿底, 锁定灰底, 默认深底; hover unlocked 加金边
@@ -499,19 +506,33 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		strokeRect(screen, float32(x), float32(y),
 			float32(colW), float32(rowH-rowMargin), borderCol, 2)
 
-		// Status indicator (left side)
-		status := "[    ]"
-		if isCompleted {
-			status = "[DONE]"
-		} else if !isUnlocked {
-			status = "[LOCK]"
-		}
-
-		// V6 Phase 4: 星级显示 (ASCII '*', 最高 3)
+		// V6 Phase 4 星级 + V7.2 M1 行内分段上色 (等宽 7px/char 偏移)
 		stars := strings.Repeat("*", g.Save.StarsFor(lv.ID))
-		line := fmt.Sprintf("[%s] %s Lv%2d %-14s %-3s (w:%d g:%d l:%d)",
-			keyStr, status, lv.ID, lv.Name, stars, len(lv.Waves), lv.StartGold, lv.StartLives)
-		drawText(screen, line, x+10, y+12)
+		tx := x + 10
+		seg := func(s string, col color.RGBA) {
+			drawTextCol(screen, s, tx, y+12, col)
+			tx += len(s) * 7
+		}
+		cKey := color.RGBA{R: 120, G: 220, B: 255, A: 255}  // 青
+		cName := color.RGBA{R: 235, G: 235, B: 240, A: 255} // 白
+		cDim := color.RGBA{R: 120, G: 120, B: 135, A: 255}  // 灰
+		cGold := color.RGBA{R: 255, G: 200, B: 40, A: 255}  // 金
+		cDone := color.RGBA{R: 90, G: 220, B: 110, A: 255}  // 绿
+		if !isUnlocked {
+			cKey, cName, cGold = cDim, cDim, cDim
+		}
+		seg(fmt.Sprintf("[%s] ", keyStr), cKey)
+		switch {
+		case isCompleted:
+			seg("[DONE] ", cDone)
+		case !isUnlocked:
+			seg("[LOCK] ", cDim)
+		default:
+			seg("[    ] ", cDim)
+		}
+		seg(fmt.Sprintf("Lv%2d %-14s ", lv.ID, lv.Name), cName)
+		seg(fmt.Sprintf("%-3s ", stars), cGold)
+		seg(fmt.Sprintf("(w:%d g:%d l:%d)", len(lv.Waves), lv.StartGold, lv.StartLives), cDim)
 	}
 
 	// Help row + msg (V6: 按每列最大行数定位)
@@ -521,12 +542,14 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	if g.Save.BestWave > 0 {
 		endlessLine = fmt.Sprintf(" [E] Endless mode — best: wave %d", g.Save.BestWave)
 	}
-	drawText(screen, endlessLine, 20, helpY)
-	drawText(screen,
+	drawTextCol(screen, endlessLine, 20, helpY,
+		color.RGBA{R: 190, G: 160, B: 255, A: 255}) // 紫: 模式入口醒目
+	drawTextCol(screen,
 		" Click row to start (1-9/0 for Lv 1-10) | Q/Esc to quit",
-		20, helpY+18)
+		20, helpY+18, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // 帮助行降噪
 	if g.Msg != "" {
-		drawText(screen, " "+g.Msg, 20, helpY+36)
+		drawTextCol(screen, " "+g.Msg, 20, helpY+36,
+			color.RGBA{R: 255, G: 220, B: 80, A: 255}) // Msg 黄: 反馈醒目
 	}
 }
 
@@ -572,6 +595,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				px, py := cellPos(Point{X: x, Y: y})
 				drawTile(screen, spriteGrass, px, py)
 			}
+		}
+	}
+
+	// V7.2 M3: 装饰散布 (grass 之上, path/塔之下, 纯视觉)
+	if tilesheet != nil {
+		for _, ds := range g.Decor {
+			dx, dy := cellPos(ds.Pos)
+			drawTile(screen, decorSpriteID(ds.Kind), dx, dy)
 		}
 	}
 
@@ -830,8 +861,9 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	drawText(screen,
 		fmt.Sprintf("Enemies:%-3d", g.CountAliveEnemies()), curX, statusY)
 	curX += 110
-	// msg
-	drawText(screen, g.Msg, curX, statusY)
+	// msg (V7.2 M2: 黄色醒目)
+	drawTextCol(screen, g.Msg, curX, statusY,
+		color.RGBA{R: 255, G: 220, B: 80, A: 255})
 	// prep timer (right edge)
 	if g.prepTimer > 0 && g.Phase == PhasePlaying {
 		prepMsg := fmt.Sprintf("PREP: %.1fs", g.prepTimer)
@@ -873,12 +905,21 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				float32(btnX+1), float32(selY+1), 1.0, 1.0)
 		}
 		// label 2 行: [N]Name 在上, Cost 在下
-		drawText(screen,
+		// V7.2 M2: 选中名金色; cost 买得起绿 / 买不起红
+		nameCol := color.RGBA{R: 235, G: 235, B: 240, A: 255}
+		if k == g.Selected {
+			nameCol = color.RGBA{R: 255, G: 220, B: 80, A: 255}
+		}
+		costCol := color.RGBA{R: 90, G: 220, B: 110, A: 255}
+		if g.Gold < spec.Levels[0].Cost {
+			costCol = color.RGBA{R: 235, G: 100, B: 90, A: 255}
+		}
+		drawTextCol(screen,
 			fmt.Sprintf("[%d]%s", int(k)+1, spec.Name),
-			btnX+36, selY+4)
-		drawText(screen,
+			btnX+36, selY+4, nameCol)
+		drawTextCol(screen,
 			fmt.Sprintf("%dg", spec.Levels[0].Cost),
-			btnX+36, selY+18)
+			btnX+36, selY+18, costCol)
 		btnX += btnW + btnGap
 	}
 
@@ -893,7 +934,8 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		}
 		hint += fmt.Sprintf(" | X=Sell +%dg | T=%s",
 			sellRefund(atTower.Kind, atTower.Level), atTower.Target.Name())
-		drawText(screen, hint, btnX+8, selY+12)
+		drawTextCol(screen, hint, btnX+8, selY+12,
+			color.RGBA{R: 150, G: 210, B: 235, A: 255}) // V7.2 M2: 操作提示青}
 	}
 
 	// V5 Phase 5: 陨石冷却条 (按钮行最右; AC "冷却条显示")
@@ -918,9 +960,9 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 
 	// help row
 	helpY := selY + btnH + 8
-	drawText(screen,
+	drawTextCol(screen,
 		" Arrows/Mouse: move | 1-4: select | Space/Click: build/upgrade | M: menu | -/=: vol | J: fx | Q/Esc: quit",
-		4, helpY)
+		4, helpY, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // V7.2 M2: 帮助行降噪
 
 	// banner
 	bannerX := windowW/2 - 130
