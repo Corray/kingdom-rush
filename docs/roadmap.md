@@ -306,7 +306,7 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 |----|------|------|
 | itch.io 上传 | 规划时定 Pages only | 需要手动账号操作，用户自行或后续指令 |
 | Release 无 desktop 二进制 | macOS unsigned 警告体验差 | 源码构建为主；要发二进制再议（goreleaser）|
-| Actions Node 20 弃用警告 | checkout@v4/setup-go@v5，2026-06-16 起强制 Node 24 | 候选小修：升 action 版本或加 FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 |
+| ~~Actions Node 20 弃用警告~~ | checkout@v4/setup-go@v5，2026-06-16 起强制 Node 24 | **已修（2026-06-05, e5b66bf）**：五 action 升当前大版本，run 验证警告消除 |
 | docs/ 历史文档保留旧名 | 历史存档 immutable 惯例 | 不改（roadmap/audit 等是历史记录）|
 
 **下一版候选（未拍板）：** a) 平衡打磨（公开后玩家/自玩反馈驱动）b) 宣传与分发（itch.io / r/golang 分享）c) 新机制探索。项目七个 era 全闭环，也可自然停在这里。
@@ -366,3 +366,4 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 | 2026-06-04 | V6 收尾：tag `v6.0`（d2d4bf1），版本史补 V6 行，收尾记录（纪律兑现 ×5 + 未竟项 ×4），下一版三候选记录（平衡打磨 / 发布 / 新机制，未拍板）|
 | 2026-06-04 | V7 启动：用户拍板发布版 + 两项外向决策（改名 Gopher Defense / 转 public+Pages）；Phase 1-3 规划（改名+README → Pages 部署 → Release 收尾）；存档 key 不改名单明确 |
 | 2026-06-05 | V7 收尾：tag `v7.0`（be86c3c），版本史补 V7 行，收尾记录（执行记录 ×4 + 未竟项 ×4），游戏公开上线；下一版三候选（平衡打磨/宣传分发/新机制，未拍板，可自然停）|
+| 2026-06-05 | V7 未竟项销账：Actions Node 20 弃用警告已修（e5b66bf，五 action 升级 + run 验证），限期项清零 |
