@@ -47,10 +47,16 @@ func endlessPool(n int) []EnemyKind {
 	return pool
 }
 
+// endlessBudget: V7.5 — 线性 + 二次项 (原纯线性被 8 满级塔 DPS
+// 追平, 仿真撑到 wave 75; 超线性让后期预算加速, 目标 20-35 波)。
+func endlessBudget(n int) int {
+	return endlessBaseBudget + n*endlessBudgetInc + n*n/6
+}
+
 // genEndlessWave: wave n 的敌人序列。预算花到恰好归零 → 总威胁度
 // 严格等于预算公式, 强度单调性由公式保证。
 func genEndlessWave(n int, rng *rand.Rand) []EnemyKind {
-	budget := endlessBaseBudget + n*endlessBudgetInc
+	budget := endlessBudget(n)
 	pool := endlessPool(n)
 	var out []EnemyKind
 	for budget > 0 {
@@ -65,10 +71,11 @@ func genEndlessWave(n int, rng *rand.Rand) []EnemyKind {
 	return out
 }
 
-// endlessHPScale: 超过 10 波后敌人 HP 额外缩放 (+5%/波)。
+// endlessHPScale: 超过 10 波后敌人 HP 额外缩放 (V7.5: 5%→10%/波 —
+// 仿真显示 HP 增长才是磨死满级塔阵的主杠杆, 预算只决定数量)。
 func endlessHPScale(n int) float64 {
 	if n <= 10 {
 		return 1.0
 	}
-	return 1.0 + 0.05*float64(n-10)
+	return 1.0 + 0.10*float64(n-10)
 }

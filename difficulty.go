@@ -28,7 +28,7 @@ type DifficultySpec struct {
 
 var difficultySpecs = map[Difficulty]DifficultySpec{
 	DiffNormal: {Name: "Normal", HPMul: 1.0, RewardMul: 1.0, LivesBonus: 0},
-	DiffHard:   {Name: "Hard", HPMul: 1.4, RewardMul: 0.8, LivesBonus: -2},
+	DiffHard:   {Name: "Hard", HPMul: 1.4, RewardMul: 0.8, LivesBonus: -1}, // V7.5: -2→-1 救前期 (仿真: Lv5/8/11 wave1 失守)
 	DiffEasy:   {Name: "Easy", HPMul: 0.7, RewardMul: 1.2, LivesBonus: 3},
 }
 

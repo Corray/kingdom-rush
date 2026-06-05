@@ -1808,8 +1808,8 @@ func TestDifficulty_StartLivesBonus(t *testing.T) {
 	g.BackToMenu()
 	g.Save.Difficulty = DiffHard
 	g.StartLevel(0)
-	if g.Lives != 3 { // 5-2
-		t.Errorf("hard lives = %d, want 3", g.Lives)
+	if g.Lives != 4 { // 5-1 (V7.5: LivesBonus -2→-1)
+		t.Errorf("hard lives = %d, want 4", g.Lives)
 	}
 }
 
@@ -1903,7 +1903,7 @@ func TestEndless_BudgetExactAndMonotonic(t *testing.T) {
 		for _, k := range wave {
 			cost += enemyCost[k]
 		}
-		want := endlessBaseBudget + n*endlessBudgetInc
+		want := endlessBudget(n) // V7.5: 超线性公式 (测试随设计变更同步)
 		if cost != want {
 			t.Errorf("wave %d total cost = %d, want %d (预算恰好花完)", n, cost, want)
 		}
@@ -1938,8 +1938,8 @@ func TestEndless_HPScale(t *testing.T) {
 	if endlessHPScale(1) != 1.0 || endlessHPScale(10) != 1.0 {
 		t.Errorf("wave ≤10 不缩放")
 	}
-	if s := endlessHPScale(20); s != 1.5 {
-		t.Errorf("wave 20 scale = %v, want 1.5", s)
+	if s := endlessHPScale(20); s < 1.99 || s > 2.01 { // V7.5: 10%/wave
+		t.Errorf("wave 20 scale = %v, want 2.0", s)
 	}
 }
 
@@ -2008,8 +2008,8 @@ func TestEndless_LateWaveHPScaling(t *testing.T) {
 	g.Endless = true
 	g.WaveIdx = 19 // wave 20 → scale 1.5
 	e := g.spawnEnemy(ENormal, 0)
-	if e.HP != 30 { // 20 × 1.5
-		t.Errorf("endless wave 20 normal HP = %d, want 30", e.HP)
+	if e.HP != 40 { // 20 × 2.0 (V7.5: HPScale 10%/wave)
+		t.Errorf("endless wave 20 normal HP = %d, want 40", e.HP)
 	}
 	// 普通关卡不缩放
 	g.Endless = false
