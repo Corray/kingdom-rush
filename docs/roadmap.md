@@ -17,6 +17,7 @@
 | V4 Phase 1-5 | 音频 + Game Feel | SFX 管线（9 音效 Kenney CC0）、BGM 双轨 + 音量档持久化（Juhani Junkala CC0）、走动/死亡动画（程序化插值+旋转+摆动）、伤害飘字 + 金币反馈、shake + boss 顿帧 + J 开关、72 tests | `v4.0` | `5936799` |
 | V5 Phase 1-5 | Gameplay 深度 | 卖塔（退款 70%）、targeting 策略（First/Last/Strong）、Cannon AoE 溅射、状态效果系统 + Frost 塔（第 4 塔型）、陨石雨主动技能（R 瞄准 + 25s 冷却）、killEnemy/pickTarget 重构、102 tests | `v5.0` | `8ee77f5` |
 | V6 Phase 1-4 | 内容扩展 | 关卡 11-20（菜单两列）、难度三档（Normal/Hard/Easy）、Endless mode（预算制生成器 + seed 确定性）、星级评分、beginRun/spawnEnemy 重构、124 tests | `v6.0` | `d2d4bf1` |
+| V7 Phase 1-3 | 发布版 | 改名 Gopher Defense（商标合规 + 存档零迁移）、README/LICENSE(MIT)/截图、GitHub Pages 上线（Actions 测试门禁 + 自动部署）、Release v7.0 + repo metadata、124 tests | `v7.0` | `be86c3c` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -282,7 +283,37 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 
 ---
 
-## V7 — 发布版（active，2026-06-04 启动）
+## V7 — 发布版（已收尾 2026-06-05，tag `v7.0`）
+
+> Phase 1-3 全部完成。以下为规划原文存档 + 头部收尾记录。
+
+### V7 收尾记录（2026-06-05）
+
+**完成度：** 3/3 phase。**游戏正式公开：**
+- 在线玩：https://corray.github.io/kingdom-rush/
+- Release：https://github.com/Corray/kingdom-rush/releases/tag/v7.0
+- push master 即自动重新部署（CI 测试门禁，不过不上线）
+
+**关键执行记录：**
+- 改名 6 处用户可见字符串 + 不改名单严格执行（存档 key/module 名——用户进度零迁移）；grep 白名单制验收
+- 两项外向操作按拍板执行：转 public + Pages 开启
+- CI 首跑失败 1 次（ebiten 包 init 需 DISPLAY）→ xvfb 修复（官方 CI 同款）
+- License 终核逐文件映射（12 sfx + 2 bgm + sprites）全过
+
+**未竟项（不阻塞收尾）：**
+
+| 项 | 说明 | 去向 |
+|----|------|------|
+| itch.io 上传 | 规划时定 Pages only | 需要手动账号操作，用户自行或后续指令 |
+| Release 无 desktop 二进制 | macOS unsigned 警告体验差 | 源码构建为主；要发二进制再议（goreleaser）|
+| Actions Node 20 弃用警告 | checkout@v4/setup-go@v5，2026-06-16 起强制 Node 24 | 候选小修：升 action 版本或加 FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 |
+| docs/ 历史文档保留旧名 | 历史存档 immutable 惯例 | 不改（roadmap/audit 等是历史记录）|
+
+**下一版候选（未拍板）：** a) 平衡打磨（公开后玩家/自玩反馈驱动）b) 宣传与分发（itch.io / r/golang 分享）c) 新机制探索。项目七个 era 全闭环，也可自然停在这里。
+
+---
+
+### 以下为 V7 规划原文（2026-06-04 启动时写入，存档不改）
 
 ### 方向决策记录
 
@@ -334,3 +365,4 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 | 2026-06-04 | V6 启动：用户拍板内容扩展，Phase 1-4 规划（关卡 11-20 + 菜单两列 → 难度模式 → endless → 星级）；内容数据测试兜底纪律 + endless seed 注入约束 |
 | 2026-06-04 | V6 收尾：tag `v6.0`（d2d4bf1），版本史补 V6 行，收尾记录（纪律兑现 ×5 + 未竟项 ×4），下一版三候选记录（平衡打磨 / 发布 / 新机制，未拍板）|
 | 2026-06-04 | V7 启动：用户拍板发布版 + 两项外向决策（改名 Gopher Defense / 转 public+Pages）；Phase 1-3 规划（改名+README → Pages 部署 → Release 收尾）；存档 key 不改名单明确 |
+| 2026-06-05 | V7 收尾：tag `v7.0`（be86c3c），版本史补 V7 行，收尾记录（执行记录 ×4 + 未竟项 ×4），游戏公开上线；下一版三候选（平衡打磨/宣传分发/新机制，未拍板，可自然停）|
