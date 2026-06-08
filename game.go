@@ -37,6 +37,7 @@ type Game struct {
 	pathLookup  map[Point]bool
 	Towers      []*Tower
 	Enemies     []*Enemy
+	Hero        *Hero // V8: 英雄单位 (自由移动, per-run, 不入存档)
 	Effects     []*Effect    // V2.6: 攻击视觉特效 (ebiten 渲染消费,terminal 忽略)
 	SoundEvents []SoundEvent // V4: SFX 事件队列 (sound.go, 渲染层每帧 drain)
 	BossKills   int          // V4 Phase 5: boss 击杀累计 (渲染层观察增量触发顿帧, 同 goldFlash 模式)
@@ -131,6 +132,9 @@ func (g *Game) beginRun(lv Level) {
 	g.spawnTimer = 0
 	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
 	g.Decor = genDecor(lv, g.pathLookup)
+	// V8 P1: 英雄生成在 path 中点 (玩家用 H 键重设集结点)
+	mid := lv.Path[len(lv.Path)/2]
+	g.Hero = newHero(float64(mid.X), float64(mid.Y))
 }
 
 // DecorSpot: V7.2 M3 — 地图装饰点 (kind 0=树 1=灌木 2=小灌木 3=石头)。
@@ -202,6 +206,10 @@ func (g *Game) Update(dt float64) {
 		if g.MeteorCD < 0 {
 			g.MeteorCD = 0
 		}
+	}
+	// V8 P1: 英雄朝集结点移动 (prep 期间也可走位; P2 加战斗, P3 加阻挡)
+	if g.Hero != nil {
+		g.Hero.moveStep(dt)
 	}
 	cur := g.currentWave()
 	if cur == nil {
@@ -582,6 +590,20 @@ func (g *Game) CountAliveEnemies() int {
 		}
 	}
 	return n
+}
+
+// SetHeroRally: V8 P1 — 把英雄集结点设到光标格 (玩家 H 键, P4 接线)。
+// 英雄朝此点移动并 (P2) 沿途自动交战。阵亡期间 SetRally 内部忽略。
+func (g *Game) SetHeroRally(p Point) {
+	if g.Hero == nil {
+		return
+	}
+	if !g.Hero.Alive() {
+		g.Msg = "Hero down — reviving..."
+		return
+	}
+	g.Hero.SetRally(float64(p.X), float64(p.Y))
+	g.Msg = "Hero rally set"
 }
 
 func (g *Game) MoveCursor(dx, dy int) {
