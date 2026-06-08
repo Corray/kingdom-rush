@@ -14,6 +14,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 
 ![Level select](docs/screenshots/menu.png)
 ![Battle](docs/screenshots/battle.png)
+![Hero holding the line](docs/screenshots/hero.png)
 ![Endless mode](docs/screenshots/endless.png)
 
 ## Features
@@ -21,6 +22,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 - **20 handcrafted levels** with escalating difficulty and themed wave design
 - **4 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow) — each with 3 upgrade levels
 - **5 enemy types** — Normal, Fast, Glider (flying, cannons can't hit), Boss, Spawner (summons on death)
+- **Hero unit** — a controllable gold champion: press `H` to rally it anywhere on the map. It auto-attacks the nearest ground enemy and **blocks** foes in melee (holding chokepoints the towers can't), falls when overwhelmed, and respawns after a cooldown. Fliers slip past it.
 - **Tactical depth** — sell towers (70% refund), per-tower targeting strategies (First / Last / Strong), meteor strike active ability with cooldown
 - **3 difficulty settings** (Normal / Hard / Easy) and **3-star ratings** per level
 - **Endless mode** — budget-based procedural waves, survive as long as you can, best-wave record
@@ -37,6 +39,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 | `Space` / left click | Build or upgrade tower at cursor |
 | `X` / right click | Sell tower (70% refund) |
 | `T` | Cycle targeting strategy of tower at cursor |
+| `H` | Rally hero to cursor (auto-fights & blocks ground enemies; respawns on death) |
 | `R`, then click | Meteor strike (25s cooldown); `R` again cancels |
 | `P` | Pause / resume |
 | `F` | Toggle game speed (1x / 2x) |

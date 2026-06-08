@@ -5,6 +5,10 @@
 //   - 塔位: 按射程内 path 覆盖 cell 数排序, 贪心取最优
 //   - 蓝图: Archer 为主, 每第 4 塔放 Frost (减速普适); 上限 8 塔
 //   - 塔满后升级; 陨石 ready 且场上 ≥6 敌时砸最前
+//
+// V8: 英雄被动计入 — beginRun 自生成在 path 中点, auto-player 不主动
+// rally (保持"未用英雄"的保守下限)。autoPlay 加 heroEnabled 参数, 支持
+// 有/无英雄对比 (TestBalance_HeroNetNonNegative 守"英雄不让难度上升")。
 package main
 
 import "testing"
@@ -96,7 +100,8 @@ func simStrategy(g *Game, spots []Point, built *int) {
 }
 
 // autoPlay: 自动打完一关 (或 60000 步上限 = game-time 100 分钟)。
-func autoPlay(levelIdx int, d Difficulty) *Game {
+// heroEnabled=false 时 nil 掉英雄, 用于"有/无英雄"平衡对比。
+func autoPlay(levelIdx int, d Difficulty, heroEnabled bool) *Game {
 	levels, err := LoadLevels()
 	if err != nil {
 		panic(err)
@@ -107,6 +112,9 @@ func autoPlay(levelIdx int, d Difficulty) *Game {
 	}
 	g.Save.Difficulty = d
 	g.StartLevel(levelIdx)
+	if !heroEnabled {
+		g.Hero = nil // V8: 对比基线 — 去英雄 (Update 已 nil-guard)
+	}
 	spots := rankedTowerSpots(g)
 	built := 0
 	for step := 0; step < 60000 && g.Phase == PhasePlaying; step++ {
@@ -122,7 +130,7 @@ func autoPlay(levelIdx int, d Difficulty) *Game {
 func TestBalance_AllLevelsBeatableOnNormal(t *testing.T) {
 	withTempSavePath(t, func() {
 		for idx := 0; idx < 20; idx++ {
-			g := autoPlay(idx, DiffNormal)
+			g := autoPlay(idx, DiffNormal, true)
 			if g.Phase != PhaseWon {
 				t.Errorf("Lv%-2d ✗ 不可通关 (phase=%v lives=%d wave=%d/%d)",
 					idx+1, g.Phase, g.Lives, g.WaveIdx+1, len(g.currentLevel().Waves))
@@ -163,7 +171,7 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 	withTempSavePath(t, func() {
 		wins := 0
 		for idx := 0; idx < 20; idx++ {
-			g := autoPlay(idx, DiffHard)
+			g := autoPlay(idx, DiffHard, true)
 			if g.Phase == PhaseWon {
 				wins++
 				t.Logf("Lv%-2d ✓ %d★ lives %d/%d", idx+1,
@@ -174,5 +182,28 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 			}
 		}
 		t.Logf("Hard 通关率: %d/20", wins)
+	})
+}
+
+// TestBalance_HeroNetNonNegative: V8 — 英雄是净正/中性贡献, 绝不让难度上升。
+// Hard 通关数 (有英雄) 应 ≥ (无英雄)。同时守护"英雄确实在仿真中在场"
+// (若英雄被意外 nil/禁用, 两数相等仍通过, 但配合 hero_test 参战单测,
+// 此测专守"加英雄不变难"这一不变量)。
+func TestBalance_HeroNetNonNegative(t *testing.T) {
+	withTempSavePath(t, func() {
+		winsWith, winsWithout := 0, 0
+		for idx := 0; idx < 20; idx++ {
+			if autoPlay(idx, DiffHard, true).Phase == PhaseWon {
+				winsWith++
+			}
+			if autoPlay(idx, DiffHard, false).Phase == PhaseWon {
+				winsWithout++
+			}
+		}
+		if winsWith < winsWithout {
+			t.Errorf("英雄不应让通关数下降: 有英雄 %d < 无英雄 %d", winsWith, winsWithout)
+		}
+		t.Logf("Hard 通关数: 有英雄 %d / 无英雄 %d (英雄增益 %d)",
+			winsWith, winsWithout, winsWith-winsWithout)
 	})
 }
