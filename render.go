@@ -58,6 +58,7 @@ var (
 	colPrepFg   = tcell.NewRGBColor(255, 200, 80)
 	colMenuFg   = tcell.NewRGBColor(220, 220, 240)
 	colLockedFg = tcell.NewRGBColor(100, 100, 100)
+	colHeroFg   = tcell.NewRGBColor(255, 200, 60) // V8 P4: 英雄金身
 )
 
 func putCell(s tcell.Screen, x, y int, ch1, ch2 rune, style tcell.Style) {
@@ -183,6 +184,18 @@ func (r *TermRenderer) drawGame(g *Game) {
 		putCell(s, p.X, p.Y, ch1, ch2, st)
 	}
 
+	// V8 P4: 英雄 (自由坐标取整; 'H' 金身 / 阵亡 '+' 灰墓碑)
+	if g.Hero != nil {
+		hx, hy := int(g.Hero.X+0.5), int(g.Hero.Y+0.5)
+		if g.Hero.Alive() {
+			putCell(s, hx, hy, 'H', 'H',
+				tcell.StyleDefault.Foreground(colHeroFg).Bold(true))
+		} else {
+			putCell(s, hx, hy, '+', '+',
+				tcell.StyleDefault.Foreground(colLockedFg))
+		}
+	}
+
 	// cursor (path / tower / empty 三态)
 	cur1, cur2 := '[', ']'
 	cStyle := stCursor
@@ -203,10 +216,18 @@ func (r *TermRenderer) drawGame(g *Game) {
 	}
 	putCell(s, g.Cursor.X, g.Cursor.Y, cur1, cur2, cStyle)
 
-	// status row
+	// status row (V8 P4: 加英雄 HP / 复活倒计时)
 	statusRow := gameTopRow + mapH
-	leftStatus := fmt.Sprintf(" Gold: %-4d Lives: %d/%d Enemies: %-3d  %s",
-		g.Gold, g.Lives, g.StartLives, g.CountAliveEnemies(), g.Msg)
+	heroStr := ""
+	if g.Hero != nil {
+		if g.Hero.Alive() {
+			heroStr = fmt.Sprintf("Hero:%d/%d ", g.Hero.HP, g.Hero.MaxHP)
+		} else {
+			heroStr = fmt.Sprintf("Hero:DOWN %.0fs ", g.Hero.respawnCD)
+		}
+	}
+	leftStatus := fmt.Sprintf(" Gold: %-4d Lives: %d/%d Enemies: %-3d %s %s",
+		g.Gold, g.Lives, g.StartLives, g.CountAliveEnemies(), heroStr, g.Msg)
 	drawString(s, 0, statusRow, leftStatus, stStatus)
 	if g.prepTimer > 0 && g.Phase == PhasePlaying {
 		prepMsg := fmt.Sprintf(" PREP: %.1fs ", g.prepTimer)
@@ -239,7 +260,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 
 	// help row
 	drawString(s, 0, statusRow+2,
-		" Arrows: move  1/2: select  Space: build/upgrade  M: menu  Q/Esc: quit",
+		" Arrows: move  1/2: select  Space: build/upgrade  H: rally hero  M: menu  Q/Esc: quit",
 		stHelp)
 
 	// banner

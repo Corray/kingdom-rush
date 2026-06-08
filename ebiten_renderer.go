@@ -47,6 +47,10 @@ var (
 	eColSelHi  = color.RGBA{R: 80, G: 80, B: 140, A: 255}
 	eColHpBg   = color.RGBA{R: 80, G: 80, B: 80, A: 255}
 	eColHpFg   = color.RGBA{R: 60, G: 220, B: 80, A: 255}
+	// V8 P4: 英雄配色 (金身 + 蓝 HP 区别于敌人绿 + 集结点指示)
+	eColHeroBody  = color.RGBA{R: 255, G: 200, B: 60, A: 255}
+	eColHeroHp    = color.RGBA{R: 90, G: 200, B: 255, A: 255}
+	eColHeroRally = color.RGBA{R: 255, G: 220, B: 120, A: 200}
 )
 
 // EbitenGame 实现 ebiten.Game interface。
@@ -246,6 +250,10 @@ func (eg *EbitenGame) handleInput() {
 	// V5 Phase 2: T 键循环切换光标处塔的 targeting 策略
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		g.CycleTargeting()
+	}
+	// V8 P4: H 键把英雄集结点设到光标格 (英雄走过去并沿途交战/阻挡)
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyH) {
+		g.SetHeroRally(g.Cursor)
 	}
 	// V5 Phase 5: R 键进入/取消陨石瞄准 (不用 Esc — 已绑退出)
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyR) {
@@ -776,6 +784,43 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		fillRect(screen, x+2, y, barW*hpRatio, 3, eColHpFg)
 	}
 
+	// V8 P4: 英雄 — 金身标记 + HP 条 + 集结点指示 (无专用 sprite, 程序化绘制)
+	if g.Hero != nil {
+		h := g.Hero
+		hx, hy := cellPosF(h.X, h.Y)
+		cx := hx + float32(cellPx)/2
+		cy := hy + float32(cellPx)/2
+		if h.Alive() {
+			// 集结点指示: 未到位时画引导线 + 目标圈
+			if h.X != h.RallyX || h.Y != h.RallyY {
+				rx, ry := cellPosF(h.RallyX, h.RallyY)
+				rcx := rx + float32(cellPx)/2
+				rcy := ry + float32(cellPx)/2
+				vector.StrokeLine(screen, cx, cy, rcx, rcy, 1, eColHeroRally, true)
+				vector.StrokeCircle(screen, rcx, rcy, 5, 1.5, eColHeroRally, true)
+			}
+			// 本体: 金圆 + 白描边 + H 字
+			radius := float32(cellPx)/3 + 1
+			fillCircle(screen, cx, cy, radius, eColHeroBody)
+			vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.White, true)
+			drawText(screen, "H", int(cx)-3, int(cy)-6)
+			// HP 条 (英雄上方, 蓝色区别于敌人绿)
+			hpRatio := float32(h.HP) / float32(h.MaxHP)
+			if hpRatio < 0 {
+				hpRatio = 0
+			}
+			barW := float32(cellPx) - 4
+			fillRect(screen, hx+2, hy-4, barW, 3, eColHpBg)
+			fillRect(screen, hx+2, hy-4, barW*hpRatio, 3, eColHeroHp)
+		} else {
+			// 阵亡: 灰虚圈 + 复活倒计时秒数
+			vector.StrokeCircle(screen, cx, cy, float32(cellPx)/3, 1.5,
+				color.RGBA{R: 130, G: 130, B: 130, A: 180}, true)
+			drawTextCol(screen, fmt.Sprintf("%.0f", h.respawnCD),
+				int(cx)-3, int(cy)-6, color.RGBA{R: 190, G: 190, B: 190, A: 220})
+		}
+	}
+
 	// V5 Phase 5: 陨石瞄准圈 (橙红, 优先于射程圈)
 	if eg.aiming {
 		cxr, cyr := cellPos(g.Cursor)
@@ -909,6 +954,21 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	drawText(screen,
 		fmt.Sprintf("Enemies:%-3d", g.CountAliveEnemies()), curX, statusY)
 	curX += 110
+	// V8 P4: 英雄 HP / 复活倒计时
+	if g.Hero != nil {
+		if g.Hero.Alive() {
+			heroCol := eColHeroHp
+			if g.Hero.HP <= g.Hero.MaxHP/3 {
+				heroCol = color.RGBA{R: 235, G: 100, B: 90, A: 255} // 低血红
+			}
+			drawTextCol(screen, fmt.Sprintf("Hero %d/%d", g.Hero.HP, g.Hero.MaxHP),
+				curX, statusY, heroCol)
+		} else {
+			drawTextCol(screen, fmt.Sprintf("Hero DOWN %.0fs", g.Hero.respawnCD),
+				curX, statusY, color.RGBA{R: 235, G: 100, B: 90, A: 255})
+		}
+		curX += 120
+	}
 	// msg (V7.2 M2: 黄色醒目)
 	drawTextCol(screen, g.Msg, curX, statusY,
 		color.RGBA{R: 255, G: 220, B: 80, A: 255})
@@ -990,6 +1050,10 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			sellRefund(atTower.Kind, atTower.Level), atTower.Target.Name())
 		drawTextCol(screen, hint, btnX+8, selY+12,
 			color.RGBA{R: 150, G: 210, B: 235, A: 255}) // V7.2 M2: 操作提示青}
+	} else {
+		// V8 P4: 无选中塔时提示英雄集结键 (持续可见, 提升发现性)
+		drawTextCol(screen, "[H] Rally Hero to cursor", btnX+8, selY+12,
+			color.RGBA{R: 150, G: 210, B: 235, A: 255})
 	}
 
 	// V5 Phase 5: 陨石冷却条 (按钮行最右; AC "冷却条显示")

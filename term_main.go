@@ -160,6 +160,11 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 			if g.Phase == PhaseLevelSelect {
 				g.StartLevel(9) // Level 10
 			}
+		case 'h', 'H':
+			// V8 P4: 把英雄集结点设到光标格
+			if g.Phase == PhasePlaying {
+				g.SetHeroRally(g.Cursor)
+			}
 		}
 	case *tcell.EventResize:
 		r.Sync()
