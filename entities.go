@@ -178,6 +178,8 @@ type Enemy struct {
 	SlowTimer  float64
 	// V8 P2: 近战英雄的出手冷却 (>0 时不能再攻击英雄); P3 阻挡用同字段
 	meleeCD float64
+	// V8 P3: 被英雄阻挡 (贴身停步互殴; 渲染/测试观察, 每帧由 move loop 刷新)
+	Blocked bool
 }
 
 // slowDurationS: V5 Phase 4 — 单次减速持续时间 (命中刷新)。

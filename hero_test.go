@@ -219,3 +219,86 @@ func TestHeroDeathAndRespawn(t *testing.T) {
 			mid.X, mid.Y, g.Hero.X, g.Hero.Y)
 	}
 }
+
+// ============================================================
+// V8 Phase 3: 阻挡机制 (敌人停步互殴)
+// ============================================================
+
+// TestHeroBlocksGroundEnemy: 贴身非飞行敌被阻挡 — 停步不前进。
+func TestHeroBlocksGroundEnemy(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, ENormal, 999) // 高血, 撑过测试时长不被秒
+	g.Update(0.5)                            // 若不阻挡, ENormal speed 3.0 应前进 1.5
+	if !e.Blocked {
+		t.Error("ground enemy adjacent to hero should be Blocked")
+	}
+	if e.PathIdx != float64(len(g.Path)/2) {
+		t.Errorf("blocked enemy must not advance: PathIdx=%v, want %v (不动)",
+			e.PathIdx, len(g.Path)/2)
+	}
+}
+
+// TestHeroDoesNotBlockFlying: 飞行敌飞越, 不被阻挡, 正常前进。
+func TestHeroDoesNotBlockFlying(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, EGlider, 999)
+	start := e.PathIdx
+	g.Update(0.1)
+	if e.Blocked {
+		t.Error("flying enemy must not be blocked")
+	}
+	if e.PathIdx <= start {
+		t.Errorf("flying enemy should advance over hero: PathIdx %v → %v", start, e.PathIdx)
+	}
+}
+
+// TestBlockReleasedOnHeroDeath: 英雄阵亡 → 阻挡解除, 敌恢复前进。
+func TestBlockReleasedOnHeroDeath(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, ENormal, 999)
+	g.Update(0.1)
+	if !e.Blocked {
+		t.Fatal("enemy should be blocked while hero alive")
+	}
+	blockedIdx := e.PathIdx
+	g.hurtHero(heroSpec.MaxHP) // 英雄阵亡
+	g.Update(0.1)
+	if e.Blocked {
+		t.Error("block must release when hero is down")
+	}
+	if e.PathIdx <= blockedIdx {
+		t.Errorf("enemy should advance after hero death: %v → %v", blockedIdx, e.PathIdx)
+	}
+}
+
+// TestBlockedEnemyExchangesDamage: 阻挡期间双向扣血 (P2+P3 联动)。
+func TestBlockedEnemyExchangesDamage(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, ENormal, 999)
+	heroHP := g.Hero.HP
+	g.Update(0.1)
+	if !e.Blocked {
+		t.Fatal("enemy should be blocked")
+	}
+	if e.HP >= 999 {
+		t.Errorf("hero should damage blocked enemy: HP=%d", e.HP)
+	}
+	if g.Hero.HP >= heroHP {
+		t.Errorf("blocked enemy should damage hero: HP %d → %d", heroHP, g.Hero.HP)
+	}
+}
+
+// TestDistantEnemyNotBlocked: 射程外敌不受阻挡 (阻挡不是全场冻结)。
+func TestDistantEnemyNotBlocked(t *testing.T) {
+	g := newTestGame()
+	// PathIdx 0 = (0,0), 距英雄 (3,0) = 3 cell > heroContactRange
+	e := &Enemy{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0}
+	g.Enemies = append(g.Enemies, e)
+	g.Update(0.1)
+	if e.Blocked {
+		t.Error("distant enemy must not be blocked")
+	}
+	if e.PathIdx <= 0 {
+		t.Errorf("distant enemy should advance freely: PathIdx=%v", e.PathIdx)
+	}
+}

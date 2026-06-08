@@ -744,6 +744,7 @@ func TestSound_WinPushes(t *testing.T) {
 
 func TestSound_LosePushes(t *testing.T) {
 	g := newTestGame()
+	g.Hero = nil // V8 P3: 敌人 PathIdx 4.9 (cell 4) 在英雄阻挡半径内, 去英雄让其正常逃逸
 	g.prepTimer = 0
 	g.Lives = 1
 	// 敌人直接走到终点 (path len 6, PathIdx 超出即 escape)

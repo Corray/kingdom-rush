@@ -222,15 +222,22 @@ func (g *Game) Update(dt float64) {
 			g.spawned++
 		}
 	}
-	// move (V5 Phase 4: 减速状态生效 + 计时衰减)
+	// move (V5 Phase 4: 减速状态生效 + 计时衰减; V8 P3: 英雄阻挡停步)
+	heroCanBlock := g.Hero != nil && g.Hero.Alive()
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		e.PathIdx += e.EffectiveSpeed() * dt
 		if e.SlowTimer > 0 {
-			e.SlowTimer -= dt
+			e.SlowTimer -= dt // 减速计时衰减 (与是否前进无关)
 		}
+		// V8 P3: 被英雄阻挡的非飞行敌停步 (贴身互殴, 伤害结算在 updateHero)
+		if heroCanBlock && g.heroBlocks(e) {
+			e.Blocked = true
+			continue
+		}
+		e.Blocked = false
+		e.PathIdx += e.EffectiveSpeed() * dt
 		if e.PathIdx >= float64(len(g.Path)-1) {
 			e.Escaped = true
 			g.Lives--
@@ -699,6 +706,16 @@ func (g *Game) respawnHero() {
 	h.respawnCD = 0
 	h.cooldown = 0
 	g.Msg = "Hero revived!"
+}
+
+// heroBlocks: V8 P3 — 英雄是否阻挡敌 e (非飞行 + 贴身 ≤ heroContactRange)。
+// 飞行单位飞越不可阻挡 (同 Cannon 打不到)。调用方已确认英雄在场存活。
+func (g *Game) heroBlocks(e *Enemy) bool {
+	if enemySpecs[e.Kind].Flying {
+		return false
+	}
+	ep := e.Pos(g.Path)
+	return g.Hero.DistTo(float64(ep.X), float64(ep.Y)) <= heroContactRange
 }
 
 func (g *Game) MoveCursor(dx, dy int) {
