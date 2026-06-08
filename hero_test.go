@@ -110,3 +110,112 @@ func TestSetHeroRallyMovesHero(t *testing.T) {
 		t.Errorf("hero should move toward rally: startX=%v nowX=%v", startX, g.Hero.X)
 	}
 }
+
+// injectEnemyAtHero: 在英雄所在 path index 注入一个敌人 (测试辅助)。
+func injectEnemyAtHero(g *Game, kind EnemyKind, hp int) *Enemy {
+	e := &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: float64(len(g.Path) / 2)}
+	g.Enemies = append(g.Enemies, e)
+	return e
+}
+
+// TestHeroAttacksEnemy: 射程内敌人被英雄攻击 (经 damageEnemy, HP 下降)。
+func TestHeroAttacksEnemy(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, ENormal, 20)
+	g.Update(0.1) // cooldown 初始 0 → 首帧即出手
+	if e.HP >= 20 {
+		t.Errorf("hero should damage enemy in range: HP=%d, want < 20", e.HP)
+	}
+	if e.HP != 20-heroSpec.Damage {
+		t.Errorf("expected one hit of %d: HP=%d", heroSpec.Damage, e.HP)
+	}
+}
+
+// TestHeroAttacksNearest: 两敌在场, 英雄打更近的那个。
+func TestHeroAttacksNearest(t *testing.T) {
+	g := newTestGame()
+	near := injectEnemyAtHero(g, ENormal, 20) // 与英雄同格 (dist 0)
+	far := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: float64(len(g.Path)/2) + 1}
+	g.Enemies = append(g.Enemies, far)
+	g.Update(0.1)
+	if near.HP >= 20 {
+		t.Errorf("nearest enemy should be hit: near.HP=%d", near.HP)
+	}
+	if far.HP != 20 {
+		t.Errorf("farther enemy should be untouched: far.HP=%d", far.HP)
+	}
+}
+
+// TestHeroKillGrantsGold: 英雄击杀经 damageEnemy → killEnemy, 入账金币。
+func TestHeroKillGrantsGold(t *testing.T) {
+	g := newTestGame()
+	injectEnemyAtHero(g, ENormal, heroSpec.Damage-1) // 一击毙
+	goldBefore := g.Gold
+	g.Update(0.1)
+	if g.Gold <= goldBefore {
+		t.Errorf("hero kill must grant gold via killEnemy: before=%d after=%d", goldBefore, g.Gold)
+	}
+}
+
+// TestHeroIgnoresFlying: 飞行单位英雄打不到 (地面近战, 同 Cannon)。
+func TestHeroIgnoresFlying(t *testing.T) {
+	g := newTestGame()
+	e := injectEnemyAtHero(g, EGlider, 18)
+	g.Update(0.1)
+	if e.HP != 18 {
+		t.Errorf("hero must not damage flying enemy: HP=%d, want 18", e.HP)
+	}
+}
+
+// TestEnemyDamagesHero: 接触敌按 meleeCD 节奏反击英雄 (扣血)。
+func TestEnemyDamagesHero(t *testing.T) {
+	g := newTestGame()
+	injectEnemyAtHero(g, ENormal, 999) // 高血, 不被英雄秒杀, 持续接触
+	hpBefore := g.Hero.HP
+	g.Update(0.1) // 首帧: 敌 meleeCD=0 → 立即出手
+	if g.Hero.HP != hpBefore-enemySpecs[ENormal].Attack {
+		t.Errorf("enemy should hit hero once: HP %d → %d, want -%d",
+			hpBefore, g.Hero.HP, enemySpecs[ENormal].Attack)
+	}
+}
+
+// TestEnemyMeleeCadence: 敌人攻击英雄按 meleeCD 节奏, 不是每帧。
+func TestEnemyMeleeCadence(t *testing.T) {
+	g := newTestGame()
+	injectEnemyAtHero(g, ENormal, 999)
+	hpBefore := g.Hero.HP
+	g.Update(0.1) // 首帧出手 (-Attack)
+	g.Update(0.1) // 次帧 meleeCD 仍 >0 → 不出手
+	if g.Hero.HP != hpBefore-enemySpecs[ENormal].Attack {
+		t.Errorf("enemy must respect meleeCD (one hit in 2 frames): HP=%d, want %d",
+			g.Hero.HP, hpBefore-enemySpecs[ENormal].Attack)
+	}
+}
+
+// TestHeroDeathAndRespawn: 英雄归零 → 阵亡 → RespawnS 后满血复活在 path 中点。
+func TestHeroDeathAndRespawn(t *testing.T) {
+	g := newTestGame()
+	g.Hero.X, g.Hero.Y = 0, 0 // 先把英雄挪到角落, 验证复活回 path 中点
+	g.hurtHero(heroSpec.MaxHP)
+	if g.Hero.Alive() || g.Hero.HP != 0 {
+		t.Fatalf("hero should be down: alive=%v HP=%d", g.Hero.Alive(), g.Hero.HP)
+	}
+	if g.Hero.respawnCD != heroSpec.RespawnS {
+		t.Errorf("respawnCD: got %v, want %v", g.Hero.respawnCD, heroSpec.RespawnS)
+	}
+	// 复活前 SetRally 被忽略
+	g.SetHeroRally(Point{X: 9, Y: 9})
+	if g.Hero.RallyX == 9 {
+		t.Error("dead hero rally must not change")
+	}
+	// 推进足够时间 → 复活
+	g.updateHero(heroSpec.RespawnS + 0.1)
+	if !g.Hero.Alive() || g.Hero.HP != heroSpec.MaxHP {
+		t.Errorf("hero should revive full HP: alive=%v HP=%d", g.Hero.Alive(), g.Hero.HP)
+	}
+	mid := g.Path[len(g.Path)/2]
+	if g.Hero.X != float64(mid.X) || g.Hero.Y != float64(mid.Y) {
+		t.Errorf("hero should revive at path mid (%d,%d): got (%v,%v)",
+			mid.X, mid.Y, g.Hero.X, g.Hero.Y)
+	}
+}

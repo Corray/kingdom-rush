@@ -28,7 +28,13 @@ type Hero struct {
 	RallyY    float64
 	HP        int
 	MaxHP     int
+	cooldown  float64 // P2: 攻击冷却剩余 (>0 不能出手)
 	respawnCD float64 // P2: >0 = 阵亡复活倒计时 (此期间不在场)
+}
+
+// DistTo: 英雄到格 (px,py) 的欧氏距离 (cell)。
+func (h *Hero) DistTo(px, py float64) float64 {
+	return math.Hypot(px-h.X, py-h.Y)
 }
 
 // newHero: 在 spawn 点生成满血英雄, 集结点 = spawn (原地待命)。

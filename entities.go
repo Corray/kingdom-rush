@@ -137,6 +137,7 @@ type EnemySpec struct {
 	Speed  float64
 	Reward int
 	Flying bool // true = 飞行(Cannon 不能 target)
+	Attack int  // V8 P2: 近战攻击英雄的伤害 (飞行 = 0, 不近战; P3 阻挡时按 meleeCD 节奏出手)
 	Char1  rune
 	Char2  rune
 	Color  RGB
@@ -144,23 +145,23 @@ type EnemySpec struct {
 
 var enemySpecs = map[EnemyKind]EnemySpec{
 	ENormal: {
-		HP: 20, Speed: 3.0, Reward: 10, Flying: false,
+		HP: 20, Speed: 3.0, Reward: 10, Flying: false, Attack: 6,
 		Char1: 'o', Char2: 'o', Color: rgb(255, 100, 100),
 	},
 	EFast: {
-		HP: 12, Speed: 5.5, Reward: 12, Flying: false,
+		HP: 12, Speed: 5.5, Reward: 12, Flying: false, Attack: 4,
 		Char1: '>', Char2: '>', Color: rgb(255, 200, 80),
 	},
 	EGlider: {
-		HP: 18, Speed: 4.0, Reward: 18, Flying: true,
+		HP: 18, Speed: 4.0, Reward: 18, Flying: true, Attack: 0,
 		Char1: '~', Char2: '~', Color: rgb(100, 220, 220),
 	},
 	EBoss: {
-		HP: 150, Speed: 1.5, Reward: 50, Flying: false,
+		HP: 150, Speed: 1.5, Reward: 50, Flying: false, Attack: 25,
 		Char1: 'B', Char2: 'B', Color: rgb(255, 60, 200),
 	},
 	ESpawner: {
-		HP: 35, Speed: 2.5, Reward: 25, Flying: false,
+		HP: 35, Speed: 2.5, Reward: 25, Flying: false, Attack: 8,
 		Char1: 'S', Char2: 'p', Color: rgb(120, 220, 100),
 	},
 }
@@ -175,6 +176,8 @@ type Enemy struct {
 	// V5 Phase 4: 减速状态效果 (SlowTimer > 0 时速度 × SlowFactor)
 	SlowFactor float64
 	SlowTimer  float64
+	// V8 P2: 近战英雄的出手冷却 (>0 时不能再攻击英雄); P3 阻挡用同字段
+	meleeCD float64
 }
 
 // slowDurationS: V5 Phase 4 — 单次减速持续时间 (命中刷新)。

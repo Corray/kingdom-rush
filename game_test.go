@@ -1310,6 +1310,7 @@ func TestTargeting_CycleOnTower(t *testing.T) {
 func TestTargeting_StrongShootsHighHP(t *testing.T) {
 	// 集成: Strong 塔实际打中高 HP 敌人
 	g := newTestGame()
+	g.Hero = nil // V8: targeting 隔离 — 英雄会秒杀低血 weak 敌, 干扰断言
 	g.prepTimer = 0
 	g.spawned = 1
 	g.Towers = []*Tower{{Pos: Point{1, 1}, Kind: TArcher, Level: 1, Target: TargetStrong}}
@@ -1349,6 +1350,7 @@ func TestSplash_SpecOnlyCannon(t *testing.T) {
 // 距主目标 1 ≤ Splash 1.0; 远敌 idx1=(1,0) 距 2 > 1.0
 func splashFixture() *Game {
 	g := newTestGame()
+	g.Hero = nil // V8: 塔/溅射战斗隔离 — 英雄是无关 actor, 去掉以免干扰精确 HP 断言
 	g.prepTimer = 0
 	g.spawned = 1
 	g.Towers = []*Tower{{Pos: Point{3, 1}, Kind: TCannon, Level: 1}}

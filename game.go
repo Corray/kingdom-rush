@@ -207,10 +207,8 @@ func (g *Game) Update(dt float64) {
 			g.MeteorCD = 0
 		}
 	}
-	// V8 P1: 英雄朝集结点移动 (prep 期间也可走位; P2 加战斗, P3 加阻挡)
-	if g.Hero != nil {
-		g.Hero.moveStep(dt)
-	}
+	// V8: 英雄更新 (移动 + 攻击 + 受击 + 复活; prep 期间也可走位)
+	g.updateHero(dt)
 	cur := g.currentWave()
 	if cur == nil {
 		return
@@ -604,6 +602,103 @@ func (g *Game) SetHeroRally(p Point) {
 	}
 	g.Hero.SetRally(float64(p.X), float64(p.Y))
 	g.Msg = "Hero rally set"
+}
+
+// heroContactRange / enemyMeleeCD: V8 P2 — 接触判定半径 + 敌人攻击英雄间隔。
+const (
+	heroContactRange = 1.2
+	enemyMeleeCD     = 1.0
+)
+
+// updateHero: V8 — 英雄每帧更新。阵亡时只走复活倒计时; 在场时移动 (P1)
+// + 攻击射程内最近敌 (经 damageEnemy 统一入口) + 承受接触敌反击。
+func (g *Game) updateHero(dt float64) {
+	h := g.Hero
+	if h == nil {
+		return
+	}
+	if !h.Alive() {
+		h.respawnCD -= dt
+		if h.respawnCD <= 0 {
+			g.respawnHero()
+		}
+		return
+	}
+	h.moveStep(dt) // P1 rally 移动
+	// 攻击: 射程内最近非飞行敌 (英雄地面近战, 不打飞行 — 同 Cannon)
+	if h.cooldown > 0 {
+		h.cooldown -= dt
+	}
+	if target := g.heroTarget(); target != nil && h.cooldown <= 0 {
+		h.cooldown = heroSpec.AttackCD
+		// 统一入口: 击杀自动触发金币/死亡特效/Spawner 召唤 (守 killEnemy 家族约束)
+		g.damageEnemy(target, heroSpec.Damage)
+	}
+	// 接触敌按各自 meleeCD 节奏反击英雄 (飞行不近战)
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped {
+			continue
+		}
+		spec := enemySpecs[e.Kind]
+		if spec.Flying || spec.Attack <= 0 {
+			continue
+		}
+		if e.meleeCD > 0 {
+			e.meleeCD -= dt
+		}
+		ep := e.Pos(g.Path)
+		if h.DistTo(float64(ep.X), float64(ep.Y)) <= heroContactRange && e.meleeCD <= 0 {
+			e.meleeCD = enemyMeleeCD
+			g.hurtHero(spec.Attack)
+		}
+	}
+}
+
+// heroTarget: 英雄射程内最近可攻击敌 (非飞行)。无候选返回 nil。
+func (g *Game) heroTarget() *Enemy {
+	h := g.Hero
+	var best *Enemy
+	var bestD float64
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped || enemySpecs[e.Kind].Flying {
+			continue
+		}
+		ep := e.Pos(g.Path)
+		d := h.DistTo(float64(ep.X), float64(ep.Y))
+		if d > heroSpec.Range {
+			continue
+		}
+		if best == nil || d < bestD {
+			best, bestD = e, d
+		}
+	}
+	return best
+}
+
+// hurtHero: 英雄受伤唯一入口。归零转阵亡 (起复活倒计时)。
+func (g *Game) hurtHero(dmg int) {
+	h := g.Hero
+	if h == nil || !h.Alive() || dmg <= 0 {
+		return
+	}
+	h.HP -= dmg
+	if h.HP <= 0 {
+		h.HP = 0
+		h.respawnCD = heroSpec.RespawnS
+		g.Msg = "Hero fell! Reviving..."
+	}
+}
+
+// respawnHero: 复活在 path 中点满血, 集结点重置为复活点。
+func (g *Game) respawnHero() {
+	h := g.Hero
+	mid := g.Path[len(g.Path)/2]
+	h.X, h.Y = float64(mid.X), float64(mid.Y)
+	h.RallyX, h.RallyY = h.X, h.Y
+	h.HP = heroSpec.MaxHP
+	h.respawnCD = 0
+	h.cooldown = 0
+	g.Msg = "Hero revived!"
 }
 
 func (g *Game) MoveCursor(dx, dy int) {
