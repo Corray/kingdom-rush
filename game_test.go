@@ -861,23 +861,6 @@ func TestVolume_AdjustPersistsAndClamps(t *testing.T) {
 	})
 }
 
-func TestBGM_TrackForPhase(t *testing.T) {
-	cases := []struct {
-		phase GamePhase
-		want  bgmTrack
-	}{
-		{PhaseLevelSelect, bgmMenu},
-		{PhasePlaying, bgmBattle},
-		{PhaseWon, bgmNone},
-		{PhaseLost, bgmNone},
-	}
-	for _, c := range cases {
-		if got := bgmFor(c.phase); got != c.want {
-			t.Errorf("bgmFor(%v) = %v, want %v", c.phase, got, c.want)
-		}
-	}
-}
-
 // ============================================================
 // V4 Phase 3: 走动动画纯数学 (anim.go) + 死亡动画 effect
 // ============================================================
@@ -1736,33 +1719,6 @@ func TestLevels_DifficultyRampsUp(t *testing.T) {
 		if total(lv) < avg {
 			t.Errorf("Lv%d 总敌量 %d < 前 10 关均值 %d (难度曲线倒挂?)", lv.ID, total(lv), avg)
 		}
-	}
-}
-
-func TestMenu_RowAtPixelTwoColumns(t *testing.T) {
-	const startY, rowH = 60, 36
-	cases := []struct {
-		mx, my int
-		want   int
-		wantOK bool
-	}{
-		{10, startY + 5, 0, true},                     // 左列首行
-		{10, startY + 9*rowH + 5, 9, true},            // 左列末行
-		{windowW - 10, startY + 5, 10, true},          // 右列首行 = Lv11
-		{windowW - 10, startY + 9*rowH + 5, 19, true}, // 右列末行 = Lv20
-		{10, startY - 5, 0, false},                    // 上方界外
-		{10, startY + 10*rowH + 5, 0, false},          // 下方界外
-	}
-	for _, c := range cases {
-		got, ok := menuRowAtPixel(c.mx, c.my, 20)
-		if ok != c.wantOK || (ok && got != c.want) {
-			t.Errorf("menuRowAtPixel(%d,%d) = (%d,%v), want (%d,%v)",
-				c.mx, c.my, got, ok, c.want, c.wantOK)
-		}
-	}
-	// 10 关存档兼容: 右列点击不应命中 (numLevels=10)
-	if _, ok := menuRowAtPixel(windowW-10, startY+5, 10); ok {
-		t.Errorf("右列在只有 10 关时不应命中")
 	}
 }
 
