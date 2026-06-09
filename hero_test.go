@@ -302,3 +302,96 @@ func TestDistantEnemyNotBlocked(t *testing.T) {
 		t.Errorf("distant enemy should advance freely: PathIdx=%v", e.PathIdx)
 	}
 }
+
+// ============================================================
+// V9 Phase 1: 英雄关内 XP + 等级成长
+// ============================================================
+
+// TestHeroLevelCurve: 喂 XP 逐级升级 — 属性提升 + 升级回满血 + 满级封顶。
+func TestHeroLevelCurve(t *testing.T) {
+	h := newHero(0, 0)
+	if h.Level != 1 || h.XP != 0 {
+		t.Fatalf("new hero should be lvl1 0xp, got lvl%d xp%d", h.Level, h.XP)
+	}
+	base := heroSpec.MaxHP
+	h.HP = 1 // 模拟受伤, 验证升级回满血
+	h.GainXP(xpForNextLevel(1))
+	if h.Level != 2 {
+		t.Errorf("should reach lvl2 after %d xp, got %d", xpForNextLevel(1), h.Level)
+	}
+	if h.MaxHP != base+heroHPPerLvl {
+		t.Errorf("lvl2 maxHP = %d, want %d", h.MaxHP, base+heroHPPerLvl)
+	}
+	if h.HP != h.MaxHP {
+		t.Errorf("level up should heal to full: HP=%d MaxHP=%d", h.HP, h.MaxHP)
+	}
+	// 巨量 XP → 封顶
+	h.GainXP(100000)
+	if h.Level != heroLevelCap {
+		t.Errorf("should cap at lvl%d, got %d", heroLevelCap, h.Level)
+	}
+	if h.XP != 0 {
+		t.Errorf("capped hero XP should lock 0, got %d", h.XP)
+	}
+}
+
+// TestHeroLevelStatsScale: 高等级 Damage / AttackRange / maxHP 按级递增。
+func TestHeroLevelStatsScale(t *testing.T) {
+	h := newHero(0, 0)
+	if h.Damage() != heroSpec.Damage || math.Abs(h.AttackRange()-heroSpec.Range) > 1e-9 {
+		t.Errorf("lvl1 stats should equal base: dmg=%d range=%v", h.Damage(), h.AttackRange())
+	}
+	h.Level = 3
+	if h.Damage() != heroSpec.Damage+2*heroDmgPerLvl {
+		t.Errorf("lvl3 damage = %d, want %d", h.Damage(), heroSpec.Damage+2*heroDmgPerLvl)
+	}
+	if math.Abs(h.AttackRange()-(heroSpec.Range+2*heroRangePerLvl)) > 1e-9 {
+		t.Errorf("lvl3 range = %v, want %v", h.AttackRange(), heroSpec.Range+2*heroRangePerLvl)
+	}
+	if heroMaxHPFor(3) != heroSpec.MaxHP+2*heroHPPerLvl {
+		t.Errorf("lvl3 maxHP = %d, want %d", heroMaxHPFor(3), heroSpec.MaxHP+2*heroHPPerLvl)
+	}
+}
+
+// TestHeroXPFromKill: 英雄击杀给威胁加权 XP (enemyCost)。
+func TestHeroXPFromKill(t *testing.T) {
+	g := newTestGame()
+	injectEnemyAtHero(g, ENormal, heroSpec.Damage-1) // 一击毙
+	if g.Hero.XP != 0 {
+		t.Fatal("hero should start with 0 XP")
+	}
+	g.Update(0.1) // 英雄秒杀 → 得 enemyCost[ENormal] XP
+	if g.Hero.XP != enemyCost[ENormal] {
+		t.Errorf("hero should gain %d XP from kill, got %d", enemyCost[ENormal], g.Hero.XP)
+	}
+}
+
+// TestHeroPerRunReset: 新关重置等级/XP (per-run, beginRun → newHero)。
+func TestHeroPerRunReset(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = 4
+	g.Hero.XP = 3
+	g.StartLevel(0) // 重开 → beginRun → newHero
+	if g.Hero.Level != 1 || g.Hero.XP != 0 {
+		t.Errorf("per-run: new battle should reset to lvl1 0xp, got lvl%d xp%d",
+			g.Hero.Level, g.Hero.XP)
+	}
+}
+
+// TestHeroRespawnKeepsLevel: 阵亡复活保留等级 (关内死不掉级), HP 回当级满血。
+func TestHeroRespawnKeepsLevel(t *testing.T) {
+	g := newTestGame()
+	g.Hero.GainXP(xpForNextLevel(1)) // → lvl2
+	if g.Hero.Level != 2 {
+		t.Fatalf("setup: should be lvl2, got %d", g.Hero.Level)
+	}
+	lvMaxHP := g.Hero.MaxHP
+	g.hurtHero(g.Hero.MaxHP)               // 阵亡
+	g.updateHero(heroSpec.RespawnS + 0.1)  // 复活
+	if g.Hero.Level != 2 {
+		t.Errorf("respawn should keep level: got %d", g.Hero.Level)
+	}
+	if g.Hero.HP != lvMaxHP {
+		t.Errorf("respawn should heal to leveled max %d, got %d", lvMaxHP, g.Hero.HP)
+	}
+}

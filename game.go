@@ -639,7 +639,15 @@ func (g *Game) updateHero(dt float64) {
 	if target := g.heroTarget(); target != nil && h.cooldown <= 0 {
 		h.cooldown = heroSpec.AttackCD
 		// 统一入口: 击杀自动触发金币/死亡特效/Spawner 召唤 (守 killEnemy 家族约束)
-		g.damageEnemy(target, heroSpec.Damage)
+		g.damageEnemy(target, h.Damage())
+		// V9 P1: 英雄击杀给 XP (威胁加权 enemyCost), 升级给反馈
+		if target.Dead {
+			before := h.Level
+			h.GainXP(enemyCost[target.Kind])
+			if h.Level > before {
+				g.Msg = fmt.Sprintf("Hero reached level %d!", h.Level)
+			}
+		}
 	}
 	// 接触敌按各自 meleeCD 节奏反击英雄 (飞行不近战)
 	for _, e := range g.Enemies {
@@ -672,7 +680,7 @@ func (g *Game) heroTarget() *Enemy {
 		}
 		ep := e.Pos(g.Path)
 		d := h.DistTo(float64(ep.X), float64(ep.Y))
-		if d > heroSpec.Range {
+		if d > h.AttackRange() {
 			continue
 		}
 		if best == nil || d < bestD {
@@ -702,7 +710,7 @@ func (g *Game) respawnHero() {
 	mid := g.Path[len(g.Path)/2]
 	h.X, h.Y = float64(mid.X), float64(mid.Y)
 	h.RallyX, h.RallyY = h.X, h.Y
-	h.HP = heroSpec.MaxHP
+	h.HP = h.MaxHP // V9: 复活回当前等级满血 (per-run 等级不因阵亡清零)
 	h.respawnCD = 0
 	h.cooldown = 0
 	g.Msg = "Hero revived!"

@@ -30,6 +30,50 @@ type Hero struct {
 	MaxHP     int
 	cooldown  float64 // P2: 攻击冷却剩余 (>0 不能出手)
 	respawnCD float64 // P2: >0 = 阵亡复活倒计时 (此期间不在场)
+	// V9 P1: 关内成长 (per-run, beginRun 重置为 1 级 0 XP)
+	Level int
+	XP    int
+}
+
+// V9 P1: 英雄关内成长参数 (per-run; P4 平衡校准)。
+const (
+	heroLevelCap    = 5
+	heroHPPerLvl    = 25  // 每级 maxHP 增量 (120 → 220 @ lvl5)
+	heroDmgPerLvl   = 5   // 每级 damage 增量 (15 → 35 @ lvl5)
+	heroRangePerLvl = 0.1 // 每级 攻击射程增量 (1.8 → 2.2 @ lvl5)
+)
+
+// xpForNextLevel: 从 level 升到 level+1 所需 XP (击杀威胁加权累计, 见 enemyCost)。
+// 线性递增: lvl1→2 需 6, 2→3 需 12 … 满级累计 60。
+func xpForNextLevel(level int) int { return level * 6 }
+
+// heroMaxHPFor: 指定等级的 maxHP。
+func heroMaxHPFor(level int) int { return heroSpec.MaxHP + (level-1)*heroHPPerLvl }
+
+// Damage: 当前等级攻击伤害。
+func (h *Hero) Damage() int { return heroSpec.Damage + (h.Level-1)*heroDmgPerLvl }
+
+// AttackRange: 当前等级攻击射程。
+func (h *Hero) AttackRange() float64 {
+	return heroSpec.Range + float64(h.Level-1)*heroRangePerLvl
+}
+
+// GainXP: 累计 XP 并按阈值升级 (升级回满血, 满级后 XP 锁 0)。返回升级后的等级
+// (调用方据此判断是否升级以给反馈)。
+func (h *Hero) GainXP(xp int) {
+	if h.Level >= heroLevelCap {
+		return
+	}
+	h.XP += xp
+	for h.Level < heroLevelCap && h.XP >= xpForNextLevel(h.Level) {
+		h.XP -= xpForNextLevel(h.Level)
+		h.Level++
+		h.MaxHP = heroMaxHPFor(h.Level)
+		h.HP = h.MaxHP // 升级回满血 (KR 范式)
+	}
+	if h.Level >= heroLevelCap {
+		h.XP = 0
+	}
 }
 
 // DistTo: 英雄到格 (px,py) 的欧氏距离 (cell)。
@@ -37,11 +81,13 @@ func (h *Hero) DistTo(px, py float64) float64 {
 	return math.Hypot(px-h.X, py-h.Y)
 }
 
-// newHero: 在 spawn 点生成满血英雄, 集结点 = spawn (原地待命)。
+// newHero: 在 spawn 点生成满血 1 级英雄, 集结点 = spawn (原地待命)。
+// V9: Level/XP 每关从 newHero 起 (per-run, beginRun 调用 = 关内重置)。
 func newHero(spawnX, spawnY float64) *Hero {
 	return &Hero{
 		X: spawnX, Y: spawnY, RallyX: spawnX, RallyY: spawnY,
-		HP: heroSpec.MaxHP, MaxHP: heroSpec.MaxHP,
+		HP: heroMaxHPFor(1), MaxHP: heroMaxHPFor(1),
+		Level: 1, XP: 0,
 	}
 }
 
