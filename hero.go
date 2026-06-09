@@ -33,6 +33,24 @@ type Hero struct {
 	// V9 P1: 关内成长 (per-run, beginRun 重置为 1 级 0 XP)
 	Level int
 	XP    int
+	// V9 P2: 主动技能 (AoE 横扫) 冷却剩余 (>0 不可释放)
+	abilityCD float64
+}
+
+// V9 P2: 英雄主动技能 (AoE 横扫) 参数 (P4 校准)。
+const (
+	heroAbilityLevel     = 3   // 解锁等级
+	heroAbilityCooldownS = 8.0 // 冷却 (s)
+	heroAbilityRadius    = 2.0 // AoE 半径 (cell)
+	heroAbilityDmgMul    = 3   // 伤害 = 当前 Damage() × 此值
+)
+
+// AbilityUnlocked: 是否已达解锁等级。
+func (h *Hero) AbilityUnlocked() bool { return h.Level >= heroAbilityLevel }
+
+// AbilityReady: 在场存活 + 已解锁 + 不在冷却。
+func (h *Hero) AbilityReady() bool {
+	return h.Alive() && h.AbilityUnlocked() && h.abilityCD <= 0
 }
 
 // V9 P1: 英雄关内成长参数 (per-run; P4 平衡校准)。

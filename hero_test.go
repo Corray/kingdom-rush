@@ -395,3 +395,80 @@ func TestHeroRespawnKeepsLevel(t *testing.T) {
 		t.Errorf("respawn should heal to leveled max %d, got %d", lvMaxHP, g.Hero.HP)
 	}
 }
+
+// ============================================================
+// V9 Phase 2: 英雄主动技能 (AoE 横扫)
+// ============================================================
+
+// TestHeroAbilityLockedBeforeLevel: 未达解锁等级时技能锁定, 释放失败。
+func TestHeroAbilityLockedBeforeLevel(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = heroAbilityLevel - 1
+	if g.Hero.AbilityUnlocked() {
+		t.Error("ability should be locked below unlock level")
+	}
+	if g.CastHeroAbility() {
+		t.Error("cast should fail when locked")
+	}
+}
+
+// TestHeroAbilityHitsGround: 解锁后横扫打半径内地面敌 (伤害 = Damage()×mul)。
+func TestHeroAbilityHitsGround(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = heroAbilityLevel
+	if !g.Hero.AbilityReady() {
+		t.Fatal("ability should be ready at unlock level, no cooldown")
+	}
+	e := injectEnemyAtHero(g, ENormal, 999)
+	if !g.CastHeroAbility() {
+		t.Fatal("cast should succeed at unlock level")
+	}
+	wantDmg := g.Hero.Damage() * heroAbilityDmgMul
+	if e.HP != 999-wantDmg {
+		t.Errorf("cleave dmg: HP=%d, want %d (Damage %d × %d)",
+			e.HP, 999-wantDmg, g.Hero.Damage(), heroAbilityDmgMul)
+	}
+}
+
+// TestHeroAbilityCooldownGating: 释放后进冷却, 冷却中再释放失败, 随时间衰减。
+func TestHeroAbilityCooldownGating(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = heroAbilityLevel
+	if !g.CastHeroAbility() {
+		t.Fatal("first cast should succeed")
+	}
+	if g.Hero.abilityCD <= 0 {
+		t.Error("cooldown should be set after cast")
+	}
+	if g.CastHeroAbility() {
+		t.Error("second cast within cooldown should fail")
+	}
+	cd := g.Hero.abilityCD
+	g.Update(0.5)
+	if g.Hero.abilityCD >= cd {
+		t.Errorf("abilityCD should decay: %v → %v", cd, g.Hero.abilityCD)
+	}
+}
+
+// TestHeroAbilityIgnoresFlying: 横扫不打飞行 (同英雄近战定位)。
+func TestHeroAbilityIgnoresFlying(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = heroAbilityLevel
+	e := injectEnemyAtHero(g, EGlider, 999)
+	g.CastHeroAbility()
+	if e.HP != 999 {
+		t.Errorf("cleave must not hit flying: HP=%d", e.HP)
+	}
+}
+
+// TestHeroAbilityKillGrantsGold: 横扫击杀经 damageEnemy → killEnemy 入账金币。
+func TestHeroAbilityKillGrantsGold(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = heroAbilityLevel
+	injectEnemyAtHero(g, ENormal, 1) // 横扫秒杀
+	goldBefore := g.Gold
+	g.CastHeroAbility()
+	if g.Gold <= goldBefore {
+		t.Errorf("cleave kill must grant gold via killEnemy: %d → %d", goldBefore, g.Gold)
+	}
+}

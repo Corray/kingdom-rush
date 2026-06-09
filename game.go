@@ -624,6 +624,13 @@ func (g *Game) updateHero(dt float64) {
 	if h == nil {
 		return
 	}
+	// V9 P2: 技能冷却衰减 (与存活无关, 同 MeteorCD 范式)
+	if h.abilityCD > 0 {
+		h.abilityCD -= dt
+		if h.abilityCD < 0 {
+			h.abilityCD = 0
+		}
+	}
 	if !h.Alive() {
 		h.respawnCD -= dt
 		if h.respawnCD <= 0 {
@@ -640,13 +647,8 @@ func (g *Game) updateHero(dt float64) {
 		h.cooldown = heroSpec.AttackCD
 		// 统一入口: 击杀自动触发金币/死亡特效/Spawner 召唤 (守 killEnemy 家族约束)
 		g.damageEnemy(target, h.Damage())
-		// V9 P1: 英雄击杀给 XP (威胁加权 enemyCost), 升级给反馈
 		if target.Dead {
-			before := h.Level
-			h.GainXP(enemyCost[target.Kind])
-			if h.Level > before {
-				g.Msg = fmt.Sprintf("Hero reached level %d!", h.Level)
-			}
+			g.heroAwardKillXP(target) // V9 P1: 击杀给 XP (攻击/技能共用入口)
 		}
 	}
 	// 接触敌按各自 meleeCD 节奏反击英雄 (飞行不近战)
@@ -724,6 +726,72 @@ func (g *Game) heroBlocks(e *Enemy) bool {
 	}
 	ep := e.Pos(g.Path)
 	return g.Hero.DistTo(float64(ep.X), float64(ep.Y)) <= heroContactRange
+}
+
+// heroAwardKillXP: V9 — 英雄击杀给 XP (威胁加权 enemyCost), 升级给反馈。
+// 攻击击杀 (updateHero) 与技能击杀 (CastHeroAbility) 共用唯一入口。
+func (g *Game) heroAwardKillXP(e *Enemy) {
+	if g.Hero == nil {
+		return
+	}
+	before := g.Hero.Level
+	g.Hero.GainXP(enemyCost[e.Kind])
+	if g.Hero.Level > before {
+		g.Msg = fmt.Sprintf("Hero reached level %d!", g.Hero.Level)
+	}
+}
+
+// CastHeroAbility: V9 P2 — 英雄 AoE 横扫 (lvl ≥ heroAbilityLevel 解锁)。
+// 英雄周围 heroAbilityRadius 内地面敌经 damageEnemy 统一结算 (不打飞行,
+// 同英雄近战定位; 击杀照常给 XP)。冷却/未解锁/阵亡时拒绝并提示。
+// 返回是否成功释放。
+func (g *Game) CastHeroAbility() bool {
+	h := g.Hero
+	if h == nil || g.Phase != PhasePlaying {
+		return false
+	}
+	if !h.Alive() {
+		g.Msg = "Hero down — ability unavailable"
+		return false
+	}
+	if !h.AbilityUnlocked() {
+		g.Msg = fmt.Sprintf("Hero cleave unlocks at level %d", heroAbilityLevel)
+		return false
+	}
+	if h.abilityCD > 0 {
+		g.Msg = fmt.Sprintf("Hero cleave on cooldown %.0fs", h.abilityCD)
+		return false
+	}
+	h.abilityCD = heroAbilityCooldownS
+	g.pushSound(SndMeteor) // 复用爆发音 (P3 可换专用)
+	dmg := h.Damage() * heroAbilityDmgMul
+	hits := 0
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped || enemySpecs[e.Kind].Flying {
+			continue
+		}
+		ep := e.Pos(g.Path)
+		if h.DistTo(float64(ep.X), float64(ep.Y)) <= heroAbilityRadius {
+			g.damageEnemy(e, dmg) // 统一入口
+			if e.Dead {
+				g.heroAwardKillXP(e)
+			}
+			hits++
+		}
+	}
+	// 横扫特效: 半径内每 cell 一团火 (复用 EHit, 同 Meteor 视觉)
+	hx, hy := int(h.X+0.5), int(h.Y+0.5)
+	r := int(heroAbilityRadius)
+	for ddy := -r; ddy <= r; ddy++ {
+		for ddx := -r; ddx <= r; ddx++ {
+			if float64(ddx*ddx+ddy*ddy) > heroAbilityRadius*heroAbilityRadius {
+				continue
+			}
+			g.Effects = append(g.Effects, makeHitEffect(Point{X: hx + ddx, Y: hy + ddy}))
+		}
+	}
+	g.Msg = fmt.Sprintf("Hero cleave! %d hit", hits)
+	return true
 }
 
 func (g *Game) MoveCursor(dx, dy int) {
