@@ -18,6 +18,7 @@
 | V5 Phase 1-5 | Gameplay 深度 | 卖塔（退款 70%）、targeting 策略（First/Last/Strong）、Cannon AoE 溅射、状态效果系统 + Frost 塔（第 4 塔型）、陨石雨主动技能（R 瞄准 + 25s 冷却）、killEnemy/pickTarget 重构、102 tests | `v5.0` | `8ee77f5` |
 | V6 Phase 1-4 | 内容扩展 | 关卡 11-20（菜单两列）、难度三档（Normal/Hard/Easy）、Endless mode（预算制生成器 + seed 确定性）、星级评分、beginRun/spawnEnemy 重构、124 tests | `v6.0` | `d2d4bf1` |
 | V7 Phase 1-3 | 发布版 | 改名 Gopher Defense（商标合规 + 存档零迁移）、README/LICENSE(MIT)/截图、GitHub Pages 上线（Actions 测试门禁 + 自动部署）、Release v7.0 + repo metadata、124 tests | `v7.0` | `be86c3c` |
+| V8 Phase 1-5 | 英雄单位 | 可控英雄（光标+H 设 rally / 自动打地面敌 / 贴身阻挡 / 阵亡复活 / 飞行飞越）、首个非路径绑定实体、敌近战反击、两端渲染+HUD、仿真接入（英雄纯增量 Hard 17→19 零回归）、148 tests | `v8.0` | `601f7c1` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -431,7 +432,7 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 
 ---
 
-## V8 — 英雄单位（已部署上线 2026-06-09，待用户线上实玩确认手感后 tag `v8.0`）
+## V8 — 英雄单位（已收尾 2026-06-09，tag `v8.0` @ `601f7c1`）
 
 > V7 公开发布后首个**新机制 era**（区别于 V7.2-7.5 反馈/工程小批次）。用户拍板「gameplay 深度」三候选（多入口 path / 英雄单位 / 塔技能树）中选 **英雄单位**——补上游戏相比真 KR 最缺的「主动操作维度」。LMP L2，加法式扩展，不重写「单路径」承重假设。
 
