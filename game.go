@@ -440,6 +440,12 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 			g.spawnEnemy(ENormal, e.PathIdx),
 		)
 	}
+	// V9: 英雄在场则每个击杀给 XP (威胁加权, 被动累积)。killEnemy 是唯一
+	// 击杀点 → 所有伤害来源统一计入。不依赖英雄位置 — 仿真证位置依赖的助攻
+	// XP 仍被"塔在远处杀"饿死 (12/20 关停 L1); 英雄定位动机在战斗/阻挡, 非 XP。
+	if g.Hero != nil && g.Hero.Alive() {
+		g.heroAwardKillXP(e)
+	}
 }
 
 // newEnemy: V6 Phase 2 — 难度 HP 系数施加 (纯函数, 可测)。
@@ -646,10 +652,7 @@ func (g *Game) updateHero(dt float64) {
 	if target := g.heroTarget(); target != nil && h.cooldown <= 0 {
 		h.cooldown = heroSpec.AttackCD
 		// 统一入口: 击杀自动触发金币/死亡特效/Spawner 召唤 (守 killEnemy 家族约束)
-		g.damageEnemy(target, h.Damage())
-		if target.Dead {
-			g.heroAwardKillXP(target) // V9 P1: 击杀给 XP (攻击/技能共用入口)
-		}
+		g.damageEnemy(target, h.Damage()) // 击杀 XP 由 killEnemy 助攻统一处理
 	}
 	// 接触敌按各自 meleeCD 节奏反击英雄 (飞行不近战)
 	for _, e := range g.Enemies {
@@ -772,10 +775,7 @@ func (g *Game) CastHeroAbility() bool {
 		}
 		ep := e.Pos(g.Path)
 		if h.DistTo(float64(ep.X), float64(ep.Y)) <= heroAbilityRadius {
-			g.damageEnemy(e, dmg) // 统一入口
-			if e.Dead {
-				g.heroAwardKillXP(e)
-			}
+			g.damageEnemy(e, dmg) // 统一入口 (击杀 XP 由 killEnemy 助攻统一处理)
 			hits++
 		}
 	}

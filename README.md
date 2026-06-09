@@ -22,7 +22,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 - **20 handcrafted levels** with escalating difficulty and themed wave design
 - **4 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow) — each with 3 upgrade levels
 - **5 enemy types** — Normal, Fast, Glider (flying, cannons can't hit), Boss, Spawner (summons on death)
-- **Hero unit** — a controllable gold champion: press `H` to rally it anywhere on the map. It auto-attacks the nearest ground enemy and **blocks** foes in melee (holding chokepoints the towers can't), falls when overwhelmed, and respawns after a cooldown. Fliers slip past it.
+- **Hero unit** — a controllable gold champion: press `H` to rally it anywhere on the map. It auto-attacks the nearest ground enemy and **blocks** foes in melee (holding chokepoints the towers can't), falls when overwhelmed, and respawns after a cooldown. Fliers slip past it. It **levels up through each battle** (kills grant XP → more HP / damage / range, healing on level-up) and unlocks a **cleave** ability (`G`) at level 3.
 - **Tactical depth** — sell towers (70% refund), per-tower targeting strategies (First / Last / Strong), meteor strike active ability with cooldown
 - **3 difficulty settings** (Normal / Hard / Easy) and **3-star ratings** per level
 - **Endless mode** — budget-based procedural waves, survive as long as you can, best-wave record
@@ -40,6 +40,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 | `X` / right click | Sell tower (70% refund) |
 | `T` | Cycle targeting strategy of tower at cursor |
 | `H` | Rally hero to cursor (auto-fights & blocks ground enemies; respawns on death) |
+| `G` | Hero cleave — AoE burst around the hero (unlocks at hero level 3) |
 | `R`, then click | Meteor strike (25s cooldown); `R` again cancels |
 | `P` | Pause / resume |
 | `F` | Toggle game speed (1x / 2x) |

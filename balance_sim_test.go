@@ -9,6 +9,11 @@
 // V8: 英雄被动计入 — beginRun 自生成在 path 中点, auto-player 不主动
 // rally (保持"未用英雄"的保守下限)。autoPlay 加 heroEnabled 参数, 支持
 // 有/无英雄对比 (TestBalance_HeroNetNonNegative 守"英雄不让难度上升")。
+//
+// V9: 英雄关内成长 (per-run XP/等级, 被动 XP 由 killEnemy 统一给) + cleave
+// 技能 (auto-player 就绪即放, 平衡上界)。仿真证: 英雄升到 L3-L5 + 用 cleave
+// 仍不破平衡 (Normal 20/20 / Hard 19/20 同难点 / endless 44) — per-run 后段
+// 加载自限 (每关从 L1 起, 早期弱, 难点波在英雄弱时发生)。
 package main
 
 import "testing"
@@ -97,6 +102,10 @@ func simStrategy(g *Game, spots []Point, built *int) {
 			g.CastMeteor(front.Pos(g.Path))
 		}
 	}
+	// V9: 英雄技能就绪即放 (模拟玩家用 cleave, 平衡上界)
+	if g.Hero != nil && g.Hero.AbilityReady() {
+		g.CastHeroAbility()
+	}
 }
 
 // autoPlay: 自动打完一关 (或 60000 步上限 = game-time 100 分钟)。
@@ -182,6 +191,21 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 			}
 		}
 		t.Logf("Hard 通关率: %d/20", wins)
+	})
+}
+
+// TestBalance_HeroLevelReport: V9 诊断 — 报告各关英雄成长到几级 (验证升级
+// 速度合理: 太慢则成长无感 / cleave@L3 够不着; 太快则中期碾压)。不断言, 供调参。
+func TestBalance_HeroLevelReport(t *testing.T) {
+	withTempSavePath(t, func() {
+		for idx := 0; idx < 20; idx++ {
+			g := autoPlay(idx, DiffNormal, true)
+			lv := 0
+			if g.Hero != nil {
+				lv = g.Hero.Level
+			}
+			t.Logf("Lv%-2d → hero reached L%d", idx+1, lv)
+		}
 	})
 }
 
