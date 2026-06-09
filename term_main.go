@@ -165,6 +165,11 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 			if g.Phase == PhasePlaying {
 				g.SetHeroRally(g.Cursor)
 			}
+		case 'g', 'G':
+			// V9 P3: 释放英雄主动技能 (横扫)
+			if g.Phase == PhasePlaying {
+				g.CastHeroAbility()
+			}
 		}
 	case *tcell.EventResize:
 		r.Sync()

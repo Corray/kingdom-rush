@@ -51,6 +51,7 @@ var (
 	eColHeroBody  = color.RGBA{R: 255, G: 200, B: 60, A: 255}
 	eColHeroHp    = color.RGBA{R: 90, G: 200, B: 255, A: 255}
 	eColHeroRally = color.RGBA{R: 255, G: 220, B: 120, A: 200}
+	eColHeroXP    = color.RGBA{R: 255, G: 235, B: 120, A: 255} // V9 P3: XP 进度 (亮黄)
 )
 
 // EbitenGame 实现 ebiten.Game interface。
@@ -254,6 +255,10 @@ func (eg *EbitenGame) handleInput() {
 	// V8 P4: H 键把英雄集结点设到光标格 (英雄走过去并沿途交战/阻挡)
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyH) {
 		g.SetHeroRally(g.Cursor)
+	}
+	// V9 P3: G 键释放英雄主动技能 (AoE 横扫, lvl3 解锁)
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyG) {
+		g.CastHeroAbility()
 	}
 	// V5 Phase 5: R 键进入/取消陨石瞄准 (不用 Esc — 已绑退出)
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyR) {
@@ -812,6 +817,15 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			barW := float32(cellPx) - 4
 			fillRect(screen, hx+2, hy-4, barW, 3, eColHpBg)
 			fillRect(screen, hx+2, hy-4, barW*hpRatio, 3, eColHeroHp)
+			// V9 P3: XP 进度条 (HP 条下方薄金条; 满级隐藏)
+			if h.Level < heroLevelCap {
+				xpRatio := float32(h.XP) / float32(xpForNextLevel(h.Level))
+				if xpRatio > 1 {
+					xpRatio = 1
+				}
+				fillRect(screen, hx+2, hy-1, barW, 2, eColHpBg)
+				fillRect(screen, hx+2, hy-1, barW*xpRatio, 2, eColHeroXP)
+			}
 		} else {
 			// 阵亡: 灰虚圈 + 复活倒计时秒数
 			vector.StrokeCircle(screen, cx, cy, float32(cellPx)/3, 1.5,
@@ -961,13 +975,13 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			if g.Hero.HP <= g.Hero.MaxHP/3 {
 				heroCol = color.RGBA{R: 235, G: 100, B: 90, A: 255} // 低血红
 			}
-			drawTextCol(screen, fmt.Sprintf("Hero %d/%d", g.Hero.HP, g.Hero.MaxHP),
+			drawTextCol(screen, fmt.Sprintf("Hero L%d %d/%d", g.Hero.Level, g.Hero.HP, g.Hero.MaxHP),
 				curX, statusY, heroCol)
 		} else {
 			drawTextCol(screen, fmt.Sprintf("Hero DOWN %.0fs", g.Hero.respawnCD),
 				curX, statusY, color.RGBA{R: 235, G: 100, B: 90, A: 255})
 		}
-		curX += 120
+		curX += 150
 	}
 	// msg (V7.2 M2: 黄色醒目)
 	drawTextCol(screen, g.Msg, curX, statusY,
@@ -1074,6 +1088,31 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			fillCol = color.RGBA{R: 80, G: 220, B: 80, A: 255} // 就绪绿
 		}
 		fillRect(screen, barX, float32(selY+12), float32(barW*ready), barH, fillCol)
+	}
+
+	// V9 P3: 英雄技能 (Cleave) 冷却条 — Meteor 条左侧; 解锁后显示进度,
+	// 未解锁显示等级解锁提示
+	if g.Hero != nil {
+		labelX := windowW - 340
+		if g.Hero.AbilityUnlocked() {
+			drawText(screen, "G:Cleave", labelX, selY+8)
+			barX := float32(labelX + 68)
+			const cBarW, cBarH = 90, 8
+			fillRect(screen, barX, float32(selY+12), cBarW, cBarH,
+				color.RGBA{R: 40, G: 40, B: 60, A: 255})
+			ready := 1.0
+			if g.Hero.abilityCD > 0 {
+				ready = 1 - g.Hero.abilityCD/heroAbilityCooldownS
+			}
+			fillCol := color.RGBA{R: 255, G: 140, B: 40, A: 255} // 冷却中橙
+			if g.Hero.abilityCD <= 0 {
+				fillCol = color.RGBA{R: 80, G: 220, B: 80, A: 255} // 就绪绿
+			}
+			fillRect(screen, barX, float32(selY+12), float32(cBarW*ready), cBarH, fillCol)
+		} else {
+			drawTextCol(screen, fmt.Sprintf("G:Cleave @L%d", heroAbilityLevel),
+				labelX, selY+8, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // 锁定暗示
+		}
 	}
 
 	// help row

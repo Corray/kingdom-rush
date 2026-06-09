@@ -221,7 +221,10 @@ func (r *TermRenderer) drawGame(g *Game) {
 	heroStr := ""
 	if g.Hero != nil {
 		if g.Hero.Alive() {
-			heroStr = fmt.Sprintf("Hero:%d/%d ", g.Hero.HP, g.Hero.MaxHP)
+			heroStr = fmt.Sprintf("Hero:L%d %d/%d ", g.Hero.Level, g.Hero.HP, g.Hero.MaxHP)
+			if g.Hero.AbilityReady() { // V9: 横扫就绪提示
+				heroStr += "[G!] "
+			}
 		} else {
 			heroStr = fmt.Sprintf("Hero:DOWN %.0fs ", g.Hero.respawnCD)
 		}
@@ -260,7 +263,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 
 	// help row
 	drawString(s, 0, statusRow+2,
-		" Arrows: move  1/2: select  Space: build/upgrade  H: rally hero  M: menu  Q/Esc: quit",
+		" Arrows: move  1/2: select  Space: build/upgrade  H: rally hero  G: cleave  M: menu  Q/Esc: quit",
 		stHelp)
 
 	// banner
