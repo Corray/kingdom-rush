@@ -19,6 +19,7 @@
 | V6 Phase 1-4 | 内容扩展 | 关卡 11-20（菜单两列）、难度三档（Normal/Hard/Easy）、Endless mode（预算制生成器 + seed 确定性）、星级评分、beginRun/spawnEnemy 重构、124 tests | `v6.0` | `d2d4bf1` |
 | V7 Phase 1-3 | 发布版 | 改名 Gopher Defense（商标合规 + 存档零迁移）、README/LICENSE(MIT)/截图、GitHub Pages 上线（Actions 测试门禁 + 自动部署）、Release v7.0 + repo metadata、124 tests | `v7.0` | `be86c3c` |
 | V8 Phase 1-5 | 英雄单位 | 可控英雄（光标+H 设 rally / 自动打地面敌 / 贴身阻挡 / 阵亡复活 / 飞行飞越）、首个非路径绑定实体、敌近战反击、两端渲染+HUD、仿真接入（英雄纯增量 Hard 17→19 零回归）、148 tests | `v8.0` | `601f7c1` |
+| V9 Phase 1-4 | 英雄成长 | 关内 per-run 等级/XP（被动 XP 威胁加权——决策 B 两轮仿真证伪改判、升级提 HP/伤害/射程+回血）、AoE 横扫主动技能（L3 解锁 / `G` 键 / 8s 冷却 / 经 damageEnemy）、两端 HUD 等级/XP 条/技能冷却、仿真接入成长（平衡零回归 Hard 19/20）、test-infra headless 解耦、159 tests | `v9.0` | `a3c8be3` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -494,7 +495,7 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 
 ---
 
-## V9 — 英雄成长（已部署上线 2026-06-09，待用户线上实玩确认手感后 tag `v9.0`）
+## V9 — 英雄成长（已收尾 2026-06-10，tag `v9.0` @ `a3c8be3`）
 
 > V8 英雄上线后的深化方向首批。用户从「英雄深化」四子项（解锁/等级XP、专用 sprite、多英雄、技能树）中拍板 **英雄成长**——关内 XP/等级 + 主动技能，最能放大英雄的"用着有回报"钩子。LMP L2，全加法，不依赖新素材。
 
@@ -519,6 +520,42 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 1. 升级曲线太快 → 英雄中期碾压架空塔防；太慢 → 升级无感。P4 仿真+实玩校准
 2. AoE 横扫太强 → 英雄变 Meteor 平替；与 Cannon 溅射 + 阻挡叠加可能过载。P4 校准
 3. per-run XP 来源仅"英雄击杀" → 若英雄被群殴速死/抢不到尾刀，XP 积累慢、升不上去（手感问题，仿真难测）
+
+### V9 收尾记录（2026-06-10）
+
+**完成度：** 4/4 phase，测试 148 → 159（+11），三 build（desktop / term / wasm）+ go vet 全程绿。另产 test-infra 解耦（`579f7a6`：2 个 ebiten-only 测试剥到 `//go:build !term`，逻辑测试支持 headless `go test -tags term`——无窗口服务器环境 GLFW init panic 的根治）。
+
+**Phase 兑现：**
+
+| Phase | commit | 交付 |
+|-------|--------|------|
+| P1 XP+等级 | `02b6fce` | Hero Level/XP + GainXP 升级回血/封顶 + Damage()/AttackRange() 按级缩放 + beginRun 重置 |
+| P2 主动技能 | `32804b1` | cleave（L3 解锁 / 8s 冷却 / 半径 2 / Damage×3，经 damageEnemy 统一结算；抽 heroAwardKillXP 单一 XP-grant 点）|
+| P3 渲染+输入两端 | `f0d42f6` | 两端 HUD 等级/XP 条/技能冷却 + `G` 键接线；playwright 验出升级偏慢（5 杀仍 L1）→ P4 调曲线 |
+| P4 仿真+平衡+收尾 | `a3c8be3` | 仿真纳入成长（HeroLevelReport 诊断 + simStrategy 接 cleave）+ 决策 B 改判 + README/键位 |
+
+**决策 B 两轮证伪改判（同 V7.5 gold 降档反转性质，数据驱动留档）：**
+
+- 启动预设「XP = 英雄自身击杀」→ 仿真证被塔抢尾刀饿死：15/20 关英雄停 L1，cleave@L3 够不着，盲点 3 实锤
+- 改「附近助攻」→ 仍 12/20 关停 L1（塔在英雄射程外击杀）
+- 终定「**被动 XP**」：英雄在场则每个击杀给 XP（killEnemy 唯一击杀点统一给，威胁加权 enemyCost 保留）。理由：英雄的定位动机在战斗/阻挡而非抢刀，被动化不削弱定位
+- 结果成长弧：首关即可升至 L3 解锁 cleave；按关卡难度 L1→L3-L5，关内成长可感知
+
+**平衡结论（仿真实测，成长 + cleave 上界零破坏）：**
+
+| 模式 | V8 | V9（成长 + cleave）| 判定 |
+|------|------|------|------|
+| Normal | 20/20 全 3★ | 20/20 全 3★ | 不变 |
+| Hard | 19/20 | 19/20（Lv11 仍失守，同 squeaker）| 不变（同难点）|
+| Endless | 42 波 | 44 波 | 微增 |
+
+HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run 自限生效**：每关从 L1 打起，难点波发生在英雄弱期，成长救不了场——决策 A 的平衡假设被仿真证实。
+
+**未竟项 / 留作 V10：**
+- 英雄专用 sprite（素材阻塞，Kenney 无 hero）
+- 多英雄选择 / 技能树
+- 跨局持久化等级/解锁（决策 A 留档：需配套按关缩放压制才能开）
+- cleave AoE 视觉干净截图（无塔 smoke 升不到 L3，逻辑已全单测覆盖）
 
 ---
 
@@ -547,3 +584,4 @@ c) 新机制探索——多入口 path / 英雄单位 / 塔技能树等
 | 2026-06-09 | V8 收尾：用户实玩确认手感满意 → tag `v8.0` @ `601f7c1`，版本史表补 V8 行 + 收尾记录定稿，README/spool 同步。八 era 闭环（v1.0~v8.0 / 148 tests）|
 | 2026-06-09 | V9 启动：用户从英雄深化四子项拍板「英雄成长」。决策 A 等级 per-run（不入存档不破平衡）/ B XP=英雄击杀威胁加权 / C 主动技能=AoE 横扫 G 键照搬 Meteor。4 Phase（XP+等级 → 主动技能 → 渲染+输入 → 仿真+平衡+收尾）；sprite/多英雄/技能树留 V10 |
 | 2026-06-09 | V9 P1-P4 实现完成 + 部署：决策 B 经两轮仿真证伪改判（自身击杀→助攻→**被动 XP**，前两者被塔抢尾刀饿死 12-15/20 关停 L1）；test-infra 解耦 ebiten-only 测试支持 headless。push master（Actions 27190988283 绿，test gate 159 过 + WASM 13.32MB），线上冒烟确认。**tag `v9.0` 待用户线上实玩成长/cleave 手感确认** |
+| 2026-06-10 | V9 收尾：用户实玩确认成长/cleave 手感满意 → tag `v9.0` @ `a3c8be3`，版本史表补 V9 行 + 收尾记录定稿（决策 B 改判留档），README/spool 同步。九 era 闭环（v1.0~v9.0 / 159 tests）|
