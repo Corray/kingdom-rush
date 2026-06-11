@@ -28,6 +28,9 @@ type Save struct {
 	// V10 P3: 英雄职业选择 (heroClasses index)。零值 0 = Knight
 	// (旧存档无字段 → 默认行为不变); 越界经 HeroClassIdx 回退 0。
 	HeroChoice int `json:"hero_choice,omitempty"`
+	// V11 P1: 技能树已购节点数 (职业名 → 0-4, 线性树)。nil map 读安全
+	// (旧存档 → 全 0 = 无 perk, V10 行为零回归)。预算/购买逻辑见 skilltree.go。
+	TreeNodes map[string]int `json:"tree_nodes,omitempty"`
 }
 
 const (
