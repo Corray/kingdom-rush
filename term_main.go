@@ -161,9 +161,11 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 				g.StartLevel(9) // Level 10
 			}
 		case 'h', 'H':
-			// V8 P4: 把英雄集结点设到光标格
+			// V8 P4: 把英雄集结点设到光标格; V10 P3: menu 阶段循环切换职业
 			if g.Phase == PhasePlaying {
 				g.SetHeroRally(g.Cursor)
+			} else if g.Phase == PhaseLevelSelect {
+				g.CycleHeroClass()
 			}
 		case 'g', 'G':
 			// V9 P3: 释放英雄主动技能 (横扫)

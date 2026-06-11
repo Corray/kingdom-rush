@@ -58,8 +58,22 @@ var (
 	colPrepFg   = tcell.NewRGBColor(255, 200, 80)
 	colMenuFg   = tcell.NewRGBColor(220, 220, 240)
 	colLockedFg = tcell.NewRGBColor(100, 100, 100)
-	colHeroFg   = tcell.NewRGBColor(255, 200, 60) // V8 P4: 英雄金身
+	colHeroFg   = tcell.NewRGBColor(255, 200, 60) // V8 P4: 英雄金身 (Knight)
+	// V10 P3: 职业配色 (与 ebiten 端一致)
+	colArcherFg = tcell.NewRGBColor(110, 220, 110) // Archer 绿
+	colRogueFg  = tcell.NewRGBColor(190, 120, 255) // Rogue 紫
 )
+
+// heroClassTermColor: V10 P3 — 职业字形配色 (Knight 金 / Archer 绿 / Rogue 紫)。
+func heroClassTermColor(c *HeroClass) tcell.Color {
+	switch c.Name {
+	case "Archer":
+		return colArcherFg
+	case "Rogue":
+		return colRogueFg
+	}
+	return colHeroFg
+}
 
 func putCell(s tcell.Screen, x, y int, ch1, ch2 rune, style tcell.Style) {
 	col := x * cellW
@@ -103,9 +117,13 @@ func (r *TermRenderer) drawLevelSelect(g *Game) {
 	}
 	progress := fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels))
 	drawString(r.scr, 0, 2, progress, stHelp)
+	// V10 P3: 当前英雄职业 (H 切换), 职业色
+	heroClass := &heroClasses[g.Save.HeroClassIdx()]
+	drawString(r.scr, 0, 3, fmt.Sprintf(" Hero: %s (H to change)", heroClass.Name),
+		tcell.StyleDefault.Foreground(heroClassTermColor(heroClass)).Bold(true))
 
 	for i, lv := range g.Levels {
-		row := 4 + i
+		row := 5 + i
 		key := i + 1
 		keyStr := fmt.Sprintf("%d", key)
 		if key == 10 {
@@ -124,7 +142,7 @@ func (r *TermRenderer) drawLevelSelect(g *Game) {
 			keyStr, status, lv.ID, lv.Name, len(lv.Waves), lv.StartGold, lv.StartLives)
 		drawString(r.scr, 0, row, line, style)
 	}
-	helpRow := 4 + len(g.Levels) + 1
+	helpRow := 5 + len(g.Levels) + 1
 	drawString(r.scr, 0, helpRow,
 		" Press 1-9 or 0 to start unlocked level | Q/Esc to quit", stHelp)
 	if g.Msg != "" {
@@ -184,12 +202,13 @@ func (r *TermRenderer) drawGame(g *Game) {
 		putCell(s, p.X, p.Y, ch1, ch2, st)
 	}
 
-	// V8 P4: 英雄 (自由坐标取整; 'H' 金身 / 阵亡 '+' 灰墓碑)
+	// V8 P4: 英雄 (自由坐标取整; 职业首字母+职业色 / 阵亡 '+' 灰墓碑)
 	if g.Hero != nil {
 		hx, hy := int(g.Hero.X+0.5), int(g.Hero.Y+0.5)
 		if g.Hero.Alive() {
-			putCell(s, hx, hy, 'H', 'H',
-				tcell.StyleDefault.Foreground(colHeroFg).Bold(true))
+			glyph := rune(g.Hero.Class.Name[0]) // V10 P3: K/A/R
+			putCell(s, hx, hy, glyph, glyph,
+				tcell.StyleDefault.Foreground(heroClassTermColor(g.Hero.Class)).Bold(true))
 		} else {
 			putCell(s, hx, hy, '+', '+',
 				tcell.StyleDefault.Foreground(colLockedFg))
@@ -221,7 +240,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 	heroStr := ""
 	if g.Hero != nil {
 		if g.Hero.Alive() {
-			heroStr = fmt.Sprintf("Hero:L%d %d/%d ", g.Hero.Level, g.Hero.HP, g.Hero.MaxHP)
+			heroStr = fmt.Sprintf("%s:L%d %d/%d ", g.Hero.Class.Name, g.Hero.Level, g.Hero.HP, g.Hero.MaxHP)
 			if g.Hero.AbilityReady() { // V9: 横扫就绪提示
 				heroStr += "[G!] "
 			}

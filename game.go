@@ -133,8 +133,9 @@ func (g *Game) beginRun(lv Level) {
 	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
 	g.Decor = genDecor(lv, g.pathLookup)
 	// V8 P1: 英雄生成在 path 中点 (玩家用 H 键重设集结点)
+	// V10 P3: 职业由存档选择 (menu H 键循环, 零值/越界回退 Knight)
 	mid := lv.Path[len(lv.Path)/2]
-	g.Hero = newHero(float64(mid.X), float64(mid.Y))
+	g.Hero = newHeroOf(&heroClasses[g.Save.HeroClassIdx()], float64(mid.X), float64(mid.Y))
 }
 
 // DecorSpot: V7.2 M3 — 地图装饰点 (kind 0=树 1=灌木 2=小灌木 3=石头)。
@@ -568,6 +569,14 @@ func (g *Game) CycleDifficulty() {
 	g.Save.Difficulty = g.Save.Difficulty.Next()
 	_ = StoreSave(g.Save)
 	g.Msg = "Difficulty: " + g.Save.Difficulty.Spec().Name
+}
+
+// CycleHeroClass: V10 P3 — menu 阶段循环切换英雄职业, 立即持久化
+// (沿 CycleDifficulty 先例)。
+func (g *Game) CycleHeroClass() {
+	g.Save.HeroChoice = (g.Save.HeroClassIdx() + 1) % len(heroClasses)
+	_ = StoreSave(g.Save)
+	g.Msg = "Hero: " + heroClasses[g.Save.HeroChoice].Name
 }
 
 // CycleTargeting: V5 Phase 2 — 光标处塔的 targeting 策略循环切换

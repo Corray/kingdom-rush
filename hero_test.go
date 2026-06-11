@@ -640,3 +640,89 @@ func TestNewHeroOfClassGrowth(t *testing.T) {
 			h.Level, h.MaxHP, archer.MaxHP+archer.HPPerLvl)
 	}
 }
+
+// ============================================================
+// V10 Phase 3: 职业选择 — Save.HeroChoice + CycleHeroClass
+// ============================================================
+
+// TestHeroClassIdxFallback: HeroChoice 越界/负值回退 0 (Knight), 合法值原样。
+func TestHeroClassIdxFallback(t *testing.T) {
+	s := NewSave()
+	if s.HeroClassIdx() != 0 {
+		t.Errorf("zero-value HeroChoice should map to 0 (Knight), got %d", s.HeroClassIdx())
+	}
+	s.HeroChoice = 1
+	if s.HeroClassIdx() != 1 {
+		t.Errorf("valid choice 1 should pass through, got %d", s.HeroClassIdx())
+	}
+	s.HeroChoice = 99
+	if s.HeroClassIdx() != 0 {
+		t.Errorf("out-of-range choice must fall back to 0, got %d", s.HeroClassIdx())
+	}
+	s.HeroChoice = -1
+	if s.HeroClassIdx() != 0 {
+		t.Errorf("negative choice must fall back to 0, got %d", s.HeroClassIdx())
+	}
+}
+
+// TestCycleHeroClass: 循环切换 0→1→2→0 + 立即持久化 (沿 CycleDifficulty 先例)。
+func TestCycleHeroClass(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.CycleHeroClass()
+		if g.Save.HeroChoice != 1 {
+			t.Errorf("first cycle: HeroChoice=%d, want 1 (Archer)", g.Save.HeroChoice)
+		}
+		g.CycleHeroClass()
+		if g.Save.HeroChoice != 2 {
+			t.Errorf("second cycle: HeroChoice=%d, want 2 (Rogue)", g.Save.HeroChoice)
+		}
+		g.CycleHeroClass()
+		if g.Save.HeroChoice != 0 {
+			t.Errorf("third cycle should wrap to 0 (Knight), got %d", g.Save.HeroChoice)
+		}
+		// 持久化: 再切一次到 Archer, 重载存档应见 1
+		g.CycleHeroClass()
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.HeroChoice != 1 {
+			t.Errorf("HeroChoice must persist: loaded %d, want 1", loaded.HeroChoice)
+		}
+	})
+}
+
+// TestHeroChoiceSpawnsClass: beginRun 按存档选择生成对应职业英雄。
+func TestHeroChoiceSpawnsClass(t *testing.T) {
+	g := newTestGame()
+	if g.Hero.Class.Name != "Knight" {
+		t.Errorf("default hero should be Knight, got %s", g.Hero.Class.Name)
+	}
+	g.Save.HeroChoice = 2
+	g.StartLevel(0)
+	if g.Hero.Class.Name != "Rogue" {
+		t.Errorf("HeroChoice=2 should spawn Rogue, got %s", g.Hero.Class.Name)
+	}
+	if g.Hero.MaxHP != rogue.MaxHP {
+		t.Errorf("spawned Rogue maxHP = %d, want %d", g.Hero.MaxHP, rogue.MaxHP)
+	}
+}
+
+// TestSaveRoundtripHeroChoice: HeroChoice 经 JSON 存取往返 (守 json tag)。
+func TestSaveRoundtripHeroChoice(t *testing.T) {
+	withTempSavePath(t, func() {
+		s := NewSave()
+		s.HeroChoice = 2
+		if err := StoreSave(s); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.HeroChoice != 2 {
+			t.Errorf("roundtrip HeroChoice = %d, want 2", loaded.HeroChoice)
+		}
+	})
+}

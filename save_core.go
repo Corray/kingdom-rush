@@ -25,6 +25,9 @@ type Save struct {
 	BestWave int `json:"best_wave,omitempty"`
 	// V6 Phase 4: per-level 最高星 (levelID → 1-3)。nil map 读安全。
 	Stars map[int]int `json:"stars,omitempty"`
+	// V10 P3: 英雄职业选择 (heroClasses index)。零值 0 = Knight
+	// (旧存档无字段 → 默认行为不变); 越界经 HeroClassIdx 回退 0。
+	HeroChoice int `json:"hero_choice,omitempty"`
 }
 
 const (
@@ -87,4 +90,13 @@ func (s *Save) RecordStars(levelID, stars int) {
 // StarsFor: 该关最高星 (未通关 / 旧存档 → 0)。
 func (s *Save) StarsFor(levelID int) int {
 	return s.Stars[levelID]
+}
+
+// HeroClassIdx: V10 P3 — 合法化职业 index (负值/越界回退 0 = Knight,
+// 防手改存档/未来减职业)。
+func (s *Save) HeroClassIdx() int {
+	if s.HeroChoice < 0 || s.HeroChoice >= len(heroClasses) {
+		return 0
+	}
+	return s.HeroChoice
 }

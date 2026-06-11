@@ -48,11 +48,25 @@ var (
 	eColHpBg   = color.RGBA{R: 80, G: 80, B: 80, A: 255}
 	eColHpFg   = color.RGBA{R: 60, G: 220, B: 80, A: 255}
 	// V8 P4: 英雄配色 (金身 + 蓝 HP 区别于敌人绿 + 集结点指示)
-	eColHeroBody  = color.RGBA{R: 255, G: 200, B: 60, A: 255}
+	eColHeroBody  = color.RGBA{R: 255, G: 200, B: 60, A: 255} // Knight 金 (V10: 见 heroClassColor)
 	eColHeroHp    = color.RGBA{R: 90, G: 200, B: 255, A: 255}
 	eColHeroRally = color.RGBA{R: 255, G: 220, B: 120, A: 200}
 	eColHeroXP    = color.RGBA{R: 255, G: 235, B: 120, A: 255} // V9 P3: XP 进度 (亮黄)
+	// V10 P3: 职业配色 (程序化视觉区分, 真 sprite 留档)
+	eColArcherBody = color.RGBA{R: 110, G: 220, B: 110, A: 255} // Archer 绿
+	eColRogueBody  = color.RGBA{R: 190, G: 120, B: 255, A: 255} // Rogue 紫
 )
+
+// heroClassColor: V10 P3 — 职业本体配色 (Knight 金 / Archer 绿 / Rogue 紫)。
+func heroClassColor(c *HeroClass) color.RGBA {
+	switch c.Name {
+	case "Archer":
+		return eColArcherBody
+	case "Rogue":
+		return eColRogueBody
+	}
+	return eColHeroBody
+}
 
 // EbitenGame 实现 ebiten.Game interface。
 type EbitenGame struct {
@@ -332,6 +346,10 @@ func (eg *EbitenGame) handleInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyD) {
 			g.CycleDifficulty()
 		}
+		// V10 P3: H 键循环切换英雄职业 (Knight → Archer → Rogue)
+		if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+			g.CycleHeroClass()
+		}
 		// V6 Phase 3: E 键进入 endless (seed = 时间戳; 测试走注入)
 		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
 			g.StartEndless(time.Now().UnixNano())
@@ -490,6 +508,11 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	drawTextCol(screen,
 		fmt.Sprintf("Stars %d/%d", totalStars, len(g.Levels)*3),
 		160, 32, color.RGBA{R: 255, G: 200, B: 40, A: 255})
+	// V10 P3: 当前英雄职业 (H 切换), 用职业配色
+	heroClass := &heroClasses[g.Save.HeroClassIdx()]
+	drawTextCol(screen,
+		fmt.Sprintf("Hero: %s (H)", heroClass.Name),
+		300, 32, heroClassColor(heroClass))
 
 	// V3 Phase 5a: 每关 row 用 box (panel + border)
 	// 状态颜色: 通关绿底, 锁定灰底, 默认深底; hover unlocked 加金边
@@ -804,11 +827,11 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				vector.StrokeLine(screen, cx, cy, rcx, rcy, 1, eColHeroRally, true)
 				vector.StrokeCircle(screen, rcx, rcy, 5, 1.5, eColHeroRally, true)
 			}
-			// 本体: 金圆 + 白描边 + H 字
+			// 本体: 职业色圆 + 白描边 + 职业首字母 (V10 P3: 程序化视觉区分)
 			radius := float32(cellPx)/3 + 1
-			fillCircle(screen, cx, cy, radius, eColHeroBody)
+			fillCircle(screen, cx, cy, radius, heroClassColor(h.Class))
 			vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.White, true)
-			drawText(screen, "H", int(cx)-3, int(cy)-6)
+			drawText(screen, h.Class.Name[:1], int(cx)-3, int(cy)-6)
 			// HP 条 (英雄上方, 蓝色区别于敌人绿)
 			hpRatio := float32(h.HP) / float32(h.MaxHP)
 			if hpRatio < 0 {
@@ -975,7 +998,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			if g.Hero.HP <= g.Hero.MaxHP/3 {
 				heroCol = color.RGBA{R: 235, G: 100, B: 90, A: 255} // 低血红
 			}
-			drawTextCol(screen, fmt.Sprintf("Hero L%d %d/%d", g.Hero.Level, g.Hero.HP, g.Hero.MaxHP),
+			drawTextCol(screen, fmt.Sprintf("%s L%d %d/%d", g.Hero.Class.Name, g.Hero.Level, g.Hero.HP, g.Hero.MaxHP),
 				curX, statusY, heroCol)
 		} else {
 			drawTextCol(screen, fmt.Sprintf("Hero DOWN %.0fs", g.Hero.respawnCD),
