@@ -20,6 +20,7 @@
 | V7 Phase 1-3 | 发布版 | 改名 Gopher Defense（商标合规 + 存档零迁移）、README/LICENSE(MIT)/截图、GitHub Pages 上线（Actions 测试门禁 + 自动部署）、Release v7.0 + repo metadata、124 tests | `v7.0` | `be86c3c` |
 | V8 Phase 1-5 | 英雄单位 | 可控英雄（光标+H 设 rally / 自动打地面敌 / 贴身阻挡 / 阵亡复活 / 飞行飞越）、首个非路径绑定实体、敌近战反击、两端渲染+HUD、仿真接入（英雄纯增量 Hard 17→19 零回归）、148 tests | `v8.0` | `601f7c1` |
 | V9 Phase 1-4 | 英雄成长 | 关内 per-run 等级/XP（被动 XP 威胁加权——决策 B 两轮仿真证伪改判、升级提 HP/伤害/射程+回血）、AoE 横扫主动技能（L3 解锁 / `G` 键 / 8s 冷却 / 经 damageEnemy）、两端 HUD 等级/XP 条/技能冷却、仿真接入成长（平衡零回归 Hard 19/20）、test-infra headless 解耦、159 tests | `v9.0` | `a3c8be3` |
+| V10 Phase 1-4 | 多英雄选择 | 三职业 Knight/Archer/Rogue（HeroClass 参数化重构、阻挡 per-class gating、菜单 `H` 选择 + `Save.HeroChoice` 零值兼容、程序化配色金/绿/紫）、per-class 仿真矩阵 + 一轮校准（三职业 Hard 19/20 净 +2 持平、难点关保留、差异落风格不落数值）、173 tests | `v10.0` | `f9dcd9c` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -559,7 +560,7 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 
 ---
 
-## V10 — 多英雄选择（已部署上线 2026-06-11，待用户线上实玩确认手感后 tag `v10.0`）
+## V10 — 多英雄选择（已收尾 2026-06-11，tag `v10.0` @ `f9dcd9c`）
 
 > V9 英雄成长收尾后，用户从英雄深化剩余子项（专用 sprite / 多英雄 / 技能树 / 跨局持久化）拍板 **多英雄**——代码层最顺的下一刀（`heroSpec` 单例引用面仅 2 处 game.go），纯加法复用 V8 战斗/阻挡 + V9 成长。技能树+持久化捆绑留 V11 候选「meta 成长」（需配套按关缩放，平衡重做级风险）；真 sprite 继续素材阻塞留档。LMP L2。
 
@@ -585,6 +586,28 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 1. Archer 不阻挡 → 可能「没存在感」（输出被塔淹没、又不守隘口）；仿真测得出净增益、测不出存在感，留实玩
 2. 三职业手感差异做不出来 = 换皮；Rogue 与 Knight 重叠风险最高（都近战阻挡），数值上必须拉开（速度/攻速 vs 坦度）
 3. 平衡矩阵 ×3：某职业在 Hard 净增益为负（弱于无英雄）= 设计失败信号，需重调而非接受
+
+### V10 收尾记录（2026-06-11）
+
+**完成度：** 4/4 phase，测试 159 → 173（+14，headless 171），三 build + vet 全程绿，每 phase 一 commit。
+
+**Phase 兑现：**
+
+| Phase | commit | 交付 |
+|-------|--------|------|
+| P1 参数化重构 | `94968f2` | HeroClass 参数包（数值/成长/技能/Blocks），测试纯机械符号替换零断言变化 |
+| P2 新英雄 | `3ae2a18` | Archer（远程 3.5 / 不阻挡）+ Rogue（速 5.5 / 攻速 0.35 / 阻挡 / 10s 复活）+ 8 测 |
+| P3 选择UI+存档+视觉 | `45c276b` | 菜单 H 循环 + `Save.HeroChoice` 零值兼容 + 两端配色金/绿/紫 + K/A/R 字形 |
+| P4 仿真矩阵+校准 | `f9dcd9c` | autoPlayClass 参数化 + per-class Normal/Hard 矩阵 + 净非负守护 |
+
+**平衡校准（盲点 3 实证反向，一轮收敛）：** 预警的是「某职业净负」，实际首跑 Archer/Rogue 净增益 +3 强于 Knight +2、Hard 双双 20/20 抹平 V7.5 难点关 Lv11 → 调参（Archer dmg 12→9 / Rogue 9→7）后三职业 Hard 全 19/20、净 +2 持平、Normal 全通。**职业差异落在风格（射程/速度/阻挡/复活/技能形状），不落数值强度。**
+
+**决策 B 行为差异实证（playwright 冒烟）：** Archer 无塔裸守 → 敌全漏 GAME OVER；V9 同场景 Knight 可独守 wave 1。职业选择有真实策略后果，非换皮。
+
+**未竟项 / 留档：**
+- Rogue 与 Knight 实玩手感重叠度（用户确认满意，但长期观察项）
+- 真 sprite（素材阻塞不变）；技能树 + 持久化 → V11「Meta 成长」
+- cleave / rally 干净截图债（V8/V9 遗留，依旧未还）
 
 ---
 
@@ -616,3 +639,4 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 | 2026-06-10 | V9 收尾：用户实玩确认成长/cleave 手感满意 → tag `v9.0` @ `a3c8be3`，版本史表补 V9 行 + 收尾记录定稿（决策 B 改判留档），README/spool 同步。九 era 闭环（v1.0~v9.0 / 159 tests）|
 | 2026-06-11 | V10 启动：用户拍板英雄深化 → 多英雄（技能树+持久化捆绑留 V11「meta 成长」/ 真 sprite 素材阻塞留档）。阵容三人 Knight+Archer+Rogue（用户拍板）；决策 B 阻挡 per-class gating（Archer 不阻挡）/ C 选择入口沿 difficulty 先例 + `Save.HeroChoice` 零值兼容 / D 技能统一自身 AoE 只调参。4 Phase（参数化重构 → 新英雄 → 选择UI+存档+视觉 → 仿真平衡矩阵+收尾）|
 | 2026-06-11 | V10 P1-P4 实现完成 + 部署：P1 重构（`94968f2`，157 headless 零断言变化）→ P2 新英雄（`3ae2a18`）→ P3 选择UI+存档+视觉（`45c276b`）→ P4 仿真矩阵+校准（`f9dcd9c`）。**首跑翻车点 3 实证反向**：Archer/Rogue 净增益 +3 强于 Knight +2、Hard 20/20 抹平 Lv11 难点关 → 一轮调参（Archer dmg 12→9 / Rogue 9→7）三职业归一 19/20 净 +2，差异落在风格不落数值。playwright 冒烟：菜单 H 循环/职业色/A 字本体/Archer 不阻挡（无塔 GAME OVER vs V9 Knight 独守，决策 B 行为差异实证）。173 tests。**tag `v10.0` 待用户线上实玩三职业手感确认** |
+| 2026-06-11 | V10 收尾：用户实玩确认三职业手感满意 → tag `v10.0` @ `f9dcd9c`，版本史表补 V10 行 + 收尾记录定稿，README/spool 同步。十 era 闭环（v1.0~v10.0 / 173 tests）。V11 方向用户拍板「Meta 成长」（技能树+持久化捆绑）|
