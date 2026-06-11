@@ -195,6 +195,8 @@ func (eg *EbitenGame) Draw(screen *ebiten.Image) {
 	target.Fill(eColBg)
 	if eg.game.Phase == PhaseLevelSelect {
 		eg.drawLevelSelect(target)
+	} else if eg.game.Phase == PhaseSkillTree {
+		eg.drawSkillTree(target)
 	} else {
 		eg.drawGame(target)
 	}
@@ -341,6 +343,22 @@ func (eg *EbitenGame) handleInput() {
 		}
 		return
 	}
+	// V11 P3: 技能树屏 — ←/→ 切职业列, Space 购买, T 关闭 (M 全局已退菜单)
+	if g.Phase == PhaseSkillTree {
+		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+			g.BackToMenu()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+			g.TreeCycleClass(-1)
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
+			g.TreeCycleClass(1)
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+			g.BuySelectedTreeNode()
+		}
+		return
+	}
 	if g.Phase == PhaseLevelSelect {
 		// V6 Phase 2: D 键循环切换难度 (Normal → Hard → Easy)
 		if inpututil.IsKeyJustPressed(ebiten.KeyD) {
@@ -349,6 +367,10 @@ func (eg *EbitenGame) handleInput() {
 		// V10 P3: H 键循环切换英雄职业 (Knight → Archer → Rogue)
 		if inpututil.IsKeyJustPressed(ebiten.KeyH) {
 			g.CycleHeroClass()
+		}
+		// V11 P3: T 键进入技能树
+		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+			g.OpenSkillTree()
 		}
 		// V6 Phase 3: E 键进入 endless (seed = 时间戳; 测试走注入)
 		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
@@ -614,11 +636,91 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	drawTextCol(screen, endlessLine, 20, helpY,
 		color.RGBA{R: 190, G: 160, B: 255, A: 255}) // 紫: 模式入口醒目
 	drawTextCol(screen,
-		" Click row to start (1-9/0 for Lv 1-10) | Q/Esc to quit",
+		" Click row to start (1-9/0 for Lv 1-10) | T: skill trees | Q/Esc to quit",
 		20, helpY+18, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // 帮助行降噪
 	if g.Msg != "" {
 		drawTextCol(screen, " "+g.Msg, 20, helpY+36,
 			color.RGBA{R: 255, G: 220, B: 80, A: 255}) // Msg 黄: 反馈醒目
+	}
+}
+
+// drawSkillTree: V11 P3 — 技能树屏。三职业列, 选中列金边; 每列 4 节点
+// (已购绿✓ / 下一个亮显+价格 / 锁定灰)。星余额顶栏, 帮助/Msg 底部。
+func (eg *EbitenGame) drawSkillTree(screen *ebiten.Image) {
+	g := eg.game
+
+	fillRect(screen, 0, 0, float32(windowW), 50, color.RGBA{R: 15, G: 15, B: 25, A: 230})
+	strokeRect(screen, 0, 0, float32(windowW), 50, color.RGBA{R: 60, G: 60, B: 80, A: 255}, 1)
+	drawTextBigCol(screen, "Skill Trees", 20, 6, color.RGBA{R: 120, G: 220, B: 255, A: 255})
+	drawTextCol(screen,
+		fmt.Sprintf("Stars: %d available / %d earned", g.Save.AvailableStars(), g.Save.TotalStars()),
+		windowW-260, 18, color.RGBA{R: 255, G: 200, B: 40, A: 255})
+
+	const (
+		panelY   = 64
+		panelH   = 4*86 + 40
+		marginX  = 14
+		colGap   = 10
+		headerH  = 30
+		nodeH    = 86
+		nodePadX = 10
+	)
+	colW := (windowW - marginX*2 - colGap*2) / 3
+
+	for ci := range heroClasses {
+		c := &heroClasses[ci]
+		x := marginX + ci*(colW+colGap)
+		selected := ci == g.TreeClassIdx
+		tree := skillTrees[c.Name]
+		lvl := g.Save.TreeLevel(c.Name)
+
+		fillRect(screen, float32(x), panelY, float32(colW), panelH,
+			color.RGBA{R: 28, G: 28, B: 42, A: 230})
+		borderCol := color.RGBA{R: 80, G: 80, B: 100, A: 255}
+		if selected {
+			borderCol = color.RGBA{R: 255, G: 220, B: 80, A: 255} // 选中金边
+		}
+		strokeRect(screen, float32(x), panelY, float32(colW), panelH, borderCol, 2)
+		drawTextCol(screen, fmt.Sprintf("%s  %d/%d", c.Name, lvl, treeNodesPerClass),
+			x+nodePadX, panelY+8, heroClassColor(c))
+
+		for ni := 0; ni < treeNodesPerClass; ni++ {
+			node := tree[ni]
+			ny := panelY + headerH + ni*nodeH
+			var nameCol, descCol color.RGBA
+			prefix := ""
+			switch {
+			case ni < lvl: // 已购
+				nameCol = color.RGBA{R: 80, G: 220, B: 80, A: 255}
+				descCol = color.RGBA{R: 110, G: 160, B: 110, A: 255}
+				prefix = "[OK] "
+			case ni == lvl: // 下一个可购
+				nameCol = color.RGBA{R: 235, G: 235, B: 245, A: 255}
+				descCol = color.RGBA{R: 170, G: 170, B: 190, A: 255}
+				prefix = fmt.Sprintf("[%d*] ", node.Price)
+				if g.Save.AvailableStars() < node.Price {
+					nameCol = color.RGBA{R: 200, G: 120, B: 110, A: 255} // 买不起偏红
+				}
+			default: // 锁定
+				nameCol = color.RGBA{R: 95, G: 95, B: 110, A: 255}
+				descCol = color.RGBA{R: 80, G: 80, B: 95, A: 255}
+				prefix = fmt.Sprintf("[%d*] ", node.Price)
+			}
+			drawTextCol(screen, prefix+node.Name, x+nodePadX, ny, nameCol)
+			drawTextCol(screen, node.Desc, x+nodePadX+8, ny+18, descCol)
+			if selected && ni == lvl {
+				drawTextCol(screen, "Space: learn", x+nodePadX+8, ny+36,
+					color.RGBA{R: 255, G: 220, B: 80, A: 255})
+			}
+		}
+	}
+
+	helpY := panelY + panelH + 14
+	drawTextCol(screen, " Left/Right: class | Space: learn | T/M: back",
+		20, helpY, color.RGBA{R: 120, G: 120, B: 135, A: 255})
+	if g.Msg != "" {
+		drawTextCol(screen, " "+g.Msg, 20, helpY+18,
+			color.RGBA{R: 255, G: 220, B: 80, A: 255})
 	}
 }
 

@@ -92,10 +92,64 @@ func (r *TermRenderer) Draw(g *Game) {
 	r.scr.Clear()
 	if g.Phase == PhaseLevelSelect {
 		r.drawLevelSelect(g)
+	} else if g.Phase == PhaseSkillTree {
+		r.drawSkillTree(g)
 	} else {
 		r.drawGame(g)
 	}
 	r.scr.Show()
+}
+
+// drawSkillTree: V11 P3 — 技能树屏 (term)。职业纵列, '>' 标选中;
+// 节点状态: [x] 已购 / [N*] 下一个 / 灰 = 锁定。
+func (r *TermRenderer) drawSkillTree(g *Game) {
+	stTitle := tcell.StyleDefault.Foreground(colTitleFg).Bold(true)
+	stHelp := tcell.StyleDefault.Foreground(colHelpFg)
+	stStar := tcell.StyleDefault.Foreground(colPrepFg).Bold(true)
+	stDone := tcell.StyleDefault.Foreground(colStartFg)
+	stLock := tcell.StyleDefault.Foreground(colLockedFg)
+	stNext := tcell.StyleDefault.Foreground(colMenuFg).Bold(true)
+	stMsg := tcell.StyleDefault.Foreground(colPrepFg)
+
+	drawString(r.scr, 0, 0, " Gopher Defense  —  Skill Trees", stTitle)
+	drawString(r.scr, 0, 1, fmt.Sprintf(" Stars: %d available / %d earned",
+		g.Save.AvailableStars(), g.Save.TotalStars()), stStar)
+
+	row := 3
+	for ci := range heroClasses {
+		c := &heroClasses[ci]
+		tree := skillTrees[c.Name]
+		lvl := g.Save.TreeLevel(c.Name)
+		marker := "  "
+		if ci == g.TreeClassIdx {
+			marker = "> "
+		}
+		stClass := tcell.StyleDefault.Foreground(heroClassTermColor(c)).Bold(true)
+		drawString(r.scr, 0, row, fmt.Sprintf(" %s%s  %d/%d", marker, c.Name, lvl, treeNodesPerClass), stClass)
+		row++
+		for ni := 0; ni < treeNodesPerClass; ni++ {
+			node := tree[ni]
+			var line string
+			style := stLock
+			switch {
+			case ni < lvl:
+				line = fmt.Sprintf("     [x] %-16s %s", node.Name, node.Desc)
+				style = stDone
+			case ni == lvl:
+				line = fmt.Sprintf("     [%d*] %-16s %s", node.Price, node.Name, node.Desc)
+				style = stNext
+			default:
+				line = fmt.Sprintf("     [%d*] %-16s %s", node.Price, node.Name, node.Desc)
+			}
+			drawString(r.scr, 0, row, line, style)
+			row++
+		}
+		row++
+	}
+	drawString(r.scr, 0, row, " Left/Right: class | Space: learn | T/M: back", stHelp)
+	if g.Msg != "" {
+		drawString(r.scr, 0, row+1, " "+g.Msg, stMsg)
+	}
 }
 
 func (r *TermRenderer) drawLevelSelect(g *Game) {
@@ -117,9 +171,9 @@ func (r *TermRenderer) drawLevelSelect(g *Game) {
 	}
 	progress := fmt.Sprintf(" Progress: %d / %d cleared", completed, len(g.Levels))
 	drawString(r.scr, 0, 2, progress, stHelp)
-	// V10 P3: 当前英雄职业 (H 切换), 职业色
+	// V10 P3: 当前英雄职业 (H 切换); V11 P3: T 技能树入口
 	heroClass := &heroClasses[g.Save.HeroClassIdx()]
-	drawString(r.scr, 0, 3, fmt.Sprintf(" Hero: %s (H to change)", heroClass.Name),
+	drawString(r.scr, 0, 3, fmt.Sprintf(" Hero: %s (H to change, T: skill trees)", heroClass.Name),
 		tcell.StyleDefault.Foreground(heroClassTermColor(heroClass)).Bold(true))
 
 	for i, lv := range g.Levels {

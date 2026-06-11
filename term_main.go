@@ -107,10 +107,14 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 		case tcell.KeyLeft:
 			if g.Phase == PhasePlaying {
 				g.MoveCursor(-1, 0)
+			} else if g.Phase == PhaseSkillTree { // V11 P3: 切职业列
+				g.TreeCycleClass(-1)
 			}
 		case tcell.KeyRight:
 			if g.Phase == PhasePlaying {
 				g.MoveCursor(1, 0)
+			} else if g.Phase == PhaseSkillTree {
+				g.TreeCycleClass(1)
 			}
 		}
 		switch e.Rune() {
@@ -121,6 +125,8 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 		case ' ':
 			if g.Phase == PhasePlaying {
 				g.TryAction()
+			} else if g.Phase == PhaseSkillTree { // V11 P3: 购买节点
+				g.BuySelectedTreeNode()
 			}
 		case '1':
 			if g.Phase == PhaseLevelSelect {
@@ -171,6 +177,13 @@ func handleEvent(g *Game, ev tcell.Event, r *TermRenderer) (quit bool) {
 			// V9 P3: 释放英雄主动技能 (横扫)
 			if g.Phase == PhasePlaying {
 				g.CastHeroAbility()
+			}
+		case 't', 'T':
+			// V11 P3: menu ↔ 技能树 toggle (playing 阶段 term 无 targeting 键, 不冲突)
+			if g.Phase == PhaseLevelSelect {
+				g.OpenSkillTree()
+			} else if g.Phase == PhaseSkillTree {
+				g.BackToMenu()
 			}
 		}
 	case *tcell.EventResize:

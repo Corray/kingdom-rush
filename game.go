@@ -25,6 +25,7 @@ const (
 	PhasePlaying
 	PhaseWon
 	PhaseLost
+	PhaseSkillTree // V11 P3: 技能树屏 (菜单 T 进入)
 )
 
 type Game struct {
@@ -58,6 +59,8 @@ type Game struct {
 	Cursor     Point
 	Selected   TowerKind
 	Msg        string
+	// V11 P3: 技能树屏当前选中职业列 (heroClasses index)
+	TreeClassIdx int
 
 	prepTimer  float64
 	spawned    int
@@ -570,6 +573,40 @@ func (g *Game) CycleDifficulty() {
 	g.Save.Difficulty = g.Save.Difficulty.Next()
 	_ = StoreSave(g.Save)
 	g.Msg = "Difficulty: " + g.Save.Difficulty.Spec().Name
+}
+
+// OpenSkillTree: V11 P3 — menu 阶段进入技能树屏 (从当前英雄职业列起)。
+func (g *Game) OpenSkillTree() {
+	if g.Phase != PhaseLevelSelect {
+		return
+	}
+	g.TreeClassIdx = g.Save.HeroClassIdx()
+	g.Phase = PhaseSkillTree
+	g.Msg = ""
+}
+
+// TreeCycleClass: 技能树屏左右切换职业列 (环绕)。
+func (g *Game) TreeCycleClass(delta int) {
+	n := len(heroClasses)
+	g.TreeClassIdx = (g.TreeClassIdx + delta + n) % n
+}
+
+// BuySelectedTreeNode: V11 P3 — 购买当前职业列下一节点, 成功立即持久化。
+// gating 在 Save.BuyTreeNode (已满/余额不足拒绝), 此处只做反馈。
+func (g *Game) BuySelectedTreeNode() {
+	name := heroClasses[g.TreeClassIdx].Name
+	node, _ := g.Save.NextTreeNode(name)
+	if node == nil {
+		g.Msg = name + " tree maxed"
+		return
+	}
+	if ok, bought := g.Save.BuyTreeNode(name); ok {
+		_ = StoreSave(g.Save)
+		g.pushSound(SndUpgrade)
+		g.Msg = fmt.Sprintf("Learned %s! (%d* left)", bought, g.Save.AvailableStars())
+	} else {
+		g.Msg = fmt.Sprintf("Need %d* for %s (have %d)", node.Price, node.Name, g.Save.AvailableStars())
+	}
 }
 
 // CycleHeroClass: V10 P3 — menu 阶段循环切换英雄职业, 立即持久化

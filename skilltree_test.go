@@ -3,6 +3,7 @@ package main
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -236,4 +237,75 @@ func TestBeginRunAppliesBonus(t *testing.T) {
 	if g.Hero.MaxHP != want {
 		t.Errorf("perk must persist through level-up: maxHP=%d, want %d", g.Hero.MaxHP, want)
 	}
+}
+
+// ============================================================
+// V11 Phase 3: 技能树屏 — 进入/导航/购买 (game 逻辑层)
+// ============================================================
+
+// TestOpenSkillTreeGating: 仅 menu 阶段可进; 进入时定位到当前英雄职业列。
+func TestOpenSkillTreeGating(t *testing.T) {
+	g := newTestGame() // StartLevel → PhasePlaying
+	g.OpenSkillTree()
+	if g.Phase != PhasePlaying {
+		t.Fatal("OpenSkillTree must be a no-op outside menu")
+	}
+	g.BackToMenu()
+	g.Save.HeroChoice = 2
+	g.OpenSkillTree()
+	if g.Phase != PhaseSkillTree {
+		t.Fatal("OpenSkillTree from menu should enter PhaseSkillTree")
+	}
+	if g.TreeClassIdx != 2 {
+		t.Errorf("tree should open at current hero class: idx=%d, want 2", g.TreeClassIdx)
+	}
+	g.BackToMenu()
+	if g.Phase != PhaseLevelSelect {
+		t.Error("M must return from skill tree to menu")
+	}
+}
+
+// TestTreeCycleClassWraps: 左右切换环绕。
+func TestTreeCycleClassWraps(t *testing.T) {
+	g := newTestGame()
+	g.BackToMenu()
+	g.OpenSkillTree() // HeroChoice 零值 → idx 0
+	g.TreeCycleClass(-1)
+	if g.TreeClassIdx != len(heroClasses)-1 {
+		t.Errorf("cycle left from 0 should wrap to %d, got %d", len(heroClasses)-1, g.TreeClassIdx)
+	}
+	g.TreeCycleClass(1)
+	if g.TreeClassIdx != 0 {
+		t.Errorf("cycle right should wrap back to 0, got %d", g.TreeClassIdx)
+	}
+}
+
+// TestBuySelectedTreeNodeFlow: 购买成功 (扣账+持久化+反馈) / 余额不足 / 已满。
+func TestBuySelectedTreeNodeFlow(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.BackToMenu()
+		g.Save.RecordStars(1, 3) // 恰好够第一节点
+		g.OpenSkillTree()        // Knight 列
+		g.BuySelectedTreeNode()
+		if g.Save.TreeLevel("Knight") != 1 {
+			t.Fatalf("buy should succeed: tree level=%d", g.Save.TreeLevel("Knight"))
+		}
+		if !strings.Contains(g.Msg, "Learned Bulwark") {
+			t.Errorf("success feedback missing: %q", g.Msg)
+		}
+		loaded, _ := LoadSave()
+		if loaded.TreeLevel("Knight") != 1 {
+			t.Error("buy must persist immediately")
+		}
+		g.BuySelectedTreeNode() // 余 0, 下一节点 6 星 → 拒绝
+		if g.Save.TreeLevel("Knight") != 1 || !strings.Contains(g.Msg, "Need 6") {
+			t.Errorf("insufficient feedback missing: %q (level=%d)", g.Msg, g.Save.TreeLevel("Knight"))
+		}
+		g.Save.TreeNodes["Knight"] = treeNodesPerClass // 直接拉满
+		g.BuySelectedTreeNode()
+		if !strings.Contains(g.Msg, "maxed") {
+			t.Errorf("maxed feedback missing: %q", g.Msg)
+		}
+	})
 }
