@@ -110,7 +110,13 @@ func simStrategy(g *Game, spots []Point, built *int) {
 
 // autoPlay: 自动打完一关 (或 60000 步上限 = game-time 100 分钟)。
 // heroEnabled=false 时 nil 掉英雄, 用于"有/无英雄"平衡对比。
+// 默认 Knight; per-class 对比走 autoPlayClass (V10 P4)。
 func autoPlay(levelIdx int, d Difficulty, heroEnabled bool) *Game {
+	return autoPlayClass(levelIdx, d, heroEnabled, 0)
+}
+
+// autoPlayClass: V10 P4 — 指定英雄职业的仿真 (classIdx = heroClasses index)。
+func autoPlayClass(levelIdx int, d Difficulty, heroEnabled bool, classIdx int) *Game {
 	levels, err := LoadLevels()
 	if err != nil {
 		panic(err)
@@ -120,6 +126,7 @@ func autoPlay(levelIdx int, d Difficulty, heroEnabled bool) *Game {
 		g.Save.MarkCompleted(i) // 绕 unlock 链
 	}
 	g.Save.Difficulty = d
+	g.Save.HeroChoice = classIdx // V10: beginRun 按此生成职业
 	g.StartLevel(levelIdx)
 	if !heroEnabled {
 		g.Hero = nil // V8: 对比基线 — 去英雄 (Update 已 nil-guard)
@@ -229,5 +236,55 @@ func TestBalance_HeroNetNonNegative(t *testing.T) {
 		}
 		t.Logf("Hard 通关数: 有英雄 %d / 无英雄 %d (英雄增益 %d)",
 			winsWith, winsWithout, winsWith-winsWithout)
+	})
+}
+
+// ============================================================
+// V10 P4: 多英雄平衡矩阵 — 三职业 × Normal/Hard
+// ============================================================
+
+// TestBalance_AllClassesBeatableOnNormal: Archer/Rogue 也保 Normal 全通
+// (Knight 由 TestBalance_AllLevelsBeatableOnNormal 守, 不重跑)。
+func TestBalance_AllClassesBeatableOnNormal(t *testing.T) {
+	withTempSavePath(t, func() {
+		for classIdx := 1; classIdx < len(heroClasses); classIdx++ {
+			name := heroClasses[classIdx].Name
+			for idx := 0; idx < 20; idx++ {
+				g := autoPlayClass(idx, DiffNormal, true, classIdx)
+				if g.Phase != PhaseWon {
+					t.Errorf("[%s] Lv%-2d ✗ 不可通关 (lives=%d wave=%d/%d)",
+						name, idx+1, g.Lives, g.WaveIdx+1, len(g.currentLevel().Waves))
+				}
+			}
+			t.Logf("[%s] Normal 20 关跑完", name)
+		}
+	})
+}
+
+// TestBalance_ClassMatrixHard: 三职业 Hard 矩阵 — 每职业通关数 ≥ 无英雄
+// 基线 (净非负, 同 V8 HeroNet 不变量推广到 per-class)。职业间差异只记录
+// 不断言 (设计允许强弱有别, 但谁都不能比没英雄更糟)。
+func TestBalance_ClassMatrixHard(t *testing.T) {
+	withTempSavePath(t, func() {
+		baseline := 0
+		for idx := 0; idx < 20; idx++ {
+			if autoPlay(idx, DiffHard, false).Phase == PhaseWon {
+				baseline++
+			}
+		}
+		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
+			name := heroClasses[classIdx].Name
+			wins := 0
+			for idx := 0; idx < 20; idx++ {
+				if autoPlayClass(idx, DiffHard, true, classIdx).Phase == PhaseWon {
+					wins++
+				}
+			}
+			if wins < baseline {
+				t.Errorf("[%s] Hard 通关 %d < 无英雄基线 %d (净负 = 设计失败)",
+					name, wins, baseline)
+			}
+			t.Logf("[%s] Hard %d/20 (基线 %d, 净增益 %+d)", name, wins, baseline, wins-baseline)
+		}
 	})
 }

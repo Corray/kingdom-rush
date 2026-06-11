@@ -64,14 +64,14 @@ var heroClasses = []HeroClass{
 	},
 	{
 		Name:     "Archer",
-		HeroSpec: HeroSpec{MaxHP: 80, Speed: 4.5, Damage: 12, Range: 3.5, AttackCD: 0.5, RespawnS: 12.0},
+		HeroSpec: HeroSpec{MaxHP: 80, Speed: 4.5, Damage: 9, Range: 3.5, AttackCD: 0.5, RespawnS: 12.0},
 		LevelCap: 5, HPPerLvl: 15, DmgPerLvl: 4, RangePerLvl: 0.15, XPBase: 6,
 		AbilityLevel: 3, AbilityCooldownS: 8.0, AbilityRadius: 3.0, AbilityDmgMul: 2,
 		Blocks: false, // 决策 B: 远程不肉搏, 不守隘口 — 换高射程输出
 	},
 	{
 		Name:     "Rogue",
-		HeroSpec: HeroSpec{MaxHP: 90, Speed: 5.5, Damage: 9, Range: 1.5, AttackCD: 0.35, RespawnS: 10.0},
+		HeroSpec: HeroSpec{MaxHP: 90, Speed: 5.5, Damage: 7, Range: 1.5, AttackCD: 0.35, RespawnS: 10.0},
 		LevelCap: 5, HPPerLvl: 18, DmgPerLvl: 3, RangePerLvl: 0.1, XPBase: 6,
 		AbilityLevel: 3, AbilityCooldownS: 6.0, AbilityRadius: 1.5, AbilityDmgMul: 4,
 		Blocks: true,
