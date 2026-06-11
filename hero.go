@@ -48,14 +48,32 @@ func (c *HeroClass) xpForNext(level int) int { return level * c.XPBase }
 func (c *HeroClass) maxHPFor(level int) int { return c.MaxHP + (level-1)*c.HPPerLvl }
 
 // heroClasses: 职业表。index 0 = Knight (默认, Save.HeroChoice 零值兼容)。
-// Knight Speed 4.0 介于 ENormal(3.0) 与 EFast(5.5) — 追得上普通敌、
-// 追不上快敌, 鼓励守位而非追击 (V8 P5 平衡校准)。
+//
+// 三职业定位 (V10 决策 A, 数值 P4 仿真校准):
+//   - Knight: 近战坦 + 阻挡 (V8/V9 原数值, 零回归基线)。Speed 4.0 介于
+//     ENormal(3.0) 与 EFast(5.5) — 追得上普通敌、追不上快敌, 守位定位
+//   - Archer: 远程 (3.5 ≈ Archer 塔) 不阻挡 — 风筝输出, 换掉隘口控制
+//   - Rogue: 高速 (5.5 = EFast, 追得上快敌) 低耐高攻速 + 阻挡 — 游走截击
 var heroClasses = []HeroClass{
 	{
 		Name:     "Knight",
 		HeroSpec: HeroSpec{MaxHP: 120, Speed: 4.0, Damage: 15, Range: 1.8, AttackCD: 0.7, RespawnS: 12.0},
 		LevelCap: 5, HPPerLvl: 25, DmgPerLvl: 5, RangePerLvl: 0.1, XPBase: 6,
 		AbilityLevel: 3, AbilityCooldownS: 8.0, AbilityRadius: 2.0, AbilityDmgMul: 3,
+		Blocks: true,
+	},
+	{
+		Name:     "Archer",
+		HeroSpec: HeroSpec{MaxHP: 80, Speed: 4.5, Damage: 12, Range: 3.5, AttackCD: 0.5, RespawnS: 12.0},
+		LevelCap: 5, HPPerLvl: 15, DmgPerLvl: 4, RangePerLvl: 0.15, XPBase: 6,
+		AbilityLevel: 3, AbilityCooldownS: 8.0, AbilityRadius: 3.0, AbilityDmgMul: 2,
+		Blocks: false, // 决策 B: 远程不肉搏, 不守隘口 — 换高射程输出
+	},
+	{
+		Name:     "Rogue",
+		HeroSpec: HeroSpec{MaxHP: 90, Speed: 5.5, Damage: 9, Range: 1.5, AttackCD: 0.35, RespawnS: 10.0},
+		LevelCap: 5, HPPerLvl: 18, DmgPerLvl: 3, RangePerLvl: 0.1, XPBase: 6,
+		AbilityLevel: 3, AbilityCooldownS: 6.0, AbilityRadius: 1.5, AbilityDmgMul: 4,
 		Blocks: true,
 	},
 }

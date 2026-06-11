@@ -472,3 +472,171 @@ func TestHeroAbilityKillGrantsGold(t *testing.T) {
 		t.Errorf("cleave kill must grant gold via killEnemy: %d → %d", goldBefore, g.Gold)
 	}
 }
+
+// ============================================================
+// V10 Phase 2: 多英雄 — Archer / Rogue + 阻挡 per-class gating
+// ============================================================
+
+// 职业别名 (index 含义见 heroClasses 表; index 0 = knight 已在包级定义)。
+var (
+	archer = &heroClasses[1]
+	rogue  = &heroClasses[2]
+)
+
+// TestHeroClassesTable: 职业表数据守护 — 3 职业 / index 0 = Knight (存档
+// 零值兼容) / 名字唯一 / 数值全正 / Archer 不阻挡是唯一远程。
+func TestHeroClassesTable(t *testing.T) {
+	if len(heroClasses) != 3 {
+		t.Fatalf("expected 3 hero classes, got %d", len(heroClasses))
+	}
+	if heroClasses[0].Name != "Knight" {
+		t.Errorf("index 0 must stay Knight (Save.HeroChoice 零值兼容), got %s", heroClasses[0].Name)
+	}
+	seen := map[string]bool{}
+	for i := range heroClasses {
+		c := &heroClasses[i]
+		if seen[c.Name] {
+			t.Errorf("duplicate class name %s", c.Name)
+		}
+		seen[c.Name] = true
+		if c.MaxHP <= 0 || c.Damage <= 0 || c.XPBase <= 0 || c.LevelCap < 2 ||
+			c.AbilityDmgMul <= 0 || c.HPPerLvl <= 0 || c.DmgPerLvl <= 0 {
+			t.Errorf("%s: non-positive core stat", c.Name)
+		}
+		if c.Speed <= 0 || c.Range <= 0 || c.AttackCD <= 0 || c.RespawnS <= 0 ||
+			c.AbilityCooldownS <= 0 || c.AbilityRadius <= 0 || c.RangePerLvl <= 0 {
+			t.Errorf("%s: non-positive float stat", c.Name)
+		}
+	}
+	if archer.Blocks {
+		t.Error("Archer must not block (决策 B: 远程换隘口控制)")
+	}
+	if !knight.Blocks || !rogue.Blocks {
+		t.Error("Knight/Rogue are melee and must block")
+	}
+}
+
+// TestArcherDoesNotBlock: Archer 贴身地面敌不阻挡 — 敌不停步继续前进
+// (与 TestHeroBlocksGroundEnemy 的 Knight 行为对照)。
+func TestArcherDoesNotBlock(t *testing.T) {
+	g := newTestGame()
+	g.Hero = newHeroOf(archer, g.Hero.X, g.Hero.Y)
+	e := injectEnemyAtHero(g, ENormal, 999)
+	start := e.PathIdx
+	g.Update(0.1)
+	if e.Blocked {
+		t.Error("enemy adjacent to Archer must not be Blocked")
+	}
+	if e.PathIdx <= start {
+		t.Errorf("enemy should advance past Archer: PathIdx %v → %v", start, e.PathIdx)
+	}
+}
+
+// TestRogueBlocksGroundEnemy: Rogue 近战职业照常阻挡。
+func TestRogueBlocksGroundEnemy(t *testing.T) {
+	g := newTestGame()
+	g.Hero = newHeroOf(rogue, g.Hero.X, g.Hero.Y)
+	e := injectEnemyAtHero(g, ENormal, 999)
+	g.Update(0.1)
+	if !e.Blocked {
+		t.Error("ground enemy adjacent to Rogue should be Blocked")
+	}
+}
+
+// TestArcherOutrangesKnight: 距离 3.0 的敌 — Archer (range 3.5) 打得到,
+// Knight (range 1.8) 打不到。
+func TestArcherOutrangesKnight(t *testing.T) {
+	// Knight 对照: 英雄 (3,0), 敌 PathIdx 0 → (0,0), 距离 3.0 > 1.8
+	g := newTestGame()
+	e := &Enemy{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0}
+	g.Enemies = append(g.Enemies, e)
+	g.Update(0.1)
+	if e.HP != 999 {
+		t.Errorf("Knight must not reach enemy at dist 3.0: HP=%d", e.HP)
+	}
+	// Archer: 同距离应出手
+	g2 := newTestGame()
+	g2.Hero = newHeroOf(archer, g2.Hero.X, g2.Hero.Y)
+	e2 := &Enemy{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0}
+	g2.Enemies = append(g2.Enemies, e2)
+	g2.Update(0.1)
+	if e2.HP != 999-archer.Damage {
+		t.Errorf("Archer should hit enemy at dist 3.0 for %d: HP=%d", archer.Damage, e2.HP)
+	}
+}
+
+// TestRogueAttackTempo: Rogue 出手后冷却 = 自身 AttackCD (0.35, 快于 Knight 0.7),
+// 伤害 = 自身 Damage。
+func TestRogueAttackTempo(t *testing.T) {
+	g := newTestGame()
+	g.Hero = newHeroOf(rogue, g.Hero.X, g.Hero.Y)
+	e := injectEnemyAtHero(g, ENormal, 999)
+	g.Update(0.01) // 首帧出手
+	if e.HP != 999-rogue.Damage {
+		t.Errorf("Rogue first hit should deal %d: HP=%d", rogue.Damage, e.HP)
+	}
+	if g.Hero.cooldown != rogue.AttackCD {
+		t.Errorf("cooldown after hit = %v, want class AttackCD %v", g.Hero.cooldown, rogue.AttackCD)
+	}
+}
+
+// TestPerClassAbilityParams: 技能参数 per-class 生效 — Rogue cleave 伤害
+// = Damage()×4, 冷却 6s (区别 Knight ×3 / 8s)。
+func TestPerClassAbilityParams(t *testing.T) {
+	g := newTestGame()
+	g.Hero = newHeroOf(rogue, g.Hero.X, g.Hero.Y)
+	g.Hero.Level = rogue.AbilityLevel
+	e := injectEnemyAtHero(g, ENormal, 999)
+	if !g.CastHeroAbility() {
+		t.Fatal("unlocked rogue cleave should cast")
+	}
+	wantDmg := g.Hero.Damage() * rogue.AbilityDmgMul
+	if e.HP != 999-wantDmg {
+		t.Errorf("rogue cleave dmg = %d, want %d", 999-e.HP, wantDmg)
+	}
+	if g.Hero.abilityCD != rogue.AbilityCooldownS {
+		t.Errorf("abilityCD = %v, want class cooldown %v", g.Hero.abilityCD, rogue.AbilityCooldownS)
+	}
+}
+
+// TestArcherAbilityReach: 距离 3.0 的敌 — Archer 技能 (radius 3.0) 覆盖,
+// Knight 技能 (radius 2.0) 够不着。
+func TestArcherAbilityReach(t *testing.T) {
+	g := newTestGame()
+	g.Hero.Level = knight.AbilityLevel
+	e := &Enemy{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0} // (0,0) 距英雄 (3,0) = 3.0
+	g.Enemies = append(g.Enemies, e)
+	g.CastHeroAbility()
+	if e.HP != 999 {
+		t.Errorf("Knight cleave (r=2.0) must not reach dist 3.0: HP=%d", e.HP)
+	}
+	g2 := newTestGame()
+	g2.Hero = newHeroOf(archer, g2.Hero.X, g2.Hero.Y)
+	g2.Hero.Level = archer.AbilityLevel
+	e2 := &Enemy{Kind: ENormal, HP: 999, MaxHP: 999, PathIdx: 0}
+	g2.Enemies = append(g2.Enemies, e2)
+	if !g2.CastHeroAbility() {
+		t.Fatal("archer volley should cast")
+	}
+	wantDmg := g2.Hero.Damage() * archer.AbilityDmgMul
+	if e2.HP != 999-wantDmg {
+		t.Errorf("archer volley (r=3.0) should hit dist 3.0 for %d: HP=%d", wantDmg, e2.HP)
+	}
+}
+
+// TestNewHeroOfClassGrowth: newHeroOf 用职业基础值, 升级走职业增量曲线。
+func TestNewHeroOfClassGrowth(t *testing.T) {
+	h := newHeroOf(archer, 0, 0)
+	if h.HP != archer.MaxHP || h.MaxHP != archer.MaxHP {
+		t.Errorf("archer spawn HP = %d/%d, want %d", h.HP, h.MaxHP, archer.MaxHP)
+	}
+	if h.Damage() != archer.Damage || math.Abs(h.AttackRange()-archer.Range) > 1e-9 {
+		t.Errorf("archer lvl1 dmg/range = %d/%v, want %d/%v",
+			h.Damage(), h.AttackRange(), archer.Damage, archer.Range)
+	}
+	h.GainXP(archer.xpForNext(1))
+	if h.Level != 2 || h.MaxHP != archer.MaxHP+archer.HPPerLvl {
+		t.Errorf("archer lvl2: level=%d maxHP=%d, want 2 / %d",
+			h.Level, h.MaxHP, archer.MaxHP+archer.HPPerLvl)
+	}
+}
