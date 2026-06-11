@@ -8,36 +8,75 @@
 //   - 无树基线零回归: 不买节点 = V10 行为完全不变
 package main
 
-// TreeNode: 技能树节点。Bonus 效果字段 P2 接线。
+// HeroBonus: perk 增量聚合 (V11 P2)。零值 = 无 perk = V10 行为。
+// beginRun 时按职业已购节点求和后快照进 Hero (关内不变)。
+type HeroBonus struct {
+	MaxHP            int
+	Damage           int
+	Range            float64
+	Speed            float64
+	RespawnReduceS   float64 // 复活缩短 (正值 = 减时, 应用处 clamp ≥1s)
+	AbilityRadius    float64
+	AbilityCDReduceS float64 // 技能冷却缩短 (正值 = 减时, 应用处 clamp ≥1s)
+}
+
+// add: 聚合两份增量。
+func (b HeroBonus) add(o HeroBonus) HeroBonus {
+	return HeroBonus{
+		MaxHP:            b.MaxHP + o.MaxHP,
+		Damage:           b.Damage + o.Damage,
+		Range:            b.Range + o.Range,
+		Speed:            b.Speed + o.Speed,
+		RespawnReduceS:   b.RespawnReduceS + o.RespawnReduceS,
+		AbilityRadius:    b.AbilityRadius + o.AbilityRadius,
+		AbilityCDReduceS: b.AbilityCDReduceS + o.AbilityCDReduceS,
+	}
+}
+
+// TreeNode: 技能树节点。
 type TreeNode struct {
 	Name  string
 	Desc  string
 	Price int
+	Bonus HeroBonus
 }
 
 const treeNodesPerClass = 4
 
 // skillTrees: per-class 线性节点表 (key = HeroClass.Name, 与 Save.TreeNodes
-// 的 key 一致)。效果数值 P2 定义 + P4 仿真校准, Desc 先行锁定方向。
+// 的 key 一致)。效果数值 P4 仿真校准。
 var skillTrees = map[string][treeNodesPerClass]TreeNode{
 	"Knight": {
-		{Name: "Bulwark", Desc: "+max HP", Price: 3},
-		{Name: "Sharpened Blade", Desc: "+damage", Price: 6},
-		{Name: "Wide Cleave", Desc: "+cleave radius", Price: 9},
-		{Name: "Undying", Desc: "faster respawn", Price: 12},
+		{Name: "Bulwark", Desc: "+30 max HP", Price: 3, Bonus: HeroBonus{MaxHP: 30}},
+		{Name: "Sharpened Blade", Desc: "+4 damage", Price: 6, Bonus: HeroBonus{Damage: 4}},
+		{Name: "Wide Cleave", Desc: "+0.6 cleave radius", Price: 9, Bonus: HeroBonus{AbilityRadius: 0.6}},
+		{Name: "Undying", Desc: "respawn 4s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 4}},
 	},
 	"Archer": {
-		{Name: "Eagle Eye", Desc: "+attack range", Price: 3},
-		{Name: "Fleet Foot", Desc: "+move speed", Price: 6},
-		{Name: "Piercing Arrows", Desc: "+damage", Price: 9},
-		{Name: "Storm of Arrows", Desc: "+volley radius", Price: 12},
+		{Name: "Eagle Eye", Desc: "+0.6 attack range", Price: 3, Bonus: HeroBonus{Range: 0.6}},
+		{Name: "Fleet Foot", Desc: "+0.8 move speed", Price: 6, Bonus: HeroBonus{Speed: 0.8}},
+		{Name: "Piercing Arrows", Desc: "+3 damage", Price: 9, Bonus: HeroBonus{Damage: 3}},
+		{Name: "Storm of Arrows", Desc: "+0.8 volley radius", Price: 12, Bonus: HeroBonus{AbilityRadius: 0.8}},
 	},
 	"Rogue": {
-		{Name: "Shadow Step", Desc: "+move speed", Price: 3},
-		{Name: "Twin Fangs", Desc: "+damage", Price: 6},
-		{Name: "Blade Flurry", Desc: "faster fan of blades", Price: 9},
-		{Name: "Cheat Death", Desc: "faster respawn", Price: 12},
+		{Name: "Shadow Step", Desc: "+0.7 move speed", Price: 3, Bonus: HeroBonus{Speed: 0.7}},
+		{Name: "Twin Fangs", Desc: "+2 damage", Price: 6, Bonus: HeroBonus{Damage: 2}},
+		{Name: "Blade Flurry", Desc: "ability 2s faster", Price: 9, Bonus: HeroBonus{AbilityCDReduceS: 2}},
+		{Name: "Cheat Death", Desc: "respawn 4s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 4}},
 	},
+}
+
+// HeroBonusFor: 该职业已购节点的效果聚合 (beginRun 快照用)。
+func (s *Save) HeroBonusFor(className string) HeroBonus {
+	var b HeroBonus
+	tree, ok := skillTrees[className]
+	if !ok {
+		return b
+	}
+	for i := 0; i < s.TreeLevel(className); i++ {
+		b = b.add(tree[i].Bonus)
+	}
+	return b
 }
 
 // TreeLevel: 该职业已购节点数, clamp [0, treeNodesPerClass]

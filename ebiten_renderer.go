@@ -1125,7 +1125,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				color.RGBA{R: 40, G: 40, B: 60, A: 255})
 			ready := 1.0
 			if g.Hero.abilityCD > 0 {
-				ready = 1 - g.Hero.abilityCD/g.Hero.Class.AbilityCooldownS
+				ready = 1 - g.Hero.abilityCD/g.Hero.AbilityCooldown()
 			}
 			fillCol := color.RGBA{R: 255, G: 140, B: 40, A: 255} // 冷却中橙
 			if g.Hero.abilityCD <= 0 {

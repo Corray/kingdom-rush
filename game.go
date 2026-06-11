@@ -133,9 +133,10 @@ func (g *Game) beginRun(lv Level) {
 	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
 	g.Decor = genDecor(lv, g.pathLookup)
 	// V8 P1: 英雄生成在 path 中点 (玩家用 H 键重设集结点)
-	// V10 P3: 职业由存档选择 (menu H 键循环, 零值/越界回退 Knight)
+	// V10 P3: 职业由存档选择; V11 P2: 技能树 perk 快照 (关内不变)
 	mid := lv.Path[len(lv.Path)/2]
-	g.Hero = newHeroOf(&heroClasses[g.Save.HeroClassIdx()], float64(mid.X), float64(mid.Y))
+	cls := &heroClasses[g.Save.HeroClassIdx()]
+	g.Hero = newHeroWithBonus(cls, g.Save.HeroBonusFor(cls.Name), float64(mid.X), float64(mid.Y))
 }
 
 // DecorSpot: V7.2 M3 — 地图装饰点 (kind 0=树 1=灌木 2=小灌木 3=石头)。
@@ -714,7 +715,7 @@ func (g *Game) hurtHero(dmg int) {
 	h.HP -= dmg
 	if h.HP <= 0 {
 		h.HP = 0
-		h.respawnCD = h.Class.RespawnS
+		h.respawnCD = h.RespawnTime()
 		g.Msg = "Hero fell! Reviving..."
 	}
 }
@@ -775,7 +776,7 @@ func (g *Game) CastHeroAbility() bool {
 		g.Msg = fmt.Sprintf("Hero cleave on cooldown %.0fs", h.abilityCD)
 		return false
 	}
-	h.abilityCD = h.Class.AbilityCooldownS
+	h.abilityCD = h.AbilityCooldown()
 	g.pushSound(SndMeteor) // 复用爆发音 (P3 可换专用)
 	dmg := h.Damage() * h.Class.AbilityDmgMul
 	hits := 0
@@ -784,17 +785,17 @@ func (g *Game) CastHeroAbility() bool {
 			continue
 		}
 		ep := e.Pos(g.Path)
-		if h.DistTo(float64(ep.X), float64(ep.Y)) <= h.Class.AbilityRadius {
+		if h.DistTo(float64(ep.X), float64(ep.Y)) <= h.AbilityRange() {
 			g.damageEnemy(e, dmg) // 统一入口 (击杀 XP 由 killEnemy 助攻统一处理)
 			hits++
 		}
 	}
 	// 横扫特效: 半径内每 cell 一团火 (复用 EHit, 同 Meteor 视觉)
 	hx, hy := int(h.X+0.5), int(h.Y+0.5)
-	r := int(h.Class.AbilityRadius)
+	r := int(h.AbilityRange())
 	for ddy := -r; ddy <= r; ddy++ {
 		for ddx := -r; ddx <= r; ddx++ {
-			if float64(ddx*ddx+ddy*ddy) > h.Class.AbilityRadius*h.Class.AbilityRadius {
+			if float64(ddx*ddx+ddy*ddy) > h.AbilityRange()*h.AbilityRange() {
 				continue
 			}
 			g.Effects = append(g.Effects, makeHitEffect(Point{X: hx + ddx, Y: hy + ddy}))

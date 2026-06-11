@@ -83,6 +83,7 @@ var knight = &heroClasses[0]
 
 type Hero struct {
 	Class     *HeroClass // V10: 职业参数 (数值/成长/技能/阻挡)
+	Bonus     HeroBonus  // V11 P2: 技能树 perk 快照 (beginRun 定格, 关内不变)
 	X, Y      float64    // 自由坐标 (cell, 非路径绑定)
 	RallyX    float64    // 集结点 (玩家 H 键设定)
 	RallyY    float64
@@ -105,13 +106,42 @@ func (h *Hero) AbilityReady() bool {
 	return h.Alive() && h.AbilityUnlocked() && h.abilityCD <= 0
 }
 
-// Damage: 当前等级攻击伤害。
-func (h *Hero) Damage() int { return h.Class.Damage + (h.Level-1)*h.Class.DmgPerLvl }
-
-// AttackRange: 当前等级攻击射程。
-func (h *Hero) AttackRange() float64 {
-	return h.Class.Range + float64(h.Level-1)*h.Class.RangePerLvl
+// Damage: 当前等级攻击伤害 (+perk)。
+func (h *Hero) Damage() int {
+	return h.Class.Damage + (h.Level-1)*h.Class.DmgPerLvl + h.Bonus.Damage
 }
+
+// AttackRange: 当前等级攻击射程 (+perk)。
+func (h *Hero) AttackRange() float64 {
+	return h.Class.Range + float64(h.Level-1)*h.Class.RangePerLvl + h.Bonus.Range
+}
+
+// MoveSpeed: 移动速度 (+perk)。
+func (h *Hero) MoveSpeed() float64 { return h.Class.Speed + h.Bonus.Speed }
+
+// maxHPAt: 指定等级的 maxHP (+perk)。
+func (h *Hero) maxHPAt(level int) int { return h.Class.maxHPFor(level) + h.Bonus.MaxHP }
+
+// RespawnTime: 复活时长 (-perk, clamp ≥1s 防未来调参翻车)。
+func (h *Hero) RespawnTime() float64 {
+	t := h.Class.RespawnS - h.Bonus.RespawnReduceS
+	if t < 1 {
+		t = 1
+	}
+	return t
+}
+
+// AbilityCooldown: 技能冷却 (-perk, clamp ≥1s)。
+func (h *Hero) AbilityCooldown() float64 {
+	t := h.Class.AbilityCooldownS - h.Bonus.AbilityCDReduceS
+	if t < 1 {
+		t = 1
+	}
+	return t
+}
+
+// AbilityRange: 技能 AoE 半径 (+perk)。
+func (h *Hero) AbilityRange() float64 { return h.Class.AbilityRadius + h.Bonus.AbilityRadius }
 
 // GainXP: 累计 XP 并按阈值升级 (升级回满血, 满级后 XP 锁 0)。返回升级后的等级
 // (调用方据此判断是否升级以给反馈)。
@@ -123,7 +153,7 @@ func (h *Hero) GainXP(xp int) {
 	for h.Level < h.Class.LevelCap && h.XP >= h.Class.xpForNext(h.Level) {
 		h.XP -= h.Class.xpForNext(h.Level)
 		h.Level++
-		h.MaxHP = h.Class.maxHPFor(h.Level)
+		h.MaxHP = h.maxHPAt(h.Level)
 		h.HP = h.MaxHP // 升级回满血 (KR 范式)
 	}
 	if h.Level >= h.Class.LevelCap {
@@ -143,14 +173,21 @@ func newHero(spawnX, spawnY float64) *Hero {
 	return newHeroOf(knight, spawnX, spawnY)
 }
 
-// newHeroOf: 指定职业生成英雄。
+// newHeroOf: 指定职业生成英雄 (无 perk, 测试基线)。
 func newHeroOf(c *HeroClass, spawnX, spawnY float64) *Hero {
-	return &Hero{
-		Class: c,
-		X:     spawnX, Y: spawnY, RallyX: spawnX, RallyY: spawnY,
-		HP: c.maxHPFor(1), MaxHP: c.maxHPFor(1),
+	return newHeroWithBonus(c, HeroBonus{}, spawnX, spawnY)
+}
+
+// newHeroWithBonus: V11 P2 — 带技能树 perk 快照生成英雄 (beginRun 用)。
+func newHeroWithBonus(c *HeroClass, b HeroBonus, spawnX, spawnY float64) *Hero {
+	h := &Hero{
+		Class: c, Bonus: b,
+		X: spawnX, Y: spawnY, RallyX: spawnX, RallyY: spawnY,
 		Level: 1, XP: 0,
 	}
+	h.MaxHP = h.maxHPAt(1)
+	h.HP = h.MaxHP
+	return h
 }
 
 // Alive: 是否在场 (阵亡复活期间为 false)。
@@ -180,5 +217,5 @@ func (h *Hero) moveStep(dt float64) {
 	if h.respawnCD > 0 {
 		return
 	}
-	h.X, h.Y, _ = stepToward(h.X, h.Y, h.RallyX, h.RallyY, h.Class.Speed*dt)
+	h.X, h.Y, _ = stepToward(h.X, h.Y, h.RallyX, h.RallyY, h.MoveSpeed()*dt)
 }

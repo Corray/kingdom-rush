@@ -1,7 +1,10 @@
 // V11 P1 测试: 技能树持久层 — 节点表守护 / 预算算术 / 购买 gating / 零值兼容。
 package main
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // TestSkillTreeTable: 节点表守护 — 三树与职业表一一对应, 每树 4 节点,
 // 定价 3/6/9/12 (单树 30), 三树总价 90 = 1.5× 可赚上限 60 (决策 C)。
@@ -130,4 +133,107 @@ func TestSaveRoundtripTreeNodes(t *testing.T) {
 				loaded.TreeLevel("Knight"), loaded.TreeLevel("Rogue"), loaded.TreeLevel("Archer"))
 		}
 	})
+}
+
+// ============================================================
+// V11 Phase 2: HeroBonus 效果接线
+// ============================================================
+
+// TestTreeNodesHaveEffects: 节点表守护 — 每个节点 Bonus 至少一个非零字段
+// (防"有价无效"的空 perk)。
+func TestTreeNodesHaveEffects(t *testing.T) {
+	for name, tree := range skillTrees {
+		for j, node := range tree {
+			if node.Bonus == (HeroBonus{}) {
+				t.Errorf("%s node %d (%s): zero-effect perk", name, j, node.Name)
+			}
+		}
+	}
+}
+
+// TestHeroBonusAggregation: 聚合 = 前 N 节点效果求和; 零购买/未知职业 = 零值。
+func TestHeroBonusAggregation(t *testing.T) {
+	s := NewSave()
+	if s.HeroBonusFor("Knight") != (HeroBonus{}) {
+		t.Error("zero purchases must aggregate to zero bonus")
+	}
+	if s.HeroBonusFor("Paladin") != (HeroBonus{}) {
+		t.Error("unknown class must aggregate to zero bonus")
+	}
+	s.TreeNodes = map[string]int{"Knight": 2}
+	got := s.HeroBonusFor("Knight")
+	want := HeroBonus{MaxHP: 30, Damage: 4} // Bulwark + Sharpened Blade
+	if got != want {
+		t.Errorf("Knight lvl2 bonus = %+v, want %+v", got, want)
+	}
+	s.TreeNodes["Rogue"] = 4
+	gr := s.HeroBonusFor("Rogue")
+	wantR := HeroBonus{Speed: 0.7, Damage: 2, AbilityCDReduceS: 2, RespawnReduceS: 4}
+	if gr != wantR {
+		t.Errorf("Rogue full bonus = %+v, want %+v", gr, wantR)
+	}
+}
+
+// TestHeroBonusStats: perk 反映到全部派生数值 + clamp 防护。
+func TestHeroBonusStats(t *testing.T) {
+	b := HeroBonus{MaxHP: 30, Damage: 4, Range: 0.6, Speed: 0.8,
+		RespawnReduceS: 4, AbilityRadius: 0.6, AbilityCDReduceS: 2}
+	h := newHeroWithBonus(knight, b, 0, 0)
+	if h.MaxHP != knight.MaxHP+30 || h.HP != h.MaxHP {
+		t.Errorf("spawn HP = %d/%d, want %d full", h.HP, h.MaxHP, knight.MaxHP+30)
+	}
+	if h.Damage() != knight.Damage+4 {
+		t.Errorf("damage = %d, want %d", h.Damage(), knight.Damage+4)
+	}
+	if math.Abs(h.AttackRange()-(knight.Range+0.6)) > 1e-9 {
+		t.Errorf("range = %v, want %v", h.AttackRange(), knight.Range+0.6)
+	}
+	if math.Abs(h.MoveSpeed()-(knight.Speed+0.8)) > 1e-9 {
+		t.Errorf("speed = %v, want %v", h.MoveSpeed(), knight.Speed+0.8)
+	}
+	if math.Abs(h.RespawnTime()-(knight.RespawnS-4)) > 1e-9 {
+		t.Errorf("respawn = %v, want %v", h.RespawnTime(), knight.RespawnS-4)
+	}
+	if math.Abs(h.AbilityCooldown()-(knight.AbilityCooldownS-2)) > 1e-9 {
+		t.Errorf("ability CD = %v, want %v", h.AbilityCooldown(), knight.AbilityCooldownS-2)
+	}
+	if math.Abs(h.AbilityRange()-(knight.AbilityRadius+0.6)) > 1e-9 {
+		t.Errorf("ability radius = %v, want %v", h.AbilityRange(), knight.AbilityRadius+0.6)
+	}
+	// clamp: 巨幅缩减不得把时长压到 1s 以下
+	hc := newHeroWithBonus(knight, HeroBonus{RespawnReduceS: 99, AbilityCDReduceS: 99}, 0, 0)
+	if hc.RespawnTime() != 1 || hc.AbilityCooldown() != 1 {
+		t.Errorf("clamp: respawn=%v abilityCD=%v, want 1/1", hc.RespawnTime(), hc.AbilityCooldown())
+	}
+}
+
+// TestZeroBonusZeroRegression: 零 perk 英雄派生数值 = V10 职业基线 (硬约束守护)。
+func TestZeroBonusZeroRegression(t *testing.T) {
+	for i := range heroClasses {
+		c := &heroClasses[i]
+		h := newHeroOf(c, 0, 0)
+		if h.MaxHP != c.maxHPFor(1) || h.Damage() != c.Damage ||
+			math.Abs(h.AttackRange()-c.Range) > 1e-9 ||
+			math.Abs(h.MoveSpeed()-c.Speed) > 1e-9 ||
+			math.Abs(h.RespawnTime()-c.RespawnS) > 1e-9 ||
+			math.Abs(h.AbilityCooldown()-c.AbilityCooldownS) > 1e-9 ||
+			math.Abs(h.AbilityRange()-c.AbilityRadius) > 1e-9 {
+			t.Errorf("%s: zero-bonus hero deviates from class baseline", c.Name)
+		}
+	}
+}
+
+// TestBeginRunAppliesBonus: beginRun 按存档快照 perk; 升级后 perk 仍叠加。
+func TestBeginRunAppliesBonus(t *testing.T) {
+	g := newTestGame()
+	g.Save.TreeNodes = map[string]int{"Knight": 1} // Bulwark +30 HP
+	g.StartLevel(0)
+	if g.Hero.MaxHP != knight.MaxHP+30 {
+		t.Fatalf("beginRun should snapshot perk: maxHP=%d, want %d", g.Hero.MaxHP, knight.MaxHP+30)
+	}
+	g.Hero.GainXP(knight.xpForNext(1)) // → lvl2
+	want := knight.maxHPFor(2) + 30
+	if g.Hero.MaxHP != want {
+		t.Errorf("perk must persist through level-up: maxHP=%d, want %d", g.Hero.MaxHP, want)
+	}
 }
