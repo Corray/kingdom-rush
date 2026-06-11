@@ -117,6 +117,12 @@ func autoPlay(levelIdx int, d Difficulty, heroEnabled bool) *Game {
 
 // autoPlayClass: V10 P4 — 指定英雄职业的仿真 (classIdx = heroClasses index)。
 func autoPlayClass(levelIdx int, d Difficulty, heroEnabled bool, classIdx int) *Game {
+	return autoPlayTree(levelIdx, d, heroEnabled, classIdx, 0)
+}
+
+// autoPlayTree: V11 P4 — 指定职业 + 技能树级的仿真 (treeLvl 0 = 无树
+// = V10 基线; treeNodesPerClass = 满树上界)。
+func autoPlayTree(levelIdx int, d Difficulty, heroEnabled bool, classIdx, treeLvl int) *Game {
 	levels, err := LoadLevels()
 	if err != nil {
 		panic(err)
@@ -127,6 +133,9 @@ func autoPlayClass(levelIdx int, d Difficulty, heroEnabled bool, classIdx int) *
 	}
 	g.Save.Difficulty = d
 	g.Save.HeroChoice = classIdx // V10: beginRun 按此生成职业
+	if treeLvl > 0 {             // V11: beginRun 按此快照 perk
+		g.Save.TreeNodes = map[string]int{heroClasses[classIdx].Name: treeLvl}
+	}
 	g.StartLevel(levelIdx)
 	if !heroEnabled {
 		g.Hero = nil // V8: 对比基线 — 去英雄 (Update 已 nil-guard)
@@ -285,6 +294,52 @@ func TestBalance_ClassMatrixHard(t *testing.T) {
 					name, wins, baseline)
 			}
 			t.Logf("[%s] Hard %d/20 (基线 %d, 净增益 %+d)", name, wins, baseline, wins-baseline)
+		}
+	})
+}
+
+// ============================================================
+// V11 P4: 技能树上下界 — 无树零回归 (下界, 由上方 V10 矩阵守) +
+// 满树上界 (决策 D: 允许碾压 Hard, 但不得低于无树)
+// ============================================================
+
+// TestBalance_FullTreeMatrixHard: 满树 Hard 矩阵 — 每职业满树通关数 ≥
+// 同职业无树 (perk 必须非负贡献); 允许 20/20 (决策 D earned power)。
+func TestBalance_FullTreeMatrixHard(t *testing.T) {
+	withTempSavePath(t, func() {
+		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
+			name := heroClasses[classIdx].Name
+			noTree, fullTree := 0, 0
+			for idx := 0; idx < 20; idx++ {
+				if autoPlayTree(idx, DiffHard, true, classIdx, 0).Phase == PhaseWon {
+					noTree++
+				}
+				if autoPlayTree(idx, DiffHard, true, classIdx, treeNodesPerClass).Phase == PhaseWon {
+					fullTree++
+				}
+			}
+			if fullTree < noTree {
+				t.Errorf("[%s] 满树 %d < 无树 %d (perk 净负 = 设计失败)", name, fullTree, noTree)
+			}
+			t.Logf("[%s] Hard 无树 %d/20 → 满树 %d/20 (perk 增益 %+d)",
+				name, noTree, fullTree, fullTree-noTree)
+		}
+	})
+}
+
+// TestBalance_FullTreeNormalAllClear: 满树不破 Normal (仍全通, 平衡上界守护)。
+func TestBalance_FullTreeNormalAllClear(t *testing.T) {
+	withTempSavePath(t, func() {
+		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
+			name := heroClasses[classIdx].Name
+			for idx := 0; idx < 20; idx++ {
+				g := autoPlayTree(idx, DiffNormal, true, classIdx, treeNodesPerClass)
+				if g.Phase != PhaseWon {
+					t.Errorf("[%s 满树] Lv%-2d ✗ 不可通关 (lives=%d wave=%d/%d)",
+						name, idx+1, g.Lives, g.WaveIdx+1, len(g.currentLevel().Waves))
+				}
+			}
+			t.Logf("[%s] 满树 Normal 20 关跑完", name)
 		}
 	})
 }

@@ -163,7 +163,7 @@ func TestHeroBonusAggregation(t *testing.T) {
 	}
 	s.TreeNodes = map[string]int{"Knight": 2}
 	got := s.HeroBonusFor("Knight")
-	want := HeroBonus{MaxHP: 30, Damage: 4} // Bulwark + Sharpened Blade
+	want := HeroBonus{MaxHP: 30, Damage: 6} // Bulwark + Sharpened Blade (P4 校准后)
 	if got != want {
 		t.Errorf("Knight lvl2 bonus = %+v, want %+v", got, want)
 	}

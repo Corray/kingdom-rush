@@ -48,9 +48,9 @@ const treeNodesPerClass = 4
 var skillTrees = map[string][treeNodesPerClass]TreeNode{
 	"Knight": {
 		{Name: "Bulwark", Desc: "+30 max HP", Price: 3, Bonus: HeroBonus{MaxHP: 30}},
-		{Name: "Sharpened Blade", Desc: "+4 damage", Price: 6, Bonus: HeroBonus{Damage: 4}},
+		{Name: "Sharpened Blade", Desc: "+6 damage", Price: 6, Bonus: HeroBonus{Damage: 6}},
 		{Name: "Wide Cleave", Desc: "+0.6 cleave radius", Price: 9, Bonus: HeroBonus{AbilityRadius: 0.6}},
-		{Name: "Undying", Desc: "respawn 4s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 4}},
+		{Name: "Undying", Desc: "respawn 6s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 6}},
 	},
 	"Archer": {
 		{Name: "Eagle Eye", Desc: "+0.6 attack range", Price: 3, Bonus: HeroBonus{Range: 0.6}},
