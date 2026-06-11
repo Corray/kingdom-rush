@@ -818,8 +818,8 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			fillRect(screen, hx+2, hy-4, barW, 3, eColHpBg)
 			fillRect(screen, hx+2, hy-4, barW*hpRatio, 3, eColHeroHp)
 			// V9 P3: XP 进度条 (HP 条下方薄金条; 满级隐藏)
-			if h.Level < heroLevelCap {
-				xpRatio := float32(h.XP) / float32(xpForNextLevel(h.Level))
+			if h.Level < h.Class.LevelCap {
+				xpRatio := float32(h.XP) / float32(h.Class.xpForNext(h.Level))
 				if xpRatio > 1 {
 					xpRatio = 1
 				}
@@ -1102,7 +1102,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				color.RGBA{R: 40, G: 40, B: 60, A: 255})
 			ready := 1.0
 			if g.Hero.abilityCD > 0 {
-				ready = 1 - g.Hero.abilityCD/heroAbilityCooldownS
+				ready = 1 - g.Hero.abilityCD/g.Hero.Class.AbilityCooldownS
 			}
 			fillCol := color.RGBA{R: 255, G: 140, B: 40, A: 255} // 冷却中橙
 			if g.Hero.abilityCD <= 0 {
@@ -1110,7 +1110,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			}
 			fillRect(screen, barX, float32(selY+12), float32(cBarW*ready), cBarH, fillCol)
 		} else {
-			drawTextCol(screen, fmt.Sprintf("G:Cleave @L%d", heroAbilityLevel),
+			drawTextCol(screen, fmt.Sprintf("G:Cleave @L%d", g.Hero.Class.AbilityLevel),
 				labelX, selY+8, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // 锁定暗示
 		}
 	}

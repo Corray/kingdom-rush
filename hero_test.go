@@ -39,8 +39,8 @@ func TestNewHero(t *testing.T) {
 	if h.RallyX != 8 || h.RallyY != 6 {
 		t.Errorf("rally should default to spawn: got (%v,%v)", h.RallyX, h.RallyY)
 	}
-	if h.HP != heroSpec.MaxHP || h.MaxHP != heroSpec.MaxHP {
-		t.Errorf("HP: got %d/%d, want %d full", h.HP, h.MaxHP, heroSpec.MaxHP)
+	if h.HP != knight.MaxHP || h.MaxHP != knight.MaxHP {
+		t.Errorf("HP: got %d/%d, want %d full", h.HP, h.MaxHP, knight.MaxHP)
 	}
 	if !h.Alive() {
 		t.Error("new hero should be alive")
@@ -53,7 +53,7 @@ func TestHeroMoveTowardRally(t *testing.T) {
 	h.SetRally(10, 0)
 	// 单帧 (dt=0.1): 走 Speed*0.1 = 0.4 cell
 	h.moveStep(0.1)
-	want := heroSpec.Speed * 0.1
+	want := knight.Speed * 0.1
 	if math.Abs(h.X-want) > 1e-9 {
 		t.Errorf("after 1 frame: X=%v, want %v", h.X, want)
 	}
@@ -95,7 +95,7 @@ func TestBeginRunSpawnsHero(t *testing.T) {
 		t.Errorf("hero spawn: got (%v,%v), want path mid (%d,%d)",
 			g.Hero.X, g.Hero.Y, mid.X, mid.Y)
 	}
-	if g.Hero.HP != heroSpec.MaxHP || !g.Hero.Alive() {
+	if g.Hero.HP != knight.MaxHP || !g.Hero.Alive() {
 		t.Errorf("hero should spawn full HP alive: HP=%d alive=%v", g.Hero.HP, g.Hero.Alive())
 	}
 }
@@ -126,8 +126,8 @@ func TestHeroAttacksEnemy(t *testing.T) {
 	if e.HP >= 20 {
 		t.Errorf("hero should damage enemy in range: HP=%d, want < 20", e.HP)
 	}
-	if e.HP != 20-heroSpec.Damage {
-		t.Errorf("expected one hit of %d: HP=%d", heroSpec.Damage, e.HP)
+	if e.HP != 20-knight.Damage {
+		t.Errorf("expected one hit of %d: HP=%d", knight.Damage, e.HP)
 	}
 }
 
@@ -149,7 +149,7 @@ func TestHeroAttacksNearest(t *testing.T) {
 // TestHeroKillGrantsGold: 英雄击杀经 damageEnemy → killEnemy, 入账金币。
 func TestHeroKillGrantsGold(t *testing.T) {
 	g := newTestGame()
-	injectEnemyAtHero(g, ENormal, heroSpec.Damage-1) // 一击毙
+	injectEnemyAtHero(g, ENormal, knight.Damage-1) // 一击毙
 	goldBefore := g.Gold
 	g.Update(0.1)
 	if g.Gold <= goldBefore {
@@ -196,12 +196,12 @@ func TestEnemyMeleeCadence(t *testing.T) {
 func TestHeroDeathAndRespawn(t *testing.T) {
 	g := newTestGame()
 	g.Hero.X, g.Hero.Y = 0, 0 // 先把英雄挪到角落, 验证复活回 path 中点
-	g.hurtHero(heroSpec.MaxHP)
+	g.hurtHero(knight.MaxHP)
 	if g.Hero.Alive() || g.Hero.HP != 0 {
 		t.Fatalf("hero should be down: alive=%v HP=%d", g.Hero.Alive(), g.Hero.HP)
 	}
-	if g.Hero.respawnCD != heroSpec.RespawnS {
-		t.Errorf("respawnCD: got %v, want %v", g.Hero.respawnCD, heroSpec.RespawnS)
+	if g.Hero.respawnCD != knight.RespawnS {
+		t.Errorf("respawnCD: got %v, want %v", g.Hero.respawnCD, knight.RespawnS)
 	}
 	// 复活前 SetRally 被忽略
 	g.SetHeroRally(Point{X: 9, Y: 9})
@@ -209,8 +209,8 @@ func TestHeroDeathAndRespawn(t *testing.T) {
 		t.Error("dead hero rally must not change")
 	}
 	// 推进足够时间 → 复活
-	g.updateHero(heroSpec.RespawnS + 0.1)
-	if !g.Hero.Alive() || g.Hero.HP != heroSpec.MaxHP {
+	g.updateHero(knight.RespawnS + 0.1)
+	if !g.Hero.Alive() || g.Hero.HP != knight.MaxHP {
 		t.Errorf("hero should revive full HP: alive=%v HP=%d", g.Hero.Alive(), g.Hero.HP)
 	}
 	mid := g.Path[len(g.Path)/2]
@@ -261,7 +261,7 @@ func TestBlockReleasedOnHeroDeath(t *testing.T) {
 		t.Fatal("enemy should be blocked while hero alive")
 	}
 	blockedIdx := e.PathIdx
-	g.hurtHero(heroSpec.MaxHP) // 英雄阵亡
+	g.hurtHero(knight.MaxHP) // 英雄阵亡
 	g.Update(0.1)
 	if e.Blocked {
 		t.Error("block must release when hero is down")
@@ -313,22 +313,22 @@ func TestHeroLevelCurve(t *testing.T) {
 	if h.Level != 1 || h.XP != 0 {
 		t.Fatalf("new hero should be lvl1 0xp, got lvl%d xp%d", h.Level, h.XP)
 	}
-	base := heroSpec.MaxHP
+	base := knight.MaxHP
 	h.HP = 1 // 模拟受伤, 验证升级回满血
-	h.GainXP(xpForNextLevel(1))
+	h.GainXP(knight.xpForNext(1))
 	if h.Level != 2 {
-		t.Errorf("should reach lvl2 after %d xp, got %d", xpForNextLevel(1), h.Level)
+		t.Errorf("should reach lvl2 after %d xp, got %d", knight.xpForNext(1), h.Level)
 	}
-	if h.MaxHP != base+heroHPPerLvl {
-		t.Errorf("lvl2 maxHP = %d, want %d", h.MaxHP, base+heroHPPerLvl)
+	if h.MaxHP != base+knight.HPPerLvl {
+		t.Errorf("lvl2 maxHP = %d, want %d", h.MaxHP, base+knight.HPPerLvl)
 	}
 	if h.HP != h.MaxHP {
 		t.Errorf("level up should heal to full: HP=%d MaxHP=%d", h.HP, h.MaxHP)
 	}
 	// 巨量 XP → 封顶
 	h.GainXP(100000)
-	if h.Level != heroLevelCap {
-		t.Errorf("should cap at lvl%d, got %d", heroLevelCap, h.Level)
+	if h.Level != knight.LevelCap {
+		t.Errorf("should cap at lvl%d, got %d", knight.LevelCap, h.Level)
 	}
 	if h.XP != 0 {
 		t.Errorf("capped hero XP should lock 0, got %d", h.XP)
@@ -338,25 +338,25 @@ func TestHeroLevelCurve(t *testing.T) {
 // TestHeroLevelStatsScale: 高等级 Damage / AttackRange / maxHP 按级递增。
 func TestHeroLevelStatsScale(t *testing.T) {
 	h := newHero(0, 0)
-	if h.Damage() != heroSpec.Damage || math.Abs(h.AttackRange()-heroSpec.Range) > 1e-9 {
+	if h.Damage() != knight.Damage || math.Abs(h.AttackRange()-knight.Range) > 1e-9 {
 		t.Errorf("lvl1 stats should equal base: dmg=%d range=%v", h.Damage(), h.AttackRange())
 	}
 	h.Level = 3
-	if h.Damage() != heroSpec.Damage+2*heroDmgPerLvl {
-		t.Errorf("lvl3 damage = %d, want %d", h.Damage(), heroSpec.Damage+2*heroDmgPerLvl)
+	if h.Damage() != knight.Damage+2*knight.DmgPerLvl {
+		t.Errorf("lvl3 damage = %d, want %d", h.Damage(), knight.Damage+2*knight.DmgPerLvl)
 	}
-	if math.Abs(h.AttackRange()-(heroSpec.Range+2*heroRangePerLvl)) > 1e-9 {
-		t.Errorf("lvl3 range = %v, want %v", h.AttackRange(), heroSpec.Range+2*heroRangePerLvl)
+	if math.Abs(h.AttackRange()-(knight.Range+2*knight.RangePerLvl)) > 1e-9 {
+		t.Errorf("lvl3 range = %v, want %v", h.AttackRange(), knight.Range+2*knight.RangePerLvl)
 	}
-	if heroMaxHPFor(3) != heroSpec.MaxHP+2*heroHPPerLvl {
-		t.Errorf("lvl3 maxHP = %d, want %d", heroMaxHPFor(3), heroSpec.MaxHP+2*heroHPPerLvl)
+	if knight.maxHPFor(3) != knight.MaxHP+2*knight.HPPerLvl {
+		t.Errorf("lvl3 maxHP = %d, want %d", knight.maxHPFor(3), knight.MaxHP+2*knight.HPPerLvl)
 	}
 }
 
 // TestHeroXPFromKill: 英雄击杀给威胁加权 XP (enemyCost)。
 func TestHeroXPFromKill(t *testing.T) {
 	g := newTestGame()
-	injectEnemyAtHero(g, ENormal, heroSpec.Damage-1) // 一击毙
+	injectEnemyAtHero(g, ENormal, knight.Damage-1) // 一击毙
 	if g.Hero.XP != 0 {
 		t.Fatal("hero should start with 0 XP")
 	}
@@ -381,13 +381,13 @@ func TestHeroPerRunReset(t *testing.T) {
 // TestHeroRespawnKeepsLevel: 阵亡复活保留等级 (关内死不掉级), HP 回当级满血。
 func TestHeroRespawnKeepsLevel(t *testing.T) {
 	g := newTestGame()
-	g.Hero.GainXP(xpForNextLevel(1)) // → lvl2
+	g.Hero.GainXP(knight.xpForNext(1)) // → lvl2
 	if g.Hero.Level != 2 {
 		t.Fatalf("setup: should be lvl2, got %d", g.Hero.Level)
 	}
 	lvMaxHP := g.Hero.MaxHP
 	g.hurtHero(g.Hero.MaxHP)               // 阵亡
-	g.updateHero(heroSpec.RespawnS + 0.1)  // 复活
+	g.updateHero(knight.RespawnS + 0.1)  // 复活
 	if g.Hero.Level != 2 {
 		t.Errorf("respawn should keep level: got %d", g.Hero.Level)
 	}
@@ -403,7 +403,7 @@ func TestHeroRespawnKeepsLevel(t *testing.T) {
 // TestHeroAbilityLockedBeforeLevel: 未达解锁等级时技能锁定, 释放失败。
 func TestHeroAbilityLockedBeforeLevel(t *testing.T) {
 	g := newTestGame()
-	g.Hero.Level = heroAbilityLevel - 1
+	g.Hero.Level = knight.AbilityLevel - 1
 	if g.Hero.AbilityUnlocked() {
 		t.Error("ability should be locked below unlock level")
 	}
@@ -415,7 +415,7 @@ func TestHeroAbilityLockedBeforeLevel(t *testing.T) {
 // TestHeroAbilityHitsGround: 解锁后横扫打半径内地面敌 (伤害 = Damage()×mul)。
 func TestHeroAbilityHitsGround(t *testing.T) {
 	g := newTestGame()
-	g.Hero.Level = heroAbilityLevel
+	g.Hero.Level = knight.AbilityLevel
 	if !g.Hero.AbilityReady() {
 		t.Fatal("ability should be ready at unlock level, no cooldown")
 	}
@@ -423,17 +423,17 @@ func TestHeroAbilityHitsGround(t *testing.T) {
 	if !g.CastHeroAbility() {
 		t.Fatal("cast should succeed at unlock level")
 	}
-	wantDmg := g.Hero.Damage() * heroAbilityDmgMul
+	wantDmg := g.Hero.Damage() * knight.AbilityDmgMul
 	if e.HP != 999-wantDmg {
 		t.Errorf("cleave dmg: HP=%d, want %d (Damage %d × %d)",
-			e.HP, 999-wantDmg, g.Hero.Damage(), heroAbilityDmgMul)
+			e.HP, 999-wantDmg, g.Hero.Damage(), knight.AbilityDmgMul)
 	}
 }
 
 // TestHeroAbilityCooldownGating: 释放后进冷却, 冷却中再释放失败, 随时间衰减。
 func TestHeroAbilityCooldownGating(t *testing.T) {
 	g := newTestGame()
-	g.Hero.Level = heroAbilityLevel
+	g.Hero.Level = knight.AbilityLevel
 	if !g.CastHeroAbility() {
 		t.Fatal("first cast should succeed")
 	}
@@ -453,7 +453,7 @@ func TestHeroAbilityCooldownGating(t *testing.T) {
 // TestHeroAbilityIgnoresFlying: 横扫不打飞行 (同英雄近战定位)。
 func TestHeroAbilityIgnoresFlying(t *testing.T) {
 	g := newTestGame()
-	g.Hero.Level = heroAbilityLevel
+	g.Hero.Level = knight.AbilityLevel
 	e := injectEnemyAtHero(g, EGlider, 999)
 	g.CastHeroAbility()
 	if e.HP != 999 {
@@ -464,7 +464,7 @@ func TestHeroAbilityIgnoresFlying(t *testing.T) {
 // TestHeroAbilityKillGrantsGold: 横扫击杀经 damageEnemy → killEnemy 入账金币。
 func TestHeroAbilityKillGrantsGold(t *testing.T) {
 	g := newTestGame()
-	g.Hero.Level = heroAbilityLevel
+	g.Hero.Level = knight.AbilityLevel
 	injectEnemyAtHero(g, ENormal, 1) // 横扫秒杀
 	goldBefore := g.Gold
 	g.CastHeroAbility()

@@ -223,7 +223,8 @@ func (g *Game) Update(dt float64) {
 		}
 	}
 	// move (V5 Phase 4: 减速状态生效 + 计时衰减; V8 P3: 英雄阻挡停步)
-	heroCanBlock := g.Hero != nil && g.Hero.Alive()
+	// V10 决策 B: 阻挡按职业 gating (近战职业阻挡, Archer 远程不阻挡)
+	heroCanBlock := g.Hero != nil && g.Hero.Alive() && g.Hero.Class.Blocks
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
 			continue
@@ -650,7 +651,7 @@ func (g *Game) updateHero(dt float64) {
 		h.cooldown -= dt
 	}
 	if target := g.heroTarget(); target != nil && h.cooldown <= 0 {
-		h.cooldown = heroSpec.AttackCD
+		h.cooldown = h.Class.AttackCD
 		// 统一入口: 击杀自动触发金币/死亡特效/Spawner 召唤 (守 killEnemy 家族约束)
 		g.damageEnemy(target, h.Damage()) // 击杀 XP 由 killEnemy 助攻统一处理
 	}
@@ -704,7 +705,7 @@ func (g *Game) hurtHero(dmg int) {
 	h.HP -= dmg
 	if h.HP <= 0 {
 		h.HP = 0
-		h.respawnCD = heroSpec.RespawnS
+		h.respawnCD = h.Class.RespawnS
 		g.Msg = "Hero fell! Reviving..."
 	}
 }
@@ -744,8 +745,8 @@ func (g *Game) heroAwardKillXP(e *Enemy) {
 	}
 }
 
-// CastHeroAbility: V9 P2 — 英雄 AoE 横扫 (lvl ≥ heroAbilityLevel 解锁)。
-// 英雄周围 heroAbilityRadius 内地面敌经 damageEnemy 统一结算 (不打飞行,
+// CastHeroAbility: V9 P2 — 英雄 AoE 横扫 (lvl ≥ Class.AbilityLevel 解锁)。
+// 英雄周围 Class.AbilityRadius 内地面敌经 damageEnemy 统一结算 (不打飞行,
 // 同英雄近战定位; 击杀照常给 XP)。冷却/未解锁/阵亡时拒绝并提示。
 // 返回是否成功释放。
 func (g *Game) CastHeroAbility() bool {
@@ -758,33 +759,33 @@ func (g *Game) CastHeroAbility() bool {
 		return false
 	}
 	if !h.AbilityUnlocked() {
-		g.Msg = fmt.Sprintf("Hero cleave unlocks at level %d", heroAbilityLevel)
+		g.Msg = fmt.Sprintf("Hero cleave unlocks at level %d", h.Class.AbilityLevel)
 		return false
 	}
 	if h.abilityCD > 0 {
 		g.Msg = fmt.Sprintf("Hero cleave on cooldown %.0fs", h.abilityCD)
 		return false
 	}
-	h.abilityCD = heroAbilityCooldownS
+	h.abilityCD = h.Class.AbilityCooldownS
 	g.pushSound(SndMeteor) // 复用爆发音 (P3 可换专用)
-	dmg := h.Damage() * heroAbilityDmgMul
+	dmg := h.Damage() * h.Class.AbilityDmgMul
 	hits := 0
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped || enemySpecs[e.Kind].Flying {
 			continue
 		}
 		ep := e.Pos(g.Path)
-		if h.DistTo(float64(ep.X), float64(ep.Y)) <= heroAbilityRadius {
+		if h.DistTo(float64(ep.X), float64(ep.Y)) <= h.Class.AbilityRadius {
 			g.damageEnemy(e, dmg) // 统一入口 (击杀 XP 由 killEnemy 助攻统一处理)
 			hits++
 		}
 	}
 	// 横扫特效: 半径内每 cell 一团火 (复用 EHit, 同 Meteor 视觉)
 	hx, hy := int(h.X+0.5), int(h.Y+0.5)
-	r := int(heroAbilityRadius)
+	r := int(h.Class.AbilityRadius)
 	for ddy := -r; ddy <= r; ddy++ {
 		for ddx := -r; ddx <= r; ddx++ {
-			if float64(ddx*ddx+ddy*ddy) > heroAbilityRadius*heroAbilityRadius {
+			if float64(ddx*ddx+ddy*ddy) > h.Class.AbilityRadius*h.Class.AbilityRadius {
 				continue
 			}
 			g.Effects = append(g.Effects, makeHitEffect(Point{X: hx + ddx, Y: hy + ddy}))
