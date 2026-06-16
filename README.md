@@ -113,6 +113,7 @@ Per-file mappings live next to the assets: `assets/sprites/LICENSE-Kenney.txt`,
 | `v8.0` | Hero unit (rally / auto-fight / block / respawn) |
 | `v9.0` | Hero growth (per-run level/XP / cleave ability) |
 | `v10.0` | Multiple heroes (Knight / Archer / Rogue classes) |
+| `v11.0` | Meta progression (per-class skill trees / star currency) |
 
 Detailed per-era planning and closure records: [docs/roadmap.md](docs/roadmap.md).
 
