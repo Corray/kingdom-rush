@@ -230,10 +230,14 @@ func (r *TermRenderer) drawGame(g *Game) {
 			putCell(s, p.X, p.Y, '▒', '▒', stPath)
 		}
 	}
-	// 起点 / 终点 markers — V12 P1: 暂用 Paths[0] (单路行为不变); P2 多起点
+	// 起点 / 终点 markers — V12 P2: 每条 path 一个起点 S; 共享汇流终点画一个 E
+	for _, path := range g.Paths {
+		if len(path) > 0 {
+			putCell(s, path[0].X, path[0].Y, ' ', 'S',
+				stPath.Foreground(colStartFg).Bold(true))
+		}
+	}
 	p0 := g.Paths[0]
-	putCell(s, p0[0].X, p0[0].Y, ' ', 'S',
-		stPath.Foreground(colStartFg).Bold(true))
 	end := p0[len(p0)-1]
 	putCell(s, end.X, end.Y, ' ', 'E', stPath.Foreground(colEndFg).Bold(true))
 

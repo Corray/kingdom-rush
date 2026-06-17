@@ -828,15 +828,17 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		}
 	}
 
-	// 起点 / 终点 markers — 在 path overlay 之上, 圆色块 + 字符标签
-	// V12 P1: 暂用 Paths[0] (单路行为不变); P2 多起点 S / 共享终点 E
-	if len(g.Paths[0]) > 0 {
-		p0 := g.Paths[0]
-		sx, sy := cellPos(p0[0])
+	// 起点 / 终点 markers — V12 P2: 每条 path 一个起点 S; 共享汇流终点画一个 E
+	for _, path := range g.Paths {
+		if len(path) == 0 {
+			continue
+		}
+		sx, sy := cellPos(path[0])
 		fillCircle(screen, sx+float32(cellPx)/2, sy+float32(cellPx)/2,
 			float32(cellPx)/3, eColStart)
 		drawText(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
-
+	}
+	if p0 := g.Paths[0]; len(p0) > 0 { // 终点: 所有 path 汇合到同 cell, 画一次
 		end := p0[len(p0)-1]
 		ex, ey := cellPos(end)
 		fillCircle(screen, ex+float32(cellPx)/2, ey+float32(cellPx)/2,

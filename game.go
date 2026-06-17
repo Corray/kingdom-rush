@@ -225,8 +225,9 @@ func (g *Game) Update(dt float64) {
 		g.spawnTimer += dt
 		if g.spawnTimer >= spawnGapS {
 			g.spawnTimer = 0
-			// V12 P1: pathID 0 (单路); P2 改按 g.spawned 均摊到多路
-			g.Enemies = append(g.Enemies, g.spawnEnemy(cur.Enemies[g.spawned], 0, 0))
+			// V12 P2: 按 spawn 计数轮流均摊到多路 (单路 len 1 → 恒 0; 双路偶/奇交替)
+			pathID := g.spawned % len(g.Paths)
+			g.Enemies = append(g.Enemies, g.spawnEnemy(cur.Enemies[g.spawned], 0, pathID))
 			g.spawned++
 		}
 	}
