@@ -817,21 +817,27 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			fillRect(screen, cx-half, cy, half*2, float32(cellPx)/2, col)
 		}
 	}
-	for _, p := range g.Path {
-		drawPathShape(p, outlineW, pathEdgeCol) // pass 1: edge
+	for _, path := range g.Paths { // V12: 遍历所有 path (单路 = 1 条, 汇流段重合 cell 同色叠加)
+		for _, p := range path {
+			drawPathShape(p, outlineW, pathEdgeCol) // pass 1: edge
+		}
 	}
-	for _, p := range g.Path {
-		drawPathShape(p, 0, pathCol) // pass 2: fill
+	for _, path := range g.Paths {
+		for _, p := range path {
+			drawPathShape(p, 0, pathCol) // pass 2: fill
+		}
 	}
 
 	// 起点 / 终点 markers — 在 path overlay 之上, 圆色块 + 字符标签
-	if len(g.Path) > 0 {
-		sx, sy := cellPos(g.Path[0])
+	// V12 P1: 暂用 Paths[0] (单路行为不变); P2 多起点 S / 共享终点 E
+	if len(g.Paths[0]) > 0 {
+		p0 := g.Paths[0]
+		sx, sy := cellPos(p0[0])
 		fillCircle(screen, sx+float32(cellPx)/2, sy+float32(cellPx)/2,
 			float32(cellPx)/3, eColStart)
 		drawText(screen, "S", int(sx)+cellPx/2-3, int(sy)+cellPx/2-6)
 
-		end := g.Path[len(g.Path)-1]
+		end := p0[len(p0)-1]
 		ex, ey := cellPos(end)
 		fillCircle(screen, ex+float32(cellPx)/2, ey+float32(cellPx)/2,
 			float32(cellPx)/3, eColEnd)
@@ -872,8 +878,8 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		lx, ly := pathLerp(g.Path, e.PathIdx)
-		ddx, ddy := pathDir(g.Path, e.PathIdx)
+		lx, ly := pathLerp(g.Paths[e.PathID], e.PathIdx)
+		ddx, ddy := pathDir(g.Paths[e.PathID], e.PathIdx)
 		bob := float32(bobOffset(e.PathIdx))
 		x, y := cellPosF(lx, ly)
 		x += float32(-ddy) * bob // 摆动轴 = 行进方向的垂直向量

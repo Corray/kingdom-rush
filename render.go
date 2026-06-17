@@ -224,13 +224,17 @@ func (r *TermRenderer) drawGame(g *Game) {
 		lv.ID, lv.Name, g.WaveIdx+1, len(lv.Waves))
 	drawString(s, 0, 0, title, stTitle)
 
-	// path
-	for _, p := range g.Path {
-		putCell(s, p.X, p.Y, '▒', '▒', stPath)
+	// path — V12: 遍历所有 path (单路 = 1 条; 汇流段重合 cell 同字符叠加)
+	for _, path := range g.Paths {
+		for _, p := range path {
+			putCell(s, p.X, p.Y, '▒', '▒', stPath)
+		}
 	}
-	putCell(s, g.Path[0].X, g.Path[0].Y, ' ', 'S',
+	// 起点 / 终点 markers — V12 P1: 暂用 Paths[0] (单路行为不变); P2 多起点
+	p0 := g.Paths[0]
+	putCell(s, p0[0].X, p0[0].Y, ' ', 'S',
 		stPath.Foreground(colStartFg).Bold(true))
-	end := g.Path[len(g.Path)-1]
+	end := p0[len(p0)-1]
 	putCell(s, end.X, end.Y, ' ', 'E', stPath.Foreground(colEndFg).Bold(true))
 
 	// towers
@@ -252,7 +256,7 @@ func (r *TermRenderer) drawGame(g *Game) {
 			ch1, ch2 = 'x', 'x'
 		}
 		st := tcell.StyleDefault.Background(colPathBg).Foreground(termColor(spec.Color)).Bold(true)
-		p := e.Pos(g.Path)
+		p := e.Pos(g.Paths[e.PathID])
 		putCell(s, p.X, p.Y, ch1, ch2, st)
 	}
 

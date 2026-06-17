@@ -38,7 +38,8 @@ func (m TargetMode) Next() TargetMode {
 
 // pickTarget: 从射程内可命中敌人中按塔的策略选目标, 无候选返回 nil。
 // 过滤规则与原内联逻辑一致: 跳过 dead/escaped + 飞行单位需 HitsFlying。
-func pickTarget(t *Tower, enemies []*Enemy, path []Point) *Enemy {
+// V12: paths 多路 — 每个敌按自己 PathID 取位 (单路 = [path], PathID 恒 0)。
+func pickTarget(t *Tower, enemies []*Enemy, paths [][]Point) *Enemy {
 	lvl := t.Spec()
 	spec := towerSpecs[t.Kind]
 	var best *Enemy
@@ -49,7 +50,7 @@ func pickTarget(t *Tower, enemies []*Enemy, path []Point) *Enemy {
 		if enemySpecs[e.Kind].Flying && !spec.HitsFlying {
 			continue
 		}
-		ep := e.Pos(path)
+		ep := e.Pos(paths[e.PathID])
 		dx := float64(ep.X - t.Pos.X)
 		dy := float64(ep.Y - t.Pos.Y)
 		if math.Sqrt(dx*dx+dy*dy) > lvl.Range {

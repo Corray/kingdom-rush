@@ -33,7 +33,7 @@ func rankedTowerSpots(g *Game) []Point {
 				continue
 			}
 			n := 0
-			for _, pc := range g.Path {
+			for _, pc := range g.Paths[0] {
 				dx, dy := float64(pc.X-p.X), float64(pc.Y-p.Y)
 				if dx*dx+dy*dy <= r*r {
 					n++
@@ -99,7 +99,7 @@ func simStrategy(g *Game, spots []Point, built *int) {
 			}
 		}
 		if front != nil {
-			g.CastMeteor(front.Pos(g.Path))
+			g.CastMeteor(front.Pos(g.Paths[front.PathID]))
 		}
 	}
 	// V9: 英雄技能就绪即放 (模拟玩家用 cleave, 平衡上界)

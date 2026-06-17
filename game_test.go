@@ -188,7 +188,7 @@ func TestTryAction_NotEnoughGold(t *testing.T) {
 
 func TestTryAction_OnPath(t *testing.T) {
 	g := newTestGame()
-	g.Cursor = g.Path[0]
+	g.Cursor = g.Paths[0][0]
 	g.TryAction()
 	if len(g.Towers) != 0 {
 		t.Errorf("should not build on path")
@@ -236,7 +236,7 @@ func TestUpdate_LivesDecOnEscape(t *testing.T) {
 	g.prepTimer = 0
 	g.Enemies = append(g.Enemies, &Enemy{
 		Kind: ENormal, HP: 20, MaxHP: 20,
-		PathIdx: float64(len(g.Path) - 1),
+		PathIdx: float64(len(g.Paths[0]) - 1),
 	})
 	g.Update(0.1)
 	if g.Lives != g.StartLives-1 {
@@ -250,7 +250,7 @@ func TestUpdate_LostWhenLivesZero(t *testing.T) {
 	g.Lives = 1
 	g.Enemies = append(g.Enemies, &Enemy{
 		Kind: ENormal, HP: 20, MaxHP: 20,
-		PathIdx: float64(len(g.Path) - 1),
+		PathIdx: float64(len(g.Paths[0]) - 1),
 	})
 	g.Update(0.1)
 	if g.Phase != PhaseLost {
@@ -1217,7 +1217,7 @@ func targetingFixture() (*Tower, []*Enemy, []Point) {
 func TestTargeting_FirstMatchesLegacyBehavior(t *testing.T) {
 	// 重构回归: 零值 TargetFirst 必须选 path 最前 (原内联逻辑)
 	tower, enemies, path := targetingFixture()
-	if got := pickTarget(tower, enemies, path); got != enemies[0] {
+	if got := pickTarget(tower, enemies, [][]Point{path}); got != enemies[0] {
 		t.Errorf("First should pick front-most (idx 3), got %+v", got)
 	}
 }
@@ -1231,12 +1231,12 @@ func TestTargeting_LegacyFilters(t *testing.T) {
 		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 2, Dead: true}, // dead 跳过
 		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 1},
 	}
-	if got := pickTarget(cannon, enemies, path); got != enemies[2] {
+	if got := pickTarget(cannon, enemies, [][]Point{path}); got != enemies[2] {
 		t.Errorf("cannon should skip flying+dead, pick idx1 normal, got %+v", got)
 	}
 	// 射程外 → nil
 	far := &Tower{Pos: Point{2, 9}, Kind: TArcher, Level: 1} // dy=9 > range 3.5
-	if got := pickTarget(far, enemies, path); got != nil {
+	if got := pickTarget(far, enemies, [][]Point{path}); got != nil {
 		t.Errorf("out of range should return nil, got %+v", got)
 	}
 }
@@ -1244,7 +1244,7 @@ func TestTargeting_LegacyFilters(t *testing.T) {
 func TestTargeting_Last(t *testing.T) {
 	tower, enemies, path := targetingFixture()
 	tower.Target = TargetLast
-	if got := pickTarget(tower, enemies, path); got != enemies[2] {
+	if got := pickTarget(tower, enemies, [][]Point{path}); got != enemies[2] {
 		t.Errorf("Last should pick rear-most (idx 1), got %+v", got)
 	}
 }
@@ -1252,12 +1252,12 @@ func TestTargeting_Last(t *testing.T) {
 func TestTargeting_Strong(t *testing.T) {
 	tower, enemies, path := targetingFixture()
 	tower.Target = TargetStrong
-	if got := pickTarget(tower, enemies, path); got != enemies[1] {
+	if got := pickTarget(tower, enemies, [][]Point{path}); got != enemies[1] {
 		t.Errorf("Strong should pick HP 99, got %+v", got)
 	}
 	// HP 平手 → 取最前
 	enemies[0].HP = 99
-	if got := pickTarget(tower, enemies, path); got != enemies[0] {
+	if got := pickTarget(tower, enemies, [][]Point{path}); got != enemies[0] {
 		t.Errorf("Strong tie should pick front-most, got %+v", got)
 	}
 }
@@ -1746,13 +1746,13 @@ func TestDifficulty_SpecTable(t *testing.T) {
 
 func TestDifficulty_NewEnemyHPScaling(t *testing.T) {
 	base := enemySpecs[EBoss].HP // 150
-	if e := newEnemy(EBoss, 0, DiffNormal); e.HP != base || e.MaxHP != base {
+	if e := newEnemy(EBoss, 0, 0, DiffNormal); e.HP != base || e.MaxHP != base {
 		t.Errorf("normal HP = %d, want %d", e.HP, base)
 	}
-	if e := newEnemy(EBoss, 0, DiffHard); e.HP != 210 { // 150×1.4
+	if e := newEnemy(EBoss, 0, 0, DiffHard); e.HP != 210 { // 150×1.4
 		t.Errorf("hard boss HP = %d, want 210", e.HP)
 	}
-	if e := newEnemy(EBoss, 0, DiffEasy); e.HP != 105 { // 150×0.7
+	if e := newEnemy(EBoss, 0, 0, DiffEasy); e.HP != 105 { // 150×0.7
 		t.Errorf("easy boss HP = %d, want 105", e.HP)
 	}
 }
@@ -1910,7 +1910,7 @@ func TestEndless_StartAndNeverWon(t *testing.T) {
 		if !g.Endless || g.Phase != PhasePlaying {
 			t.Fatalf("endless should start playing")
 		}
-		if g.currentLevel().Name != "Endless" || len(g.Path) == 0 {
+		if g.currentLevel().Name != "Endless" || len(g.Paths[0]) == 0 {
 			t.Fatalf("endless level not set up")
 		}
 		if g.Lives != endlessStartLives {
@@ -1966,13 +1966,13 @@ func TestEndless_LateWaveHPScaling(t *testing.T) {
 	g := newTestGame()
 	g.Endless = true
 	g.WaveIdx = 19 // wave 20 → scale 1.5
-	e := g.spawnEnemy(ENormal, 0)
+	e := g.spawnEnemy(ENormal, 0, 0)
 	if e.HP != 40 { // 20 × 2.0 (V7.5: HPScale 10%/wave)
 		t.Errorf("endless wave 20 normal HP = %d, want 40", e.HP)
 	}
 	// 普通关卡不缩放
 	g.Endless = false
-	if e := g.spawnEnemy(ENormal, 0); e.HP != 20 {
+	if e := g.spawnEnemy(ENormal, 0, 0); e.HP != 20 {
 		t.Errorf("non-endless HP = %d, want 20", e.HP)
 	}
 }
@@ -1994,7 +1994,7 @@ func TestEndless_LoseRecordsBest(t *testing.T) {
 		g.Lives = 1
 		// 敌人走到终点触发 lose
 		g.Enemies = []*Enemy{{Kind: EFast, HP: 12, MaxHP: 12,
-			PathIdx: float64(len(g.Path) - 1)}}
+			PathIdx: float64(len(g.Paths[0]) - 1)}}
 		g.Update(0.5)
 		if g.Phase != PhaseLost {
 			t.Fatalf("expected PhaseLost, got %v", g.Phase)

@@ -168,6 +168,7 @@ var enemySpecs = map[EnemyKind]EnemySpec{
 
 type Enemy struct {
 	PathIdx float64
+	PathID  int // V12: 走哪条 path (索引 g.Paths; 单路恒 0)
 	Kind    EnemyKind
 	HP      int
 	MaxHP   int

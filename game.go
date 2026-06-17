@@ -34,7 +34,7 @@ type Game struct {
 	LevelIdx int
 	Save     Save // 存档:已完成关卡 + unlock 状态
 
-	Path        []Point
+	Paths       [][]Point // V12: 多进攻路径 (单路退化 = len 1)
 	pathLookup  map[Point]bool
 	Towers      []*Tower
 	Enemies     []*Enemy
@@ -112,10 +112,12 @@ func (g *Game) StartEndless(seed int64) {
 // StartEndless 共用, 行为不变)。
 func (g *Game) beginRun(lv Level) {
 	g.Phase = PhasePlaying
-	g.Path = lv.Path
-	g.pathLookup = make(map[Point]bool, len(lv.Path))
-	for _, p := range lv.Path {
-		g.pathLookup[p] = true
+	g.Paths = lv.Paths()
+	g.pathLookup = make(map[Point]bool)
+	for _, path := range g.Paths { // V12: 所有 path cells 并集 (塔/decor 避让, 天然去重)
+		for _, p := range path {
+			g.pathLookup[p] = true
+		}
 	}
 	g.Towers = nil
 	g.Enemies = nil
@@ -223,7 +225,8 @@ func (g *Game) Update(dt float64) {
 		g.spawnTimer += dt
 		if g.spawnTimer >= spawnGapS {
 			g.spawnTimer = 0
-			g.Enemies = append(g.Enemies, g.spawnEnemy(cur.Enemies[g.spawned], 0))
+			// V12 P1: pathID 0 (单路); P2 改按 g.spawned 均摊到多路
+			g.Enemies = append(g.Enemies, g.spawnEnemy(cur.Enemies[g.spawned], 0, 0))
 			g.spawned++
 		}
 	}
@@ -244,7 +247,7 @@ func (g *Game) Update(dt float64) {
 		}
 		e.Blocked = false
 		e.PathIdx += e.EffectiveSpeed() * dt
-		if e.PathIdx >= float64(len(g.Path)-1) {
+		if e.PathIdx >= float64(len(g.Paths[e.PathID])-1) {
 			e.Escaped = true
 			g.Lives--
 			if g.Lives <= 0 {
@@ -270,13 +273,13 @@ func (g *Game) Update(dt float64) {
 		}
 		// V5 Phase 2: 目标选择抽 pickTarget 纯函数 (targeting.go),
 		// 按塔的 Target 策略选 (默认 First = 原"最前优先"行为)
-		target := pickTarget(t, g.Enemies, g.Path)
+		target := pickTarget(t, g.Enemies, g.Paths)
 		if target != nil {
 			t.cooldown = lvl.Cooldown
 			// V2.6: push 视觉特效  (V3 Phase 3b: shoot 带 tower kind 决定 bullet sprite)
 			g.Effects = append(g.Effects,
-				makeShootEffect(t.Pos, target.Pos(g.Path), towerSpec.Color, t.Kind),
-				makeHitEffect(target.Pos(g.Path)),
+				makeShootEffect(t.Pos, target.Pos(g.Paths[target.PathID]), towerSpec.Color, t.Kind),
+				makeHitEffect(target.Pos(g.Paths[target.PathID])),
 			)
 			g.pushSound(shootSound(t.Kind)) // V4: 射击音按塔型分 (伤害即时结算, 不另设 hit 音)
 			g.damageEnemy(target, lvl.Damage)
@@ -287,7 +290,7 @@ func (g *Game) Update(dt float64) {
 			// V5 Phase 3: Cannon 溅射 — 主目标位置 Splash 半径内
 			// 其他敌人吃 splashFactor 折扣伤害 (飞行过滤与主目标一致)
 			if lvl.Splash > 0 {
-				tp := target.Pos(g.Path)
+				tp := target.Pos(g.Paths[target.PathID])
 				splashDmg := int(math.Round(float64(lvl.Damage) * splashFactor))
 				for _, e := range g.Enemies {
 					if e == target || e.Dead || e.Escaped {
@@ -296,7 +299,7 @@ func (g *Game) Update(dt float64) {
 					if enemySpecs[e.Kind].Flying && !towerSpec.HitsFlying {
 						continue
 					}
-					ep := e.Pos(g.Path)
+					ep := e.Pos(g.Paths[e.PathID])
 					ddx := float64(ep.X - tp.X)
 					ddy := float64(ep.Y - tp.Y)
 					if math.Sqrt(ddx*ddx+ddy*ddy) <= lvl.Splash {
@@ -415,7 +418,7 @@ const splashFactor = 0.5
 func (g *Game) damageEnemy(e *Enemy, dmg int) {
 	e.HP -= dmg
 	// V4 Phase 3/4: 插值坐标 (对齐渲染层平滑位置), 飘字 + 死亡动画共用
-	fx, fy := pathLerp(g.Path, e.PathIdx)
+	fx, fy := pathLerp(g.Paths[e.PathID], e.PathIdx)
 	g.Effects = append(g.Effects, makeDamageText(fx, fy, dmg))
 	if e.HP <= 0 && !e.Dead {
 		g.killEnemy(e, fx, fy)
@@ -441,9 +444,9 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 	// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
 	// (V6 Phase 2: 召唤物同样吃难度系数 — newEnemy 统一施加点)
 	if e.Kind == ESpawner {
-		g.Enemies = append(g.Enemies,
-			g.spawnEnemy(ENormal, e.PathIdx),
-			g.spawnEnemy(ENormal, e.PathIdx),
+		g.Enemies = append(g.Enemies, // V12: 召唤物继承父敌 PathID (同路同点)
+			g.spawnEnemy(ENormal, e.PathIdx, e.PathID),
+			g.spawnEnemy(ENormal, e.PathIdx, e.PathID),
 		)
 	}
 	// V9: 英雄在场则每个击杀给 XP (威胁加权, 被动累积)。killEnemy 是唯一
@@ -455,19 +458,21 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 }
 
 // newEnemy: V6 Phase 2 — 难度 HP 系数施加 (纯函数, 可测)。
-func newEnemy(kind EnemyKind, pathIdx float64, d Difficulty) *Enemy {
+// V12: pathID 指定走哪条 path (单路恒 0)。
+func newEnemy(kind EnemyKind, pathIdx float64, pathID int, d Difficulty) *Enemy {
 	hp := int(math.Round(float64(enemySpecs[kind].HP) * d.Spec().HPMul))
 	if hp < 1 {
 		hp = 1
 	}
-	return &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx}
+	return &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx, PathID: pathID}
 }
 
 // spawnEnemy: V6 Phase 3 — 敌人生成唯一入口 (wave spawn + Spawner
 // 召唤共用): newEnemy 难度基础值 + endless 后期 HP 缩放。
 // 家族约束: 新增生成来源必须经此, 否则 endless 缩放会漏。
-func (g *Game) spawnEnemy(kind EnemyKind, pathIdx float64) *Enemy {
-	e := newEnemy(kind, pathIdx, g.Save.Difficulty)
+// V12: pathID 决定走哪条 path (wave spawn 由调用方均摊; Spawner 召唤继承父)。
+func (g *Game) spawnEnemy(kind EnemyKind, pathIdx float64, pathID int) *Enemy {
+	e := newEnemy(kind, pathIdx, pathID, g.Save.Difficulty)
 	if g.Endless {
 		if s := endlessHPScale(g.WaveIdx + 1); s > 1 {
 			e.HP = int(math.Round(float64(e.HP) * s))
@@ -519,7 +524,7 @@ func (g *Game) CastMeteor(at Point) bool {
 		if e.Dead || e.Escaped {
 			continue
 		}
-		ep := e.Pos(g.Path)
+		ep := e.Pos(g.Paths[e.PathID])
 		dx := float64(ep.X - at.X)
 		dy := float64(ep.Y - at.Y)
 		if math.Sqrt(dx*dx+dy*dy) <= meteorRadius {
@@ -714,7 +719,7 @@ func (g *Game) updateHero(dt float64) {
 		if e.meleeCD > 0 {
 			e.meleeCD -= dt
 		}
-		ep := e.Pos(g.Path)
+		ep := e.Pos(g.Paths[e.PathID])
 		if h.DistTo(float64(ep.X), float64(ep.Y)) <= heroContactRange && e.meleeCD <= 0 {
 			e.meleeCD = enemyMeleeCD
 			g.hurtHero(spec.Attack)
@@ -731,7 +736,7 @@ func (g *Game) heroTarget() *Enemy {
 		if e.Dead || e.Escaped || enemySpecs[e.Kind].Flying {
 			continue
 		}
-		ep := e.Pos(g.Path)
+		ep := e.Pos(g.Paths[e.PathID])
 		d := h.DistTo(float64(ep.X), float64(ep.Y))
 		if d > h.AttackRange() {
 			continue
@@ -760,7 +765,7 @@ func (g *Game) hurtHero(dmg int) {
 // respawnHero: 复活在 path 中点满血, 集结点重置为复活点。
 func (g *Game) respawnHero() {
 	h := g.Hero
-	mid := g.Path[len(g.Path)/2]
+	mid := g.Paths[0][len(g.Paths[0])/2] // V12: 复活在 path0 中点 (单路行为不变)
 	h.X, h.Y = float64(mid.X), float64(mid.Y)
 	h.RallyX, h.RallyY = h.X, h.Y
 	h.HP = h.MaxHP // V9: 复活回当前等级满血 (per-run 等级不因阵亡清零)
@@ -775,7 +780,7 @@ func (g *Game) heroBlocks(e *Enemy) bool {
 	if enemySpecs[e.Kind].Flying {
 		return false
 	}
-	ep := e.Pos(g.Path)
+	ep := e.Pos(g.Paths[e.PathID])
 	return g.Hero.DistTo(float64(ep.X), float64(ep.Y)) <= heroContactRange
 }
 
@@ -821,7 +826,7 @@ func (g *Game) CastHeroAbility() bool {
 		if e.Dead || e.Escaped || enemySpecs[e.Kind].Flying {
 			continue
 		}
-		ep := e.Pos(g.Path)
+		ep := e.Pos(g.Paths[e.PathID])
 		if h.DistTo(float64(ep.X), float64(ep.Y)) <= h.AbilityRange() {
 			g.damageEnemy(e, dmg) // 统一入口 (击杀 XP 由 killEnemy 助攻统一处理)
 			hits++

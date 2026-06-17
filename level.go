@@ -21,11 +21,22 @@ type Level struct {
 	StartGold  int      `yaml:"start_gold"`
 	StartLives int      `yaml:"start_lives"`
 	CPS        [][]int  `yaml:"cps"`
+	CPS2       [][]int  `yaml:"cps2"` // V12: 可选第二条进攻路径 (空 = 单路)
 	WavesRaw   []string `yaml:"waves"`
 
 	// 派生字段(load 时填充, 不来自 yaml)
 	Path  []Point    `yaml:"-"`
+	Path2 []Point    `yaml:"-"` // V12: CPS2 展开 (空 = 单路)
 	Waves []WaveSpec `yaml:"-"`
+}
+
+// Paths: V12 — 该关所有进攻路径 (单路 = [Path]; 双路 = [Path, Path2])。
+// 决策 C: 双路末尾汇合到同终点 cell, 渲染去重画成一条。
+func (lv *Level) Paths() [][]Point {
+	if len(lv.Path2) > 0 {
+		return [][]Point{lv.Path, lv.Path2}
+	}
+	return [][]Point{lv.Path}
 }
 
 func ExpandPath(cps [][]int) ([]Point, error) {
@@ -120,6 +131,13 @@ func FinalizeLevels(levels []Level) error {
 			return fmt.Errorf("level %d (%s): %w", levels[i].ID, levels[i].Name, err)
 		}
 		levels[i].Path = path
+		if len(levels[i].CPS2) > 0 {
+			path2, err := ExpandPath(levels[i].CPS2)
+			if err != nil {
+				return fmt.Errorf("level %d (%s) cps2: %w", levels[i].ID, levels[i].Name, err)
+			}
+			levels[i].Path2 = path2
+		}
 		levels[i].Waves = nil
 		for j, raw := range levels[i].WavesRaw {
 			seq, err := ParseWave(raw)

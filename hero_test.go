@@ -90,7 +90,7 @@ func TestBeginRunSpawnsHero(t *testing.T) {
 	if g.Hero == nil {
 		t.Fatal("StartLevel should spawn a hero")
 	}
-	mid := g.Path[len(g.Path)/2]
+	mid := g.Paths[0][len(g.Paths[0])/2]
 	if g.Hero.X != float64(mid.X) || g.Hero.Y != float64(mid.Y) {
 		t.Errorf("hero spawn: got (%v,%v), want path mid (%d,%d)",
 			g.Hero.X, g.Hero.Y, mid.X, mid.Y)
@@ -113,7 +113,7 @@ func TestSetHeroRallyMovesHero(t *testing.T) {
 
 // injectEnemyAtHero: 在英雄所在 path index 注入一个敌人 (测试辅助)。
 func injectEnemyAtHero(g *Game, kind EnemyKind, hp int) *Enemy {
-	e := &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: float64(len(g.Path) / 2)}
+	e := &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: float64(len(g.Paths[0]) / 2)}
 	g.Enemies = append(g.Enemies, e)
 	return e
 }
@@ -135,7 +135,7 @@ func TestHeroAttacksEnemy(t *testing.T) {
 func TestHeroAttacksNearest(t *testing.T) {
 	g := newTestGame()
 	near := injectEnemyAtHero(g, ENormal, 20) // 与英雄同格 (dist 0)
-	far := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: float64(len(g.Path)/2) + 1}
+	far := &Enemy{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: float64(len(g.Paths[0])/2) + 1}
 	g.Enemies = append(g.Enemies, far)
 	g.Update(0.1)
 	if near.HP >= 20 {
@@ -213,7 +213,7 @@ func TestHeroDeathAndRespawn(t *testing.T) {
 	if !g.Hero.Alive() || g.Hero.HP != knight.MaxHP {
 		t.Errorf("hero should revive full HP: alive=%v HP=%d", g.Hero.Alive(), g.Hero.HP)
 	}
-	mid := g.Path[len(g.Path)/2]
+	mid := g.Paths[0][len(g.Paths[0])/2]
 	if g.Hero.X != float64(mid.X) || g.Hero.Y != float64(mid.Y) {
 		t.Errorf("hero should revive at path mid (%d,%d): got (%v,%v)",
 			mid.X, mid.Y, g.Hero.X, g.Hero.Y)
@@ -232,9 +232,9 @@ func TestHeroBlocksGroundEnemy(t *testing.T) {
 	if !e.Blocked {
 		t.Error("ground enemy adjacent to hero should be Blocked")
 	}
-	if e.PathIdx != float64(len(g.Path)/2) {
+	if e.PathIdx != float64(len(g.Paths[0])/2) {
 		t.Errorf("blocked enemy must not advance: PathIdx=%v, want %v (不动)",
-			e.PathIdx, len(g.Path)/2)
+			e.PathIdx, len(g.Paths[0])/2)
 	}
 }
 
