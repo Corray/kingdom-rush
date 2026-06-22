@@ -22,6 +22,8 @@
 | V9 Phase 1-4 | 英雄成长 | 关内 per-run 等级/XP（被动 XP 威胁加权——决策 B 两轮仿真证伪改判、升级提 HP/伤害/射程+回血）、AoE 横扫主动技能（L3 解锁 / `G` 键 / 8s 冷却 / 经 damageEnemy）、两端 HUD 等级/XP 条/技能冷却、仿真接入成长（平衡零回归 Hard 19/20）、test-infra headless 解耦、159 tests | `v9.0` | `a3c8be3` |
 | V10 Phase 1-4 | 多英雄选择 | 三职业 Knight/Archer/Rogue（HeroClass 参数化重构、阻挡 per-class gating、菜单 `H` 选择 + `Save.HeroChoice` 零值兼容、程序化配色金/绿/紫）、per-class 仿真矩阵 + 一轮校准（三职业 Hard 19/20 净 +2 持平、难点关保留、差异落风格不落数值）、173 tests | `v10.0` | `f9dcd9c` |
 | V11 Phase 1-4 | Meta 成长 | 跨局技能树（per-class 线性 4 节点、星货币 60 赚 vs 90 总价制造 build 取舍、`HeroBonus` 七字段 beginRun 快照、菜单 `T` 新 `PhaseSkillTree` 两端）、「perk 预算」替代「按关缩放」（持久层存树点不存等级 → 平衡冲击缩到一张 perk 表）、仿真上下界 + Knight 树一轮校准（满树三职业 Hard 20/20 earned power、无树基线零回归）、188 tests | `v11.0` | `cda346d` |
+| V12 Phase 1-4 | 多入口 path | 单路径承重假设首次重构：`Paths [][]Point` + `Enemy.PathID` + `Level.CPS2`，57 触点机械替换零回归；全 20 关双路（cps2 汇合同终点）、spawn 均摊交替、汇流渲染去重两端；仿真校准（Normal 20/20、Hard 19/20 难点移 Lv9）、195 tests | `v12.0` | `4494364` |
+| V13 | 新敌人类型 | 敌型 5→8：EShield（护甲减免 min 1）、ERegen（每秒回血）、EHealer（治疗附近盟友）；L8 起渐进混入 20 关 wave、endless 按波次解锁；202 tests | `v13.0` | `21cc588` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -674,7 +676,7 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 
 ---
 
-## V12 — 多入口 path（进行中，启动 2026-06-17）
+## V12 — 多入口 path（已收尾 2026-06-22，tag `v12.0` @ `4494364`）
 
 > 英雄深化收官后，用户从广度/对外候选拍板 **多入口 path**——gameplay 广度最大的一刀，也是从 V0 埋下的「单路径」承重假设的首次正面重构。研究发现承重面收敛：`Enemy.Pos`/`pickTarget`/`pathLerp`/`pathDir` 在 V4/V5 重构时**已参数化 `path []Point`**（不读全局），故多 path 的核心计算无需重写，触点（57 处/7 文件）多为「调用处实参从 `g.Path` 换 `g.Paths[e.PathID]`」的机械替换。LMP **L3**（架构级承重假设重构）。
 
@@ -702,6 +704,79 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 3. **英雄阻挡只能守一路**——多路天然削弱英雄（V8-V11 的英雄价值部分架空）；设计上合理（迫使取舍）但可能过度，P4 仿真 + 实玩双校
 4. **汇流段双倍密度**——两路敌在尾段叠加，尾段可能过载 / 成为唯一有效防守点，使「多入口」沦为「单出口」假多路；趣味性存疑，实玩验
 5. **57 触点机械替换易漏**——`e.Pos(g.Path)` 漏改一处 = 该敌按错 path 取位（错位/穿模）；P1 grep 清零 + 单路零回归测试兜底
+
+### V12 收尾记录（2026-06-22）
+
+**完成度：** 4/4 phase，测试 188 → 195（+7），三 build（desktop / term / wasm）+ go vet 全程绿。
+
+**Phase 兑现：**
+
+| Phase | commit | 交付 |
+|-------|--------|------|
+| P1 数据模型多路化 | `c3b9fbe` | `Paths [][]Point` + `Enemy.PathID` + `Level.CPS2`；57 触点机械替换；188 tests 零断言变化（单路退化 = 零回归） |
+| P2 spawn 均摊+汇流渲染 | `7634da3` | spawn 按计数交替分配 PathID；渲染遍历所有 path + 多起点 S / 共享终点 E；6 multipath 测试 |
+| P3 全 20 关双路数据 | `4494364` | 20 关各添加 `cps2`（第二入口，末尾汇合同终点）；`TestLevels_DualPathIntegrity` 校验双路连通+汇流+地图范围 |
+| P4 仿真+平衡校准 | `4494364`（同 P3 合并提交） | 修复 `rankedTowerSpots` 仅覆盖 `Paths[0]` → 覆盖所有路径；Normal 20/20 全通 |
+
+**平衡结论（仿真实测，双路削弱英雄阻挡但整体平衡健康）：**
+
+| 模式 | V11（单路） | V12（双路） | 判定 |
+|------|-------------|-------------|------|
+| Normal | 20/20 全 3★ | 20/20 全通（18 关 3★） | 稳 |
+| Hard | 19/20 (Lv11 难点) | 19/20 (Lv9 难点) | 难点关移位，仍有挑战 |
+| 无英雄基线 | 17/20 | 15/20 | 双路削弱英雄（预期，迫使取舍） |
+
+**盲点兑现：**
+- 盲点 1（平衡重校）：auto-player bug 修后**零轮手调**收敛（仿真器路径覆盖修正 = 根因，不是数值问题）
+- 盲点 2（汇流数据纪律）：`TestLevels_DualPathIntegrity` 20 关全过，尾段真重合
+- 盲点 3（英雄只守一路）：无英雄基线 15/20（-2），设计意图实现（迫使取舍）
+- 盲点 5（57 触点漏改）：P1 grep 清零 + 单路零回归 188 tests 兜底
+
+**未竟项：** 无。
+
+---
+
+## V13 — 新敌人类型（已收尾 2026-06-22，tag `v13.0` @ `21cc588`）
+
+> V12 双路完成后的 gameplay 深度扩展。从「新敌人 / 真 sprite / Boss 机制」三候选中选 **新敌人类型**——纯加法，每种克制不同防守策略，与双路系统协同丰富战术组合。LMP L2。
+
+### 启动决策（沿 V5~V12 先例不单设 ADR）
+
+- **决策 A — 三种新敌人，各克制一种策略。** EShield 克制 Archer 速射；ERegen 克制分散火力；EHealer 克制被动防御。
+- **决策 B — 渐进引入。** L8 起 Shield，L10 起 Regen，L13 起 Healer，L20 全家桶。替换部分现有敌人而非增加总量，保守不破平衡。
+- **决策 C — endless 按波次解锁。** wave 4 Shield / 6 Regen / 7 Healer / 8 Boss，预算权重 Shield 3 / Regen 3 / Healer 4。
+
+### 三种新敌人
+
+| 类型 | DSL | HP | 速度 | 护甲 | 回血/s | 治疗CD | 奖励 | 克制 |
+|------|-----|-----|------|------|--------|--------|------|------|
+| EShield | `d` | 30 | 2.0 | 4 | — | — | 20 | Archer 低伤速射（8-4=4 实际伤害） |
+| ERegen | `r` | 40 | 2.5 | — | 3 | — | 22 | 分散火力（需集火或爆发击杀） |
+| EHealer | `h` | 20 | 2.5 | — | — | 2.0s | 30 | 被动防御（治疗半径 2，+5hp 最低血量盟友） |
+
+### 机制实现
+
+- **护甲**：`damageEnemy` 统一入口减免 `Armor` 伤害（min 1），高伤穿甲（Cannon 25-4=21）
+- **回血**：Update 循环每秒 +`Regen` HP（不超 MaxHP）
+- **治疗**：Update 循环按 `HealCD` 周期治疗半径内最低血量盟友 +5hp，绿色飘字
+
+### V13 收尾记录（2026-06-22）
+
+**完成度：** 一次性交付（entities + 机制 + wave 数据 + 测试），测试 195 → 202（+7），三 build + vet 绿。
+
+**新增测试：** ParseWave V13 DSL / Shield 护甲减免 ×3（标准/最低 1/高伤穿甲）/ Regen 回血 + 不超 Max / Healer 治疗盟友。
+
+**平衡结论（仿真 202 tests 全过）：**
+
+| 模式 | V12 | V13 | 判定 |
+|------|-----|-----|------|
+| Normal | 20/20 | 20/20 | 不变 |
+| Hard | 19/20 | 19/20 | 不变 |
+| 三职业净非负 | K19/A20/R19 | K19/A20/R19 | 不变 |
+
+**替换策略验证：** 新敌人替换部分旧敌人（不增总量），auto-player 策略自然应对（Cannon/Magic 高伤穿甲 Shield，塔覆盖面杀 Regen/Healer），平衡零手调。
+
+**未竟项：** 无。
 
 ---
 
@@ -738,3 +813,5 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 | 2026-06-11 | V11 P1-P4 实现完成 + 部署：P1 持久层+购买（`7db4abe`，60 星恰好两棵树的取舍实锤入测）→ P2 HeroBonus 七字段接线（含零 bonus = V10 基线零回归守护）→ P3 PhaseSkillTree 两端 + playwright 冒烟（三列职业色/选中金边/0 星拒绝反馈/localStorage 跨会话恢复）→ P4 仿真上下界。**盲点 3「太弱白做」实证**：首跑 Knight 满树 Hard +0（30 星无感）→ 校准（+6 dmg / 复活 -6s）三职业满树统一 20/20（+1，earned power 兑现），无树基线 19/20 不变。188 tests。**tag `v11.0` 待用户线上实玩技能树手感确认** |
 | 2026-06-16 | V11 收尾：用户实玩确认技能树手感满意 → tag `v11.0` @ `cda346d`，版本史表补 V11 行 + 收尾记录定稿（perk 预算改判 + 盲点 3 校准留档），README/spool 同步。十一 era 闭环（v1.0~v11.0 / 188 tests）。英雄深化四子项收官（成长/多英雄/技能树+持久化交付，仅专用 sprite 素材阻塞悬留）|
 | 2026-06-17 | V12 启动：用户拍板多入口 path（gameplay 广度，单路径承重假设首次重构，LMP L3）。研究证承重面收敛（Pos/pickTarget/pathLerp 已参数化 path）。决策 A 全 20 关双路（用户拍板，最大回归面）/ B 自动均摊（wave DSL 零改动）/ C 共享汇流（用户拍板，数据层重合尾段免几何）/ D endless 保持单路 / E Paths[][]Point + Enemy.PathID + Level.CPS2。4 Phase（数据模型多路化零回归 → spawn 均摊+汇流渲染 → 全 20 关双路数据 → 仿真+平衡全重校+收尾）|
+| 2026-06-22 | V12 收尾：P3+P4 合并交付（`4494364`），20 关 cps2 全入 + `TestLevels_DualPathIntegrity` 校验 + `rankedTowerSpots` 多路覆盖修复。Normal 20/20、Hard 19/20（Lv9 难点）、无英雄 15/20（双路削弱预期）。tag `v12.0` @ `4494364`，195 tests |
+| 2026-06-22 | V13 一次性交付（`21cc588`）：敌型 5→8（EShield 护甲 / ERegen 回血 / EHealer 治疗），damageEnemy 加 armor 减免 / Update 加 regen+healer AI / wave DSL 扩展 d/r/h / L8 起渐进混入 20 关 / endless 按波次解锁。仿真 202 tests 全过（Normal 20/20、Hard 19/20 不变）。tag `v13.0` @ `21cc588` |
