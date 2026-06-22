@@ -33,10 +33,12 @@ func rankedTowerSpots(g *Game) []Point {
 				continue
 			}
 			n := 0
-			for _, pc := range g.Paths[0] {
-				dx, dy := float64(pc.X-p.X), float64(pc.Y-p.Y)
-				if dx*dx+dy*dy <= r*r {
-					n++
+			for _, path := range g.Paths {
+				for _, pc := range path {
+					dx, dy := float64(pc.X-p.X), float64(pc.Y-p.Y)
+					if dx*dx+dy*dy <= r*r {
+						n++
+					}
 				}
 			}
 			if n > 0 {

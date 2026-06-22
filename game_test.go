@@ -1690,6 +1690,40 @@ func TestLevels_IntegrityAll(t *testing.T) {
 	}
 }
 
+// V12 P3: 全 20 关双路校验 — 每关有 cps2, 末尾汇合到 cps 终点, path2 在地图内。
+func TestLevels_DualPathIntegrity(t *testing.T) {
+	levels, err := LoadLevels()
+	if err != nil {
+		t.Fatalf("LoadLevels failed: %v", err)
+	}
+	for _, lv := range levels {
+		if len(lv.Path2) == 0 {
+			t.Errorf("Lv%d (%s) missing cps2 (V12: all 20 levels must be dual-path)", lv.ID, lv.Name)
+			continue
+		}
+		// 起点 x=0
+		if lv.Path2[0].X != 0 {
+			t.Errorf("Lv%d path2 should start at x=0, got %v", lv.ID, lv.Path2[0])
+		}
+		// 不同起点 (双入口)
+		if lv.Path[0] == lv.Path2[0] {
+			t.Errorf("Lv%d path and path2 start at same point %v (want different entries)", lv.ID, lv.Path[0])
+		}
+		// 汇合: 末尾 cell 相同
+		tail1 := lv.Path[len(lv.Path)-1]
+		tail2 := lv.Path2[len(lv.Path2)-1]
+		if tail1 != tail2 {
+			t.Errorf("Lv%d paths must converge: tail1=%v tail2=%v", lv.ID, tail1, tail2)
+		}
+		// path2 全 cell 在地图内
+		for _, p := range lv.Path2 {
+			if p.X < 0 || p.X >= mapW || p.Y < 0 || p.Y >= mapH {
+				t.Errorf("Lv%d path2 cell %v out of map %dx%d", lv.ID, p, mapW, mapH)
+			}
+		}
+	}
+}
+
 func TestLevels_DifficultyRampsUp(t *testing.T) {
 	// 粗粒度难度单调性: 后 10 关总敌量 ≥ 前 10 关均值 (防 yaml 抄错)
 	levels, err := LoadLevels()

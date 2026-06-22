@@ -19,7 +19,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 
 ## Features
 
-- **20 handcrafted levels** with escalating difficulty and themed wave design
+- **20 handcrafted dual-path levels** — every level has two entry points converging at a shared exit, forcing you to split your defenses
 - **4 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow) — each with 3 upgrade levels
 - **5 enemy types** — Normal, Fast, Glider (flying, cannons can't hit), Boss, Spawner (summons on death)
 - **Hero unit** — a controllable champion: press `H` to rally it anywhere on the map. It auto-attacks nearby enemies, falls when overwhelmed, and respawns after a cooldown. Fliers slip past it. It **levels up through each battle** (kills grant XP → more HP / damage / range, healing on level-up) and unlocks a **cleave** ability (`G`) at level 3.
