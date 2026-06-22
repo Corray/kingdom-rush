@@ -23,6 +23,9 @@ var enemyCost = map[EnemyKind]int{
 	EFast:    2,
 	EGlider:  3,
 	ESpawner: 4,
+	EShield:  3,
+	ERegen:   3,
+	EHealer:  4,
 	EBoss:    10,
 }
 
@@ -38,8 +41,17 @@ func endlessPool(n int) []EnemyKind {
 	if n >= 3 {
 		pool = append(pool, EGlider)
 	}
+	if n >= 4 {
+		pool = append(pool, EShield)
+	}
 	if n >= 5 {
 		pool = append(pool, ESpawner)
+	}
+	if n >= 6 {
+		pool = append(pool, ERegen)
+	}
+	if n >= 7 {
+		pool = append(pool, EHealer)
 	}
 	if n >= 8 {
 		pool = append(pool, EBoss)

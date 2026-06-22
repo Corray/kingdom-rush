@@ -264,6 +264,57 @@ func (g *Game) Update(dt float64) {
 			}
 		}
 	}
+	// V13: regen — 回血兵每秒回复 HP (不超过 MaxHP)
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped {
+			continue
+		}
+		if regen := enemySpecs[e.Kind].Regen; regen > 0 && e.HP < e.MaxHP {
+			e.regenAcc += dt
+			if e.regenAcc >= 1.0 {
+				e.regenAcc -= 1.0
+				e.HP += regen
+				if e.HP > e.MaxHP {
+					e.HP = e.MaxHP
+				}
+			}
+		}
+	}
+	// V13: healer — 治疗者定期治疗附近最低血量盟友
+	const healRadius = 2.0
+	const healAmount = 5
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped || enemySpecs[e.Kind].HealCD <= 0 {
+			continue
+		}
+		e.healCD -= dt
+		if e.healCD > 0 {
+			continue
+		}
+		e.healCD = enemySpecs[e.Kind].HealCD
+		hx, hy := pathLerp(g.Paths[e.PathID], e.PathIdx)
+		var best *Enemy
+		for _, ally := range g.Enemies {
+			if ally == e || ally.Dead || ally.Escaped || ally.HP >= ally.MaxHP {
+				continue
+			}
+			ax, ay := pathLerp(g.Paths[ally.PathID], ally.PathIdx)
+			dx, dy := ax-hx, ay-hy
+			if dx*dx+dy*dy <= healRadius*healRadius {
+				if best == nil || ally.HP < best.HP {
+					best = ally
+				}
+			}
+		}
+		if best != nil {
+			best.HP += healAmount
+			if best.HP > best.MaxHP {
+				best.HP = best.MaxHP
+			}
+			fx, fy := pathLerp(g.Paths[best.PathID], best.PathIdx)
+			g.Effects = append(g.Effects, makeHealText(fx, fy, healAmount))
+		}
+	}
 	// shoot — 塔目标 path 最远的可击中敌人 (Cannon 不打飞行)
 	for _, t := range g.Towers {
 		lvl := t.Spec()
@@ -417,6 +468,12 @@ const splashFactor = 0.5
 // damageEnemy: V5 Phase 3 前置重构 — 伤害结算唯一入口 (主目标与
 // 溅射目标同路径): HP 扣减 + 伤害飘字 + 致死转 killEnemy。
 func (g *Game) damageEnemy(e *Enemy, dmg int) {
+	if armor := enemySpecs[e.Kind].Armor; armor > 0 && dmg > 1 {
+		dmg -= armor
+		if dmg < 1 {
+			dmg = 1
+		}
+	}
 	e.HP -= dmg
 	// V4 Phase 3/4: 插值坐标 (对齐渲染层平滑位置), 飘字 + 死亡动画共用
 	fx, fy := pathLerp(g.Paths[e.PathID], e.PathIdx)

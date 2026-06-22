@@ -394,6 +394,112 @@ func TestParseWave_Spawner(t *testing.T) {
 	}
 }
 
+// V13: 新敌人类型 DSL 解析
+func TestParseWave_V13Types(t *testing.T) {
+	seq, err := ParseWave("d2 r1 h1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []EnemyKind{EShield, EShield, ERegen, EHealer}
+	if len(seq) != len(want) {
+		t.Fatalf("len = %d, want %d", len(seq), len(want))
+	}
+	for i, k := range want {
+		if seq[i] != k {
+			t.Errorf("seq[%d] = %d, want %d", i, seq[i], k)
+		}
+	}
+}
+
+// V13: 护甲减免 — EShield 的 Armor 4 让 Archer dmg 8 只打 4
+func TestShield_ArmorReducesDamage(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	e := &Enemy{Kind: EShield, HP: 30, MaxHP: 30, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	g.damageEnemy(e, 8) // Archer lvl1 = 8 dmg, armor 4 → actual 4
+	if e.HP != 26 {
+		t.Errorf("shield HP = %d, want 26 (8 - 4 armor = 4 actual)", e.HP)
+	}
+}
+
+// V13: 护甲最低 1 — 即使 dmg ≤ armor 仍扣 1
+func TestShield_ArmorMinOneDamage(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	e := &Enemy{Kind: EShield, HP: 30, MaxHP: 30, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	g.damageEnemy(e, 3) // 3 - 4 would be -1, clamped to 1
+	if e.HP != 29 {
+		t.Errorf("shield HP = %d, want 29 (min 1 dmg through armor)", e.HP)
+	}
+}
+
+// V13: 高伤无视护甲 — Cannon dmg 25 vs armor 4 = 21
+func TestShield_HighDamagePiercesArmor(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	e := &Enemy{Kind: EShield, HP: 30, MaxHP: 30, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	g.damageEnemy(e, 25) // Cannon: 25 - 4 = 21
+	if e.HP != 9 {
+		t.Errorf("shield HP = %d, want 9 (25 - 4 = 21 through armor)", e.HP)
+	}
+}
+
+// V13: 回血兵每秒回复 HP
+func TestRegen_RecoverHP(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	g.Towers = nil
+	g.Hero = nil
+	e := &Enemy{Kind: ERegen, HP: 20, MaxHP: 40, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	for i := 0; i < 11; i++ { // 1.1 秒
+		g.Update(0.1)
+	}
+	if e.HP <= 20 {
+		t.Errorf("regen enemy HP = %d, should have recovered above 20", e.HP)
+	}
+	if e.HP > 40 {
+		t.Errorf("regen HP = %d, exceeds MaxHP 40", e.HP)
+	}
+}
+
+// V13: 回血不超 MaxHP
+func TestRegen_CappedAtMax(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 1
+	e := &Enemy{Kind: ERegen, HP: 39, MaxHP: 40, PathIdx: 1}
+	g.Enemies = []*Enemy{e}
+	for i := 0; i < 12; i++ {
+		g.Update(0.1)
+	}
+	if e.HP > 40 {
+		t.Errorf("regen HP = %d, must not exceed MaxHP 40", e.HP)
+	}
+}
+
+// V13: 治疗者治疗附近受伤盟友
+func TestHealer_HealsNearbyAlly(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.spawned = 2
+	g.Towers = nil
+	g.Hero = nil
+	healer := &Enemy{Kind: EHealer, HP: 20, MaxHP: 20, PathIdx: 2}
+	wounded := &Enemy{Kind: ENormal, HP: 10, MaxHP: 20, PathIdx: 2}
+	g.Enemies = []*Enemy{healer, wounded}
+	for i := 0; i < 25; i++ { // 2.5 秒 > healCD 2.0
+		g.Update(0.1)
+	}
+	if wounded.HP <= 10 {
+		t.Errorf("wounded HP = %d, should have been healed above 10", wounded.HP)
+	}
+}
+
 func TestUpdate_MagicHitsFlying(t *testing.T) {
 	g := newTestGame()
 	g.prepTimer = 0

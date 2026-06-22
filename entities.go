@@ -125,11 +125,14 @@ func towerInvested(kind TowerKind, level int) int {
 type EnemyKind int
 
 const (
-	ENormal EnemyKind = iota
+	ENormal  EnemyKind = iota
 	EFast
 	EGlider  // 飞行单位:Cannon 打不到
 	EBoss    // 大型敌人:HP 高 / 速度慢 / 奖励高
 	ESpawner // 召唤者:死时 spawn 2 个 ENormal at same PathIdx (V3.6)
+	EShield  // V13: 护甲兵 — 每次受击减免 Armor 伤害 (min 1)
+	ERegen   // V13: 回血兵 — 持续回复 HP
+	EHealer  // V13: 治疗者 — 定期治疗附近盟友
 )
 
 type EnemySpec struct {
@@ -138,6 +141,9 @@ type EnemySpec struct {
 	Reward int
 	Flying bool // true = 飞行(Cannon 不能 target)
 	Attack int  // V8 P2: 近战攻击英雄的伤害 (飞行 = 0, 不近战; P3 阻挡时按 meleeCD 节奏出手)
+	Armor  int  // V13: 每次受击减免伤害 (min 1); 0 = 无护甲
+	Regen  int  // V13: 每秒回复 HP; 0 = 无回血
+	HealCD float64 // V13: 治疗间隔秒 (0 = 非治疗者)
 	Char1  rune
 	Char2  rune
 	Color  RGB
@@ -164,6 +170,18 @@ var enemySpecs = map[EnemyKind]EnemySpec{
 		HP: 35, Speed: 2.5, Reward: 25, Flying: false, Attack: 8,
 		Char1: 'S', Char2: 'p', Color: rgb(120, 220, 100),
 	},
+	EShield: {
+		HP: 30, Speed: 2.0, Reward: 20, Flying: false, Attack: 10, Armor: 4,
+		Char1: '[', Char2: ']', Color: rgb(160, 160, 180),
+	},
+	ERegen: {
+		HP: 40, Speed: 2.5, Reward: 22, Flying: false, Attack: 6, Regen: 3,
+		Char1: 'R', Char2: 'g', Color: rgb(80, 255, 80),
+	},
+	EHealer: {
+		HP: 20, Speed: 2.5, Reward: 30, Flying: false, Attack: 4, HealCD: 2.0,
+		Char1: '+', Char2: '+', Color: rgb(255, 255, 100),
+	},
 }
 
 type Enemy struct {
@@ -181,6 +199,10 @@ type Enemy struct {
 	meleeCD float64
 	// V8 P3: 被英雄阻挡 (贴身停步互殴; 渲染/测试观察, 每帧由 move loop 刷新)
 	Blocked bool
+	// V13: 治疗者出手冷却
+	healCD float64
+	// V13: 回血计时器 (每秒累积)
+	regenAcc float64
 }
 
 // slowDurationS: V5 Phase 4 — 单次减速持续时间 (命中刷新)。

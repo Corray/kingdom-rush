@@ -108,6 +108,19 @@ func makeDamageText(fx, fy float64, dmg int) *Effect {
 	}
 }
 
+// makeHealText: V13 — 治疗飘字 "+Nhp" (绿色)。
+func makeHealText(fx, fy float64, amount int) *Effect {
+	return &Effect{
+		Kind:   EText,
+		Text:   "+" + strconv.Itoa(amount) + "hp",
+		Color:  RGB{80, 255, 80},
+		FX:     fx,
+		FY:     fy - 0.3,
+		TTL:    0.6,
+		MaxTTL: 0.6,
+	}
+}
+
 // makeGoldText: V4 Phase 4 — 击杀赏金 "+Ng" (金色, 上飘 0.8s 比伤害字长)。
 func makeGoldText(fx, fy float64, amount int) *Effect {
 	return &Effect{
