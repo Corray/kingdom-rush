@@ -68,6 +68,17 @@ func heroClassColor(c *HeroClass) color.RGBA {
 	return eColHeroBody
 }
 
+// heroClassTint: V14 — 职业 sprite tint 乘数。
+func heroClassTint(c *HeroClass) (float32, float32, float32) {
+	switch c.Name {
+	case "Archer":
+		return 0.5, 0.9, 0.5
+	case "Rogue":
+		return 0.75, 0.5, 1.0
+	}
+	return 1.0, 0.8, 0.3
+}
+
 // EbitenGame 实现 ebiten.Game interface。
 type EbitenGame struct {
 	game *Game
@@ -891,8 +902,14 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 			if e.Kind == EBoss {
 				scale = 1.4
 			}
-			drawTileRot(screen, enemySpriteID(e.Kind), x, y, scale, 1.0,
-				dirAngle(ddx, ddy))
+			sid := enemySpriteID(e.Kind)
+			if e.Kind == EShield {
+				drawTileRotTint(screen, sid, x, y, scale, 1.0, dirAngle(ddx, ddy),
+					0.6, 0.6, 0.7)
+			} else {
+				drawTileRot(screen, sid, x, y, scale, 1.0,
+					dirAngle(ddx, ddy))
+			}
 		} else {
 			spec := enemySpecs[e.Kind]
 			cx := x + float32(cellPx)/2
@@ -922,14 +939,13 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		fillRect(screen, x+2, y, barW*hpRatio, 3, eColHpFg)
 	}
 
-	// V8 P4: 英雄 — 金身标记 + HP 条 + 集结点指示 (无专用 sprite, 程序化绘制)
+	// V8 P4 / V14: 英雄 — sprite + tint 职业色 + HP 条 + 集结点指示
 	if g.Hero != nil {
 		h := g.Hero
 		hx, hy := cellPosF(h.X, h.Y)
 		cx := hx + float32(cellPx)/2
 		cy := hy + float32(cellPx)/2
 		if h.Alive() {
-			// 集结点指示: 未到位时画引导线 + 目标圈
 			if h.X != h.RallyX || h.Y != h.RallyY {
 				rx, ry := cellPosF(h.RallyX, h.RallyY)
 				rcx := rx + float32(cellPx)/2
@@ -937,11 +953,16 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 				vector.StrokeLine(screen, cx, cy, rcx, rcy, 1, eColHeroRally, true)
 				vector.StrokeCircle(screen, rcx, rcy, 5, 1.5, eColHeroRally, true)
 			}
-			// 本体: 职业色圆 + 白描边 + 职业首字母 (V10 P3: 程序化视觉区分)
-			radius := float32(cellPx)/3 + 1
-			fillCircle(screen, cx, cy, radius, heroClassColor(h.Class))
-			vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.White, true)
-			drawText(screen, h.Class.Name[:1], int(cx)-3, int(cy)-6)
+			if tilesheet != nil {
+				cr, cg, cb := heroClassTint(h.Class)
+				drawTileTint(screen, heroSpriteID(h.Class), hx, hy, cr, cg, cb)
+				vector.StrokeCircle(screen, cx, cy, float32(cellPx)/3+1, 1.5, color.White, true)
+			} else {
+				radius := float32(cellPx)/3 + 1
+				fillCircle(screen, cx, cy, radius, heroClassColor(h.Class))
+				vector.StrokeCircle(screen, cx, cy, radius, 1.5, color.White, true)
+				drawText(screen, h.Class.Name[:1], int(cx)-3, int(cy)-6)
+			}
 			// HP 条 (英雄上方, 蓝色区别于敌人绿)
 			hpRatio := float32(h.HP) / float32(h.MaxHP)
 			if hpRatio < 0 {

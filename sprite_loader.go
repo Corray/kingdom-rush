@@ -44,6 +44,13 @@ const (
 	spriteEnemyGlider  = 270
 	spriteEnemyBoss    = 247
 	spriteEnemySpawner = 268 // V3.6: 绿色容器, "summoning pod" 形象
+	spriteEnemyShield  = 265 // V13: 绿色方块 (装甲车) — drawTileTint 灰色化
+	spriteEnemyRegen   = 291 // V13: 绿色药瓶 (回血语义)
+	spriteEnemyHealer  = 292 // V13: 黄色药瓶 (治疗者)
+	// V14: 英雄 sprite — 使用车辆/飞机造型 + drawTileTint 职业色
+	spriteHeroKnight = 266 // 棕色方块 (坦克/战士)
+	spriteHeroArcher = 269 // 灰色飞机 (远程射手)
+	spriteHeroRogue  = 253 // 红色火箭 (高速突袭)
 	// V3 Phase 2 新增
 	spriteHitFire = 295 // 橙色火焰 (用作 hit explosion)
 	spriteDigit1  = 277
@@ -156,6 +163,25 @@ func tileSubImage(tileID int) *ebiten.Image {
 	return tilesheet.SubImage(rect).(*ebiten.Image)
 }
 
+// drawTileRotTint: V14 — 旋转 + 颜色乘数绘制。
+func drawTileRotTint(dst *ebiten.Image, tileID int, x, y float32, scaleMul, alpha, angle float64, cr, cg, cb float32) {
+	sub := tileSubImage(tileID)
+	if sub == nil {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-float64(sheetTileSrc)/2, -float64(sheetTileSrc)/2)
+	op.GeoM.Rotate(angle)
+	scale := float64(cellPx) / float64(sheetTileSrc) * scaleMul
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x)+float64(cellPx)/2, float64(y)+float64(cellPx)/2)
+	if alpha < 1.0 {
+		op.ColorScale.ScaleAlpha(float32(alpha))
+	}
+	op.ColorScale.Scale(cr, cg, cb, 1)
+	dst.DrawImage(sub, op)
+}
+
 // drawTileTint: V7.3 D1 — 带颜色乘数绘制 (Frost 塔冰蓝 tint 用)。
 func drawTileTint(dst *ebiten.Image, tileID int, x, y float32, cr, cg, cb float32) {
 	sub := tileSubImage(tileID)
@@ -236,8 +262,25 @@ func enemySpriteID(kind EnemyKind) int {
 		return spriteEnemyBoss
 	case ESpawner:
 		return spriteEnemySpawner
+	case EShield:
+		return spriteEnemyShield
+	case ERegen:
+		return spriteEnemyRegen
+	case EHealer:
+		return spriteEnemyHealer
 	}
 	return spriteEnemyNormal
+}
+
+func heroSpriteID(c *HeroClass) int {
+	switch c.Name {
+	case "Archer":
+		return spriteHeroArcher
+	case "Rogue":
+		return spriteHeroRogue
+	default:
+		return spriteHeroKnight
+	}
 }
 
 // decorSpriteID: V7.2 M3 — 装饰 kind (0-3) → sprite。
