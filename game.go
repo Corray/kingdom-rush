@@ -264,6 +264,46 @@ func (g *Game) Update(dt float64) {
 			}
 		}
 	}
+	// V14: Boss 特殊行为 (按关卡分区: 护盾/冲锋/召唤)
+	lv := g.currentLevel()
+	for _, e := range g.Enemies {
+		if e.Dead || e.Escaped || e.Kind != EBoss {
+			continue
+		}
+		if e.bossShield > 0 {
+			e.bossShield -= dt
+		}
+		if e.bossCharge > 0 {
+			e.bossCharge -= dt
+		}
+		e.bossCD -= dt
+		if e.bossCD > 0 {
+			continue
+		}
+		lvID := 0
+		if lv != nil {
+			lvID = lv.ID
+		}
+		switch {
+		case lvID >= 18: // 召唤 Boss: 每 10s 召唤 2 ENormal
+			e.bossCD = 10.0
+			g.Enemies = append(g.Enemies,
+				g.spawnEnemy(ENormal, e.PathIdx, e.PathID),
+				g.spawnEnemy(ENormal, e.PathIdx, e.PathID))
+		case lvID >= 14: // 冲锋 Boss: 每 8s 加速冲锋 2s
+			e.bossCD = 8.0
+			e.bossCharge = 2.0
+		case lvID >= 8: // 护盾 Boss: 半血时获 3s 无敌
+			if e.HP <= e.MaxHP/2 && e.bossShield <= 0 {
+				e.bossShield = 3.0
+				e.bossCD = 999 // 只触发一次
+			} else {
+				e.bossCD = 1.0
+			}
+		default:
+			e.bossCD = 999
+		}
+	}
 	// V13: regen — 回血兵每秒回复 HP (不超过 MaxHP)
 	for _, e := range g.Enemies {
 		if e.Dead || e.Escaped {
@@ -468,6 +508,9 @@ const splashFactor = 0.5
 // damageEnemy: V5 Phase 3 前置重构 — 伤害结算唯一入口 (主目标与
 // 溅射目标同路径): HP 扣减 + 伤害飘字 + 致死转 killEnemy。
 func (g *Game) damageEnemy(e *Enemy, dmg int) {
+	if e.bossShield > 0 {
+		return
+	}
 	if armor := enemySpecs[e.Kind].Armor; armor > 0 && dmg > 1 {
 		dmg -= armor
 		if dmg < 1 {

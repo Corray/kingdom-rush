@@ -68,6 +68,38 @@ func heroClassColor(c *HeroClass) color.RGBA {
 	return eColHeroBody
 }
 
+// mapThemeGrass: V14 — 草地 tint (r,g,b 乘数)。
+func mapThemeGrass(levelID int) (float32, float32, float32) {
+	switch {
+	case levelID >= 18:
+		return 0.6, 0.35, 0.3 // Lava: 暗红
+	case levelID >= 14:
+		return 0.85, 0.9, 1.1 // Snow: 浅蓝白
+	case levelID >= 8:
+		return 1.1, 0.95, 0.6 // Desert: 黄棕
+	default:
+		return 1.0, 1.0, 1.0 // Forest: 原色
+	}
+}
+
+// mapThemePath: V14 — 路径颜色。
+func mapThemePath(levelID int) (color.RGBA, color.RGBA) {
+	switch {
+	case levelID >= 18:
+		return color.RGBA{R: 180, G: 80, B: 30, A: 255},
+			color.RGBA{R: 130, G: 50, B: 15, A: 255} // Lava: 橙棕
+	case levelID >= 14:
+		return color.RGBA{R: 160, G: 160, B: 175, A: 255},
+			color.RGBA{R: 120, G: 120, B: 140, A: 255} // Snow: 灰石
+	case levelID >= 8:
+		return color.RGBA{R: 160, G: 100, B: 40, A: 255},
+			color.RGBA{R: 120, G: 70, B: 25, A: 255} // Desert: 深棕
+	default:
+		return color.RGBA{R: 139, G: 69, B: 19, A: 255},
+			color.RGBA{R: 100, G: 50, B: 14, A: 255} // Forest: SaddleBrown
+	}
+}
+
 // heroClassTint: V14 — 职业 sprite tint 乘数。
 func heroClassTint(c *HeroClass) (float32, float32, float32) {
 	switch c.Name {
@@ -776,12 +808,13 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		fmt.Sprintf("Vol %d/%d", g.Save.VolumeLevel(), maxVolume),
 		windowW-80, 8)
 
-	// V3 Phase 6: ALL cells grass tile (背景统一, path overlay 之上)
+	// V3 Phase 6 / V14: ALL cells grass tile + 地图主题 tint
+	gr, gg, gb := mapThemeGrass(lv.ID)
 	if tilesheet != nil {
 		for y := 0; y < mapH; y++ {
 			for x := 0; x < mapW; x++ {
 				px, py := cellPos(Point{X: x, Y: y})
-				drawTile(screen, spriteGrass, px, py)
+				drawTileTint(screen, spriteGrass, px, py, gr, gg, gb)
 			}
 		}
 	}
@@ -799,8 +832,7 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// Phase 6b: 两 pass outline — 先全 path 画外扩 outlineW 的 edge 色,
 	// 再叠正常尺寸 fill 色, 留出的环带即描边。pass 间不能交错:
 	// 单 loop 内邻 cell 的 edge 会盖掉本 cell 已画的 fill, seam 处留深色横纹。
-	pathCol := color.RGBA{R: 139, G: 69, B: 19, A: 255}     // SaddleBrown
-	pathEdgeCol := color.RGBA{R: 100, G: 50, B: 14, A: 255} // 深棕 outline
+	pathCol, pathEdgeCol := mapThemePath(lv.ID)
 	const roadW = 22
 	const roadHalf = roadW / 2.0
 	const outlineW = 3
@@ -928,6 +960,15 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		if e.SlowTimer > 0 {
 			fillCircle(screen, x+float32(cellPx)/2, y+float32(cellPx)/2,
 				float32(cellPx)/2-4, color.RGBA{R: 150, G: 200, B: 255, A: 90})
+		}
+		// V14: Boss 护盾 → 白色闪烁圈; 冲锋 → 橙色尾迹
+		if e.bossShield > 0 {
+			fillCircle(screen, x+float32(cellPx)/2, y+float32(cellPx)/2,
+				float32(cellPx)/2+2, color.RGBA{R: 255, G: 255, B: 255, A: 120})
+		}
+		if e.bossCharge > 0 {
+			fillCircle(screen, x+float32(cellPx)/2, y+float32(cellPx)/2,
+				float32(cellPx)/2-2, color.RGBA{R: 255, G: 160, B: 40, A: 80})
 		}
 		// HP bar 仍画 (sprite 之上, 跟随插值位置, 不旋转)
 		hpRatio := float32(e.HP) / float32(e.MaxHP)
@@ -1140,10 +1181,38 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 	// msg (V7.2 M2: 黄色醒目)
 	drawTextCol(screen, g.Msg, curX, statusY,
 		color.RGBA{R: 255, G: 220, B: 80, A: 255})
-	// prep timer (right edge)
+	// prep timer + wave preview (right edge)
 	if g.prepTimer > 0 && g.Phase == PhasePlaying {
 		prepMsg := fmt.Sprintf("PREP: %.1fs", g.prepTimer)
 		drawText(screen, prepMsg, windowW-90, statusY)
+	}
+	if g.Phase == PhasePlaying {
+		cur := g.currentLevel()
+		waveIdx := g.WaveIdx
+		if g.prepTimer <= 0 {
+			waveIdx++
+		}
+		if cur != nil && waveIdx < len(cur.Waves) {
+			next := cur.Waves[waveIdx]
+			counts := make(map[EnemyKind]int)
+			for _, k := range next.Enemies {
+				counts[k]++
+			}
+			previewX := windowW - 250
+			drawTextCol(screen, "Next:", previewX, statusY+14,
+				color.RGBA{R: 180, G: 180, B: 200, A: 255})
+			px := previewX + 38
+			for _, k := range []EnemyKind{ENormal, EFast, EGlider, EBoss, ESpawner, EShield, ERegen, EHealer} {
+				if c, ok := counts[k]; ok && c > 0 {
+					if tilesheet != nil {
+						drawTileAt(screen, enemySpriteID(k), float32(px), float32(statusY+10), 0.4, 1.0)
+					}
+					drawTextCol(screen, fmt.Sprintf("%d", c), px+14, statusY+14,
+						color.RGBA{R: 200, G: 200, B: 220, A: 255})
+					px += 28
+				}
+			}
+		}
 	}
 
 	// V3 Phase 4: 塔选择按钮 (button style + mini tower sprite + 选中 gold border)

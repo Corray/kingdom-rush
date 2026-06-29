@@ -500,6 +500,67 @@ func TestHealer_HealsNearbyAlly(t *testing.T) {
 	}
 }
 
+// V14: Boss 护盾 — 半血触发无敌 3s
+func TestBoss_ShieldBlocksDamage(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Levels[0].ID = 10 // desert zone → shield boss
+	g.Towers = nil
+	g.Hero = nil
+	e := &Enemy{Kind: EBoss, HP: 75, MaxHP: 150, PathIdx: 1} // 半血
+	g.Enemies = []*Enemy{e}
+	g.spawned = 1
+	g.Update(0.1) // 触发护盾
+	if e.bossShield <= 0 {
+		t.Fatalf("boss at half HP should gain shield, got %v", e.bossShield)
+	}
+	hpBefore := e.HP
+	g.damageEnemy(e, 50)
+	if e.HP != hpBefore {
+		t.Errorf("shielded boss should take 0 damage, HP %d → %d", hpBefore, e.HP)
+	}
+}
+
+// V14: Boss 冲锋 — 速度 ×3
+func TestBoss_ChargeSpeed(t *testing.T) {
+	e := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, bossCharge: 1.0}
+	base := enemySpecs[EBoss].Speed
+	if got := e.EffectiveSpeed(); got != base*3.0 {
+		t.Errorf("charging boss speed = %v, want %v", got, base*3.0)
+	}
+	e.bossCharge = 0
+	if got := e.EffectiveSpeed(); got != base {
+		t.Errorf("non-charging boss speed = %v, want %v", got, base)
+	}
+}
+
+// V14: Boss 召唤 — L18+ Boss 定期召唤 ENormal
+func TestBoss_SummonMinions(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Levels[0].ID = 20 // lava zone → summoner boss
+	g.Towers = nil
+	g.Hero = nil
+	boss := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 3}
+	g.Enemies = []*Enemy{boss}
+	g.spawned = 1
+	// Run enough time for summoning (bossCD starts at 0 → immediate trigger)
+	before := len(g.Enemies)
+	g.Update(0.1)
+	if len(g.Enemies) <= before {
+		t.Errorf("summoner boss should spawn minions, enemies %d → %d", before, len(g.Enemies))
+	}
+	normals := 0
+	for _, e := range g.Enemies {
+		if e.Kind == ENormal && e != boss {
+			normals++
+		}
+	}
+	if normals != 2 {
+		t.Errorf("expected 2 summoned normals, got %d", normals)
+	}
+}
+
 func TestUpdate_MagicHitsFlying(t *testing.T) {
 	g := newTestGame()
 	g.prepTimer = 0

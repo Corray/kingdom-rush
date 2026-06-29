@@ -19,9 +19,9 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 
 ## Features
 
-- **20 handcrafted dual-path levels** — every level has two entry points converging at a shared exit, forcing you to split your defenses
+- **20 handcrafted dual-path levels** across 4 themed zones (Forest → Desert → Snow → Lava), each with two entry points converging at a shared exit
 - **4 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow) — each with 3 upgrade levels
-- **8 enemy types** — Normal, Fast, Glider (flying), Boss, Spawner (summons on death), Shield (armor reduces damage), Regen (heals over time), Healer (heals nearby allies)
+- **8 enemy types** — Normal, Fast, Glider (flying), Boss (special abilities per zone: shield / charge / summon), Spawner (summons on death), Shield (armor reduces damage), Regen (heals over time), Healer (heals nearby allies)
 - **Hero unit** — a controllable champion: press `H` to rally it anywhere on the map. It auto-attacks nearby enemies, falls when overwhelmed, and respawns after a cooldown. Fliers slip past it. It **levels up through each battle** (kills grant XP → more HP / damage / range, healing on level-up) and unlocks a **cleave** ability (`G`) at level 3.
 - **3 hero classes** — pick your champion in the menu (`H`): **Knight** (gold, tanky melee, blocks foes at chokepoints), **Archer** (green, long-range kiter, doesn't block), **Rogue** (purple, fast skirmisher that catches runners, blocks, quick respawn). Each has its own stats, growth curve, and cleave flavor.
 - **Skill trees** — spend the stars you earn from level ratings on permanent per-class perks (menu `T`). Four nodes per class, and the three trees cost more than you can ever earn — pick your build.

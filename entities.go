@@ -203,6 +203,10 @@ type Enemy struct {
 	healCD float64
 	// V13: 回血计时器 (每秒累积)
 	regenAcc float64
+	// V14: Boss 行为计时器
+	bossCD     float64
+	bossShield float64 // >0 时无敌
+	bossCharge float64 // >0 时冲锋 (速度 ×3)
 }
 
 // slowDurationS: V5 Phase 4 — 单次减速持续时间 (命中刷新)。
@@ -220,6 +224,9 @@ func (e *Enemy) ApplySlow(factor float64) {
 // EffectiveSpeed: 当前速度 (减速生效时打折)。
 func (e *Enemy) EffectiveSpeed() float64 {
 	speed := enemySpecs[e.Kind].Speed
+	if e.bossCharge > 0 {
+		speed *= 3.0
+	}
 	if e.SlowTimer > 0 {
 		return speed * e.SlowFactor
 	}
