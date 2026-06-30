@@ -178,6 +178,29 @@ func (g *Game) pathContains(p Point) bool {
 	return g.pathLookup[p]
 }
 
+func bossTier(lvID int, endless bool, waveIdx int) int {
+	if endless {
+		switch {
+		case waveIdx >= 20:
+			return 3
+		case waveIdx >= 12:
+			return 2
+		case waveIdx >= 8:
+			return 1
+		}
+		return 0
+	}
+	switch {
+	case lvID >= 18:
+		return 3
+	case lvID >= 14:
+		return 2
+	case lvID >= 8:
+		return 1
+	}
+	return 0
+}
+
 func (g *Game) currentLevel() *Level {
 	if g.Endless {
 		return &g.endlessLv // V6 Phase 3: 合成关卡 (waves 动态增长)
@@ -284,19 +307,20 @@ func (g *Game) Update(dt float64) {
 		if lv != nil {
 			lvID = lv.ID
 		}
-		switch {
-		case lvID >= 18: // 召唤 Boss: 每 10s 召唤 2 ENormal
+		tier := bossTier(lvID, g.Endless, g.WaveIdx)
+		switch tier {
+		case 3: // 召唤: L18+ / endless wave 20+
 			e.bossCD = 10.0
 			g.Enemies = append(g.Enemies,
 				g.spawnEnemy(ENormal, e.PathIdx, e.PathID),
 				g.spawnEnemy(ENormal, e.PathIdx, e.PathID))
-		case lvID >= 14: // 冲锋 Boss: 每 8s 加速冲锋 2s
+		case 2: // 冲锋: L14-17 / endless wave 12-19
 			e.bossCD = 8.0
 			e.bossCharge = 2.0
-		case lvID >= 8: // 护盾 Boss: 半血时获 3s 无敌
+		case 1: // 护盾: L8-13 / endless wave 8-11
 			if e.HP <= e.MaxHP/2 && e.bossShield <= 0 {
 				e.bossShield = 3.0
-				e.bossCD = 999 // 只触发一次
+				e.bossCD = 999
 			} else {
 				e.bossCD = 1.0
 			}
@@ -565,7 +589,11 @@ func newEnemy(kind EnemyKind, pathIdx float64, pathID int, d Difficulty) *Enemy 
 	if hp < 1 {
 		hp = 1
 	}
-	return &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx, PathID: pathID}
+	e := &Enemy{Kind: kind, HP: hp, MaxHP: hp, PathIdx: pathIdx, PathID: pathID}
+	if kind == EBoss {
+		e.bossCD = 3.0
+	}
+	return e
 }
 
 // spawnEnemy: V6 Phase 3 — 敌人生成唯一入口 (wave spawn + Spawner

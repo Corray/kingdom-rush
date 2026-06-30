@@ -541,10 +541,9 @@ func TestBoss_SummonMinions(t *testing.T) {
 	g.Levels[0].ID = 20 // lava zone → summoner boss
 	g.Towers = nil
 	g.Hero = nil
-	boss := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 3}
+	boss := &Enemy{Kind: EBoss, HP: 150, MaxHP: 150, PathIdx: 3, bossCD: 0}
 	g.Enemies = []*Enemy{boss}
 	g.spawned = 1
-	// Run enough time for summoning (bossCD starts at 0 → immediate trigger)
 	before := len(g.Enemies)
 	g.Update(0.1)
 	if len(g.Enemies) <= before {
@@ -558,6 +557,29 @@ func TestBoss_SummonMinions(t *testing.T) {
 	}
 	if normals != 2 {
 		t.Errorf("expected 2 summoned normals, got %d", normals)
+	}
+}
+
+// V14 audit fix: Endless Boss 按 wave 数获得行为
+func TestBoss_EndlessTierByWave(t *testing.T) {
+	cases := []struct {
+		wave int
+		tier int
+	}{
+		{5, 0}, {8, 1}, {12, 2}, {20, 3}, {30, 3},
+	}
+	for _, c := range cases {
+		if got := bossTier(0, true, c.wave); got != c.tier {
+			t.Errorf("endless wave %d: bossTier = %d, want %d", c.wave, got, c.tier)
+		}
+	}
+}
+
+// V14 audit fix: Boss spawn 有 3s 初始冷却 (不立即冲锋)
+func TestBoss_SpawnInitialCooldown(t *testing.T) {
+	e := newEnemy(EBoss, 0, 0, DiffNormal)
+	if e.bossCD != 3.0 {
+		t.Errorf("boss spawn bossCD = %v, want 3.0", e.bossCD)
 	}
 }
 
