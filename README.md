@@ -13,9 +13,9 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 **▶ Play in browser:** https://corray.github.io/kingdom-rush/
 
 ![Level select](docs/screenshots/menu.png)
-![Battle](docs/screenshots/battle.png)
-![Hero holding the line](docs/screenshots/hero.png)
-![Endless mode](docs/screenshots/endless.png)
+![Dual-path battle](docs/screenshots/battle.png)
+![Achievements](docs/screenshots/achievements.png)
+![Skill trees](docs/screenshots/skilltree.png)
 
 ## Features
 
