@@ -240,6 +240,8 @@ func (eg *EbitenGame) Draw(screen *ebiten.Image) {
 		eg.drawLevelSelect(target)
 	} else if eg.game.Phase == PhaseSkillTree {
 		eg.drawSkillTree(target)
+	} else if eg.game.Phase == PhaseAchievements {
+		eg.drawAchievements(target)
 	} else {
 		eg.drawGame(target)
 	}
@@ -386,6 +388,11 @@ func (eg *EbitenGame) handleInput() {
 		}
 		return
 	}
+	if g.Phase == PhaseAchievements {
+		if inpututil.IsKeyJustPressed(ebiten.KeyA) || inpututil.IsKeyJustPressed(ebiten.KeyM) {
+			g.BackToMenu()
+		}
+	}
 	// V11 P3: 技能树屏 — ←/→ 切职业列, Space 购买, T 关闭 (M 全局已退菜单)
 	if g.Phase == PhaseSkillTree {
 		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
@@ -414,6 +421,9 @@ func (eg *EbitenGame) handleInput() {
 		// V11 P3: T 键进入技能树
 		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 			g.OpenSkillTree()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+			g.Phase = PhaseAchievements
 		}
 		// V6 Phase 3: E 键进入 endless (seed = 时间戳; 测试走注入)
 		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
@@ -679,12 +689,39 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 	drawTextCol(screen, endlessLine, 20, helpY,
 		color.RGBA{R: 190, G: 160, B: 255, A: 255}) // 紫: 模式入口醒目
 	drawTextCol(screen,
-		" Click row to start (1-9/0 for Lv 1-10) | T: skill trees | Q/Esc to quit",
+		" Click row to start (1-9/0 for Lv 1-10) | T: skill trees | A: achievements | Q/Esc to quit",
 		20, helpY+18, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // 帮助行降噪
 	if g.Msg != "" {
 		drawTextCol(screen, " "+g.Msg, 20, helpY+36,
 			color.RGBA{R: 255, G: 220, B: 80, A: 255}) // Msg 黄: 反馈醒目
 	}
+}
+
+func (eg *EbitenGame) drawAchievements(screen *ebiten.Image) {
+	g := eg.game
+	drawTextBigCol(screen, " Achievements", 8, 8,
+		color.RGBA{R: 255, G: 220, B: 80, A: 255})
+	drawText(screen, fmt.Sprintf("Unlocked: %d/%d",
+		g.Save.AchievementCount(), len(achievements)), 8, 32)
+	row := 56
+	for _, a := range achievements {
+		unlocked := g.Save.HasAchievement(a.ID)
+		mark := "[ ]"
+		col := color.RGBA{R: 120, G: 120, B: 140, A: 255}
+		if unlocked {
+			mark = "[x]"
+			col = color.RGBA{R: 80, G: 220, B: 80, A: 255}
+		}
+		drawTextCol(screen, fmt.Sprintf("%s %s", mark, a.Name), 20, row, col)
+		drawTextCol(screen, a.Desc, 240, row,
+			color.RGBA{R: 160, G: 160, B: 180, A: 255})
+		row += 18
+		if row > windowH-40 {
+			break
+		}
+	}
+	drawTextCol(screen, "A/M: back to menu", 8, windowH-20,
+		color.RGBA{R: 150, G: 210, B: 235, A: 255})
 }
 
 // drawSkillTree: V11 P3 — 技能树屏。三职业列, 选中列金边; 每列 4 节点

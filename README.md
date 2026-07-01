@@ -29,6 +29,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 - **3 difficulty settings** (Normal / Hard / Easy) and **3-star ratings** per level
 - **Endless mode** — budget-based procedural waves, survive as long as you can, best-wave record
 - **Full audio** — SFX + chiptune BGM with volume control (all CC0)
+- **16 achievements** — progression, combat, hero, strategy, and endless milestones tracked across sessions (menu `A`)
 - **Game feel** — smooth enemy movement, damage popups, screen shake, hit-stop (toggleable)
 - Save progress persists across sessions (file on desktop, localStorage in browser)
 
@@ -50,6 +51,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 | `D` | Cycle difficulty (in menu) |
 | `H` | Cycle hero class — Knight / Archer / Rogue (in menu) |
 | `T` | Skill trees — spend stars on permanent hero perks (in menu) |
+| `A` | Achievements — view unlocked milestones (in menu) |
 | `E` | Endless mode (in menu) |
 | `-` / `=` | Volume down / up |
 | `J` | Toggle screen effects (shake / hit-stop) |

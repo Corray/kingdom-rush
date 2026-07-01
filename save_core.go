@@ -31,6 +31,14 @@ type Save struct {
 	// V11 P1: 技能树已购节点数 (职业名 → 0-4, 线性树)。nil map 读安全
 	// (旧存档 → 全 0 = 无 perk, V10 行为零回归)。预算/购买逻辑见 skilltree.go。
 	TreeNodes map[string]int `json:"tree_nodes,omitempty"`
+	// V15: 成就系统
+	Achievements   map[string]bool `json:"achievements,omitempty"`
+	TotalKills     int             `json:"total_kills,omitempty"`
+	BossKillsTotal int             `json:"boss_kills_total,omitempty"`
+	WonClasses     map[int]bool    `json:"won_classes,omitempty"`
+	HasFlawless    bool            `json:"has_flawless,omitempty"`
+	HasHardClear   bool            `json:"has_hard_clear,omitempty"`
+	HardCompleted  map[int]bool    `json:"hard_completed,omitempty"`
 }
 
 const (

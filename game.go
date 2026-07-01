@@ -25,7 +25,8 @@ const (
 	PhasePlaying
 	PhaseWon
 	PhaseLost
-	PhaseSkillTree // V11 P3: 技能树屏 (菜单 T 进入)
+	PhaseSkillTree   // V11 P3: 技能树屏 (菜单 T 进入)
+	PhaseAchievements // V15: 成就屏 (菜单 A 进入)
 )
 
 type Game struct {
@@ -463,13 +464,29 @@ func (g *Game) Update(dt float64) {
 				g.pushSound(SndWin)
 				g.Phase = PhaseWon
 				g.Save.MarkCompleted(lv.ID)
-				// V6 Phase 4: 通关定星 (取 max 不降级), 与完成标记同次落盘
 				stars := starsFor(g.Lives, g.StartLives)
 				g.Save.RecordStars(lv.ID, stars)
+				if g.Lives == g.StartLives {
+					g.Save.HasFlawless = true
+				}
+				if g.Save.Difficulty == DiffHard {
+					g.Save.HasHardClear = true
+					if g.Save.HardCompleted == nil {
+						g.Save.HardCompleted = map[int]bool{}
+					}
+					g.Save.HardCompleted[lv.ID] = true
+				}
+				if g.Save.WonClasses == nil {
+					g.Save.WonClasses = map[int]bool{}
+				}
+				g.Save.WonClasses[g.Save.HeroChoice] = true
+				newAch := g.Save.CheckAchievements()
 				starStr := strings.Repeat("*", stars)
 				if err := StoreSave(g.Save); err != nil {
-					// 不阻断游戏,仅在 msg 显示;玩家可手动重试或忽略
 					g.Msg = fmt.Sprintf("Victory! (save failed: %v)", err)
+				} else if len(newAch) > 0 {
+					name := achievementByID[newAch[0]].Name
+					g.Msg = fmt.Sprintf("Victory! %s Lv%d | Achievement: %s", starStr, lv.ID, name)
 				} else {
 					g.Msg = fmt.Sprintf("Victory! %s Level %d cleared & saved", starStr, lv.ID)
 				}
@@ -580,6 +597,10 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 	if g.Hero != nil && g.Hero.Alive() {
 		g.heroAwardKillXP(e)
 	}
+	g.Save.TotalKills++
+	if e.Kind == EBoss {
+		g.Save.BossKillsTotal++
+	}
 }
 
 // newEnemy: V6 Phase 2 — 难度 HP 系数施加 (纯函数, 可测)。
@@ -615,6 +636,7 @@ func (g *Game) spawnEnemy(kind EnemyKind, pathIdx float64, pathID int) *Enemy {
 func (g *Game) recordBestWave(cleared int) {
 	if cleared > g.Save.BestWave {
 		g.Save.BestWave = cleared
+		g.Save.CheckAchievements()
 		_ = StoreSave(g.Save)
 	}
 }
