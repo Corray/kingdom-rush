@@ -45,11 +45,11 @@ func (g *Game) DrainSounds() []SoundEvent {
 // shootSound: 塔型 → 对应射击音效。
 func shootSound(k TowerKind) SoundEvent {
 	switch k {
-	case TCannon:
+	case TCannon, TSniper:
 		return SndShootCannon
 	case TMagic:
 		return SndShootMagic
-	case TFrost:
+	case TFrost, TTesla:
 		return SndShootFrost
 	default:
 		return SndShootArcher

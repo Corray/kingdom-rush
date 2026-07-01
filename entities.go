@@ -29,7 +29,9 @@ const (
 	TArcher TowerKind = iota
 	TCannon
 	TMagic
-	TFrost // V5 Phase 4: 低伤 + 命中减速 (sprite tile227, 调研确认未占用)
+	TFrost  // V5 Phase 4: 低伤 + 命中减速
+	TTesla  // V16: 链式闪电 — 弹射 2 次 50% 伤害
+	TSniper // V16: 狙击塔 — 超远超高伤超慢
 )
 
 type TowerLevel struct {
@@ -39,6 +41,7 @@ type TowerLevel struct {
 	Cooldown float64
 	Splash   float64 // V5 Phase 3: 溅射半径 (cell), 0 = 单体 (仅 Cannon 非零)
 	Slow     float64 // V5 Phase 4: 命中减速系数 (速度乘数, 0 = 无; 仅 Frost 非零)
+	Chain    int     // V16: 链式弹射次数 (0 = 无; TTesla 用)
 	Char1    rune
 	Char2    rune
 }
@@ -48,6 +51,8 @@ type TowerSpec struct {
 	Color      RGB
 	HitsFlying bool // 能否打飞行单位
 	Levels     [3]TowerLevel
+	BranchB    *[2]TowerLevel // V16: 分支 B 的 L2+L3 (nil = 无分支)
+	BranchName [2]string      // V16: [0]=A名, [1]=B名 (空 = 无分支)
 }
 
 var towerSpecs = map[TowerKind]TowerSpec{
@@ -58,6 +63,11 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 40, Damage: 14, Range: 4.0, Cooldown: 0.5, Char1: 'A', Char2: '2'},
 			{Cost: 80, Damage: 22, Range: 4.5, Cooldown: 0.4, Char1: 'A', Char2: '3'},
 		},
+		BranchName: [2]string{"Marksman", "Rapidfire"},
+		BranchB: &[2]TowerLevel{
+			{Cost: 40, Damage: 10, Range: 3.5, Cooldown: 0.3, Char1: 'A', Char2: 'r'},
+			{Cost: 80, Damage: 15, Range: 4.0, Cooldown: 0.2, Char1: 'A', Char2: 'R'},
+		},
 	},
 	TCannon: {
 		Name: "Cannon", Color: rgb(180, 120, 255), HitsFlying: false,
@@ -66,6 +76,11 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 60, Damage: 45, Range: 3.0, Cooldown: 1.3, Splash: 1.2, Char1: 'C', Char2: '2'},
 			{Cost: 100, Damage: 70, Range: 3.5, Cooldown: 1.0, Splash: 1.5, Char1: 'C', Char2: '3'},
 		},
+		BranchName: [2]string{"Mortar", "Gatling"},
+		BranchB: &[2]TowerLevel{
+			{Cost: 60, Damage: 18, Range: 3.0, Cooldown: 0.5, Char1: 'C', Char2: 'g'},
+			{Cost: 100, Damage: 28, Range: 3.5, Cooldown: 0.35, Char1: 'C', Char2: 'G'},
+		},
 	},
 	TMagic: {
 		Name: "Magic", Color: rgb(220, 120, 255), HitsFlying: true,
@@ -73,6 +88,11 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 100, Damage: 18, Range: 3.0, Cooldown: 0.8, Char1: 'M', Char2: '1'},
 			{Cost: 80, Damage: 30, Range: 3.5, Cooldown: 0.7, Char1: 'M', Char2: '2'},
 			{Cost: 120, Damage: 50, Range: 4.0, Cooldown: 0.6, Char1: 'M', Char2: '3'},
+		},
+		BranchName: [2]string{"Archmage", "Enchanter"},
+		BranchB: &[2]TowerLevel{
+			{Cost: 80, Damage: 20, Range: 3.5, Cooldown: 0.8, Slow: 0.7, Char1: 'M', Char2: 'e'},
+			{Cost: 120, Damage: 30, Range: 4.0, Cooldown: 0.7, Slow: 0.5, Char1: 'M', Char2: 'E'},
 		},
 	},
 	// V5 Phase 4: 支援塔 — 伤害低, 价值在命中减速 (Slow = 速度乘数)
@@ -83,28 +103,58 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 50, Damage: 8, Range: 3.0, Cooldown: 0.7, Slow: 0.5, Char1: 'F', Char2: '2'},
 			{Cost: 90, Damage: 12, Range: 3.5, Cooldown: 0.6, Slow: 0.4, Char1: 'F', Char2: '3'},
 		},
+		BranchName: [2]string{"Deep Freeze", "Hailstorm"},
+		BranchB: &[2]TowerLevel{
+			{Cost: 50, Damage: 16, Range: 3.0, Cooldown: 0.6, Slow: 0.8, Char1: 'F', Char2: 'h'},
+			{Cost: 90, Damage: 28, Range: 3.5, Cooldown: 0.5, Slow: 0.85, Char1: 'F', Char2: 'H'},
+		},
+	},
+	TTesla: {
+		Name: "Tesla", Color: rgb(180, 220, 255), HitsFlying: true,
+		Levels: [3]TowerLevel{
+			{Cost: 90, Damage: 12, Range: 3.0, Cooldown: 1.0, Chain: 2, Char1: 'T', Char2: '1'},
+			{Cost: 70, Damage: 20, Range: 3.5, Cooldown: 0.9, Chain: 2, Char1: 'T', Char2: '2'},
+			{Cost: 110, Damage: 32, Range: 4.0, Cooldown: 0.8, Chain: 3, Char1: 'T', Char2: '3'},
+		},
+	},
+	TSniper: {
+		Name: "Sniper", Color: rgb(200, 160, 100), HitsFlying: false,
+		Levels: [3]TowerLevel{
+			{Cost: 120, Damage: 40, Range: 6.0, Cooldown: 3.0, Char1: 'S', Char2: '1'},
+			{Cost: 100, Damage: 70, Range: 7.0, Cooldown: 2.5, Char1: 'S', Char2: '2'},
+			{Cost: 150, Damage: 120, Range: 8.0, Cooldown: 2.0, Char1: 'S', Char2: '3'},
+		},
 	},
 }
 
-func TowerKinds() []TowerKind { return []TowerKind{TArcher, TCannon, TMagic, TFrost} }
+func TowerKinds() []TowerKind { return []TowerKind{TArcher, TCannon, TMagic, TFrost, TTesla, TSniper} }
 
 type Tower struct {
 	Pos      Point
 	Kind     TowerKind
 	Level    int        // 1-3
+	Branch   int        // V16: 0=分支A(默认), 1=分支B
 	Target   TargetMode // V5 Phase 2: targeting 策略 (零值 First = 原行为)
 	cooldown float64
 }
 
 func (t *Tower) Spec() TowerLevel {
-	return towerSpecs[t.Kind].Levels[t.Level-1]
+	spec := towerSpecs[t.Kind]
+	if t.Branch == 1 && spec.BranchB != nil && t.Level >= 2 {
+		return spec.BranchB[t.Level-2]
+	}
+	return spec.Levels[t.Level-1]
 }
 
 func (t *Tower) NextUpgradeCost() (int, bool) {
 	if t.Level >= 3 {
 		return 0, false
 	}
-	return towerSpecs[t.Kind].Levels[t.Level].Cost, true
+	spec := towerSpecs[t.Kind]
+	if t.Branch == 1 && spec.BranchB != nil && t.Level >= 1 {
+		return spec.BranchB[t.Level-1].Cost, true
+	}
+	return spec.Levels[t.Level].Cost, true
 }
 
 // towerInvested: V5 Phase 1 — 建造 + 已升级的累计投入 (卖塔退款基数)。
@@ -114,6 +164,19 @@ func towerInvested(kind TowerKind, level int) int {
 	total := 0
 	for i := 0; i < level && i < len(levels); i++ {
 		total += levels[i].Cost
+	}
+	return total
+}
+
+func towerInvestedBranch(t *Tower) int {
+	spec := towerSpecs[t.Kind]
+	total := spec.Levels[0].Cost
+	for i := 1; i < t.Level; i++ {
+		if t.Branch == 1 && spec.BranchB != nil && i >= 1 {
+			total += spec.BranchB[i-1].Cost
+		} else if i < len(spec.Levels) {
+			total += spec.Levels[i].Cost
+		}
 	}
 	return total
 }

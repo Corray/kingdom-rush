@@ -583,6 +583,72 @@ func TestBoss_SpawnInitialCooldown(t *testing.T) {
 	}
 }
 
+// V16: Tesla 链式弹射测试
+func TestTesla_ChainBounce(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Towers = []*Tower{{Pos: Point{3, 0}, Kind: TTesla, Level: 1}}
+	g.Enemies = []*Enemy{
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 3},
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 2},
+		{Kind: ENormal, HP: 20, MaxHP: 20, PathIdx: 1},
+	}
+	g.Hero = nil
+	g.Update(0.1)
+	if g.Enemies[0].HP == 20 {
+		t.Error("primary target should take full damage")
+	}
+	bounced := 0
+	for _, e := range g.Enemies[1:] {
+		if e.HP < 20 {
+			bounced++
+		}
+	}
+	if bounced == 0 {
+		t.Error("Tesla should chain-bounce to at least 1 nearby enemy")
+	}
+}
+
+// V16: Sniper 超远射程
+func TestSniper_LongRange(t *testing.T) {
+	spec := towerSpecs[TSniper]
+	if spec.Levels[0].Range < 5.0 {
+		t.Errorf("Sniper L1 range = %v, want >= 5.0", spec.Levels[0].Range)
+	}
+	if spec.HitsFlying {
+		t.Error("Sniper should not hit flying")
+	}
+}
+
+// V16: 升级分支 — Branch 切换 + Spec 返回分支B数值
+func TestBranch_CycleAndSpec(t *testing.T) {
+	tw := &Tower{Kind: TArcher, Level: 1, Branch: 0}
+	specA := tw.Spec()
+	tw.Branch = 1
+	specStillL1 := tw.Spec() // L1 不受分支影响
+	if specStillL1 != specA {
+		t.Error("L1 spec should be same regardless of branch")
+	}
+	tw.Level = 2
+	specB := tw.Spec()
+	tw.Branch = 0
+	specA2 := tw.Spec()
+	if specB.Damage == specA2.Damage && specB.Cooldown == specA2.Cooldown {
+		t.Error("L2 branch A and B should have different stats")
+	}
+}
+
+// V16: 无分支塔 (Tesla/Sniper) 切换分支无效
+func TestBranch_NoBranchTower(t *testing.T) {
+	g := newTestGame()
+	g.prepTimer = 0
+	g.Towers = []*Tower{{Pos: g.Cursor, Kind: TTesla, Level: 1}}
+	g.CycleBranch()
+	if g.Towers[0].Branch != 0 {
+		t.Error("Tesla should not have branches")
+	}
+}
+
 func TestUpdate_MagicHitsFlying(t *testing.T) {
 	g := newTestGame()
 	g.prepTimer = 0
@@ -1613,7 +1679,7 @@ func TestSplash_BossSplashKillCountsForHitStop(t *testing.T) {
 // ============================================================
 
 func TestSlow_SpecOnlyFrost(t *testing.T) {
-	for _, k := range []TowerKind{TArcher, TCannon, TMagic} {
+	for _, k := range []TowerKind{TArcher, TCannon} {
 		for i, lv := range towerSpecs[k].Levels {
 			if lv.Slow != 0 {
 				t.Errorf("%s lvl%d should have no slow, got %v",
@@ -1626,8 +1692,8 @@ func TestSlow_SpecOnlyFrost(t *testing.T) {
 			t.Errorf("Frost lvl%d slow should be in (0,1), got %v", i+1, lv.Slow)
 		}
 	}
-	if len(TowerKinds()) != 4 {
-		t.Errorf("TowerKinds should include Frost, got %d", len(TowerKinds()))
+	if len(TowerKinds()) != 6 {
+		t.Errorf("TowerKinds should be 6 (4 base + Tesla + Sniper), got %d", len(TowerKinds()))
 	}
 }
 

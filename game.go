@@ -428,6 +428,45 @@ func (g *Game) Update(dt float64) {
 					}
 				}
 			}
+			// V16: Tesla 链式弹射 — 主目标命中后弹射到最近的 N 个敌人 (50% 伤害)
+			if lvl.Chain > 0 {
+				tp := target.Pos(g.Paths[target.PathID])
+				chainDmg := int(math.Round(float64(lvl.Damage) * 0.5))
+				bounced := map[*Enemy]bool{target: true}
+				lastPos := tp
+				for b := 0; b < lvl.Chain; b++ {
+					var closest *Enemy
+					closestDist := math.MaxFloat64
+					for _, e := range g.Enemies {
+						if e.Dead || e.Escaped || bounced[e] {
+							continue
+						}
+						if enemySpecs[e.Kind].Flying && !towerSpec.HitsFlying {
+							continue
+						}
+						ep := e.Pos(g.Paths[e.PathID])
+						dx := float64(ep.X - lastPos.X)
+						dy := float64(ep.Y - lastPos.Y)
+						d := dx*dx + dy*dy
+						if d < closestDist && d <= 3.5*3.5 {
+							closestDist = d
+							closest = e
+						}
+					}
+					if closest == nil {
+						break
+					}
+					bounced[closest] = true
+					cp := closest.Pos(g.Paths[closest.PathID])
+					g.Effects = append(g.Effects,
+						makeShootEffect(lastPos, cp, towerSpec.Color, t.Kind))
+					g.damageEnemy(closest, chainDmg)
+					if lvl.Slow > 0 {
+						closest.ApplySlow(lvl.Slow)
+					}
+					lastPos = cp
+				}
+			}
 		}
 	}
 	// V2.6: 衰减视觉特效, 过期清理
@@ -790,6 +829,27 @@ func (g *Game) CycleTargeting() {
 		}
 	}
 	g.Msg = "No tower here (T = targeting)"
+}
+
+func (g *Game) CycleBranch() {
+	for _, t := range g.Towers {
+		if t.Pos == g.Cursor {
+			spec := towerSpecs[t.Kind]
+			if spec.BranchB == nil {
+				g.Msg = fmt.Sprintf("%s has no upgrade branches", spec.Name)
+				return
+			}
+			if t.Level >= 2 {
+				g.Msg = "Branch already locked (chosen at L1→L2)"
+				return
+			}
+			t.Branch = 1 - t.Branch
+			name := spec.BranchName[t.Branch]
+			g.Msg = fmt.Sprintf("%s branch → %s (upgrade to apply)", spec.Name, name)
+			return
+		}
+	}
+	g.Msg = "No tower here (V = switch branch)"
 }
 
 // ToggleJuice: V4 Phase 5 — 屏幕反馈特效 (shake / 顿帧) 一键开关, 持久化。

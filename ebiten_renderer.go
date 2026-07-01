@@ -313,6 +313,9 @@ func (eg *EbitenGame) handleInput() {
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		g.CycleTargeting()
 	}
+	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		g.CycleBranch()
+	}
 	// V8 P4: H 键把英雄集结点设到光标格 (英雄走过去并沿途交战/阻挡)
 	if g.Phase == PhasePlaying && inpututil.IsKeyJustPressed(ebiten.KeyH) {
 		g.SetHeroRally(g.Cursor)
@@ -363,6 +366,14 @@ func (eg *EbitenGame) handleInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyDigit3) {
 			g.Selected = TMagic
 			g.Msg = "Selected Magic"
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyDigit5) {
+			g.Selected = TTesla
+			g.Msg = "Selected Tesla"
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyDigit6) {
+			g.Selected = TSniper
+			g.Msg = "Selected Sniper"
 		}
 		// V2.7: 鼠标 hover → cursor 跟随; 左键 → 等同 Space
 		// V3 Phase 5b: 左键先 check tower select button, 否则 game area TryAction
@@ -1322,8 +1333,13 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		}
 		hint += fmt.Sprintf(" | X=Sell +%dg | T=%s",
 			sellRefund(atTower.Kind, atTower.Level), atTower.Target.Name())
+		spec := towerSpecs[atTower.Kind]
+		if spec.BranchB != nil && atTower.Level == 1 {
+			branchName := spec.BranchName[atTower.Branch]
+			hint += fmt.Sprintf(" | V=%s", branchName)
+		}
 		drawTextCol(screen, hint, btnX+8, selY+12,
-			color.RGBA{R: 150, G: 210, B: 235, A: 255}) // V7.2 M2: 操作提示青}
+			color.RGBA{R: 150, G: 210, B: 235, A: 255})
 	} else {
 		// V8 P4: 无选中塔时提示英雄集结键 (持续可见, 提升发现性)
 		drawTextCol(screen, "[H] Rally Hero to cursor", btnX+8, selY+12,

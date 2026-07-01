@@ -44,6 +44,8 @@ const (
 	spriteEnemyGlider  = 270
 	spriteEnemyBoss    = 247
 	spriteEnemySpawner = 268 // V3.6: 绿色容器, "summoning pod" 形象
+	spriteTowerTesla   = 244 // V16: 灰色圆塔座 (闪电塔)
+	spriteTowerSniper  = 245 // V16: 棕色长身 (狙击塔)
 	spriteEnemyShield  = 265 // V13: 绿色方块 (装甲车) — drawTileTint 灰色化
 	spriteEnemyRegen   = 291 // V13: 绿色药瓶 (回血语义)
 	spriteEnemyHealer  = 292 // V13: 黄色药瓶 (治疗者)
@@ -79,7 +81,11 @@ func bulletSpriteID(k TowerKind) int {
 		return spriteMagicMissile
 	case TFrost:
 		return spriteFrostShot
-	default: // TArcher 与默认
+	case TTesla:
+		return spriteFrostShot // 闪电复用白色小弹
+	case TSniper:
+		return spriteCannonball // 狙击复用红色大弹
+	default:
 		return spriteBullet
 	}
 }
@@ -245,6 +251,10 @@ func towerSpriteID(kind TowerKind, level int) int {
 		}
 	case TFrost:
 		return spriteTowerFrost
+	case TTesla:
+		return spriteTowerTesla
+	case TSniper:
+		return spriteTowerSniper
 	}
 	return spriteTowerArcher
 }

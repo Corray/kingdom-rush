@@ -20,7 +20,7 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 ## Features
 
 - **20 handcrafted dual-path levels** across 4 themed zones (Forest → Desert → Snow → Lava), each with two entry points converging at a shared exit
-- **4 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow) — each with 3 upgrade levels
+- **6 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow), Tesla (chain lightning), Sniper (long-range anti-boss) — each with 3 upgrade levels and **upgrade branches** (`V` to switch path before upgrading)
 - **8 enemy types** — Normal, Fast, Glider (flying), Boss (special abilities per zone: shield / charge / summon), Spawner (summons on death), Shield (armor reduces damage), Regen (heals over time), Healer (heals nearby allies)
 - **Hero unit** — a controllable champion: press `H` to rally it anywhere on the map. It auto-attacks nearby enemies, falls when overwhelmed, and respawns after a cooldown. Fliers slip past it. It **levels up through each battle** (kills grant XP → more HP / damage / range, healing on level-up) and unlocks a **cleave** ability (`G`) at level 3.
 - **3 hero classes** — pick your champion in the menu (`H`): **Knight** (gold, tanky melee, blocks foes at chokepoints), **Archer** (green, long-range kiter, doesn't block), **Rogue** (purple, fast skirmisher that catches runners, blocks, quick respawn). Each has its own stats, growth curve, and cleave flavor.
@@ -38,10 +38,11 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 | Key | Action |
 |-----|--------|
 | `Arrows` / mouse hover | Move cursor |
-| `1` `2` `3` `4` | Select tower type (Archer / Cannon / Magic / Frost) |
+| `1`-`6` | Select tower type (Archer / Cannon / Magic / Frost / Tesla / Sniper) |
 | `Space` / left click | Build or upgrade tower at cursor |
 | `X` / right click | Sell tower (70% refund) |
 | `T` | Cycle targeting strategy of tower at cursor |
+| `V` | Switch upgrade branch (at level 1 towers with branches) |
 | `H` | Rally hero to cursor (auto-fights & blocks ground enemies; respawns on death) |
 | `G` | Hero cleave — AoE burst around the hero (unlocks at hero level 3) |
 | `R`, then click | Meteor strike (25s cooldown); `R` again cancels |
