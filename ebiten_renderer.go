@@ -1381,16 +1381,54 @@ func (eg *EbitenGame) drawGame(screen *ebiten.Image) {
 		" Arrows/Mouse: move | 1-4: select | Space/Click: build/upgrade | M: menu | -/=: vol | J: fx | Q/Esc: quit",
 		4, helpY, color.RGBA{R: 120, G: 120, B: 135, A: 255}) // V7.2 M2: 帮助行降噪
 
-	// banner
-	bannerX := windowW/2 - 130
-	bannerY := topBarH + gameAreaH/2
-	if g.Phase == PhaseWon {
-		msg := fmt.Sprintf(" *** VICTORY *** Level %d cleared! ", lv.ID)
-		drawText(screen, msg, bannerX, bannerY)
-		drawText(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
-	}
-	if g.Phase == PhaseLost {
-		drawText(screen, " *** GAME OVER *** ", bannerX+50, bannerY)
-		drawText(screen, " Press M for menu, Q to quit ", bannerX, bannerY+18)
+	if g.Phase == PhaseWon || g.Phase == PhaseLost {
+		panelW, panelH := float32(320), float32(220)
+		px := float32(windowW)/2 - panelW/2
+		py := float32(topBarH) + float32(gameAreaH)/2 - panelH/2
+		fillRect(screen, px, py, panelW, panelH,
+			color.RGBA{R: 15, G: 15, B: 30, A: 220})
+		strokeRect(screen, px, py, panelW, panelH,
+			color.RGBA{R: 120, G: 120, B: 160, A: 255}, 2)
+
+		cx := int(px) + 20
+		cy := int(py) + 12
+		if g.Phase == PhaseWon {
+			drawTextBigCol(screen, "VICTORY", cx+60, cy,
+				color.RGBA{R: 255, G: 220, B: 80, A: 255})
+			cy += 30
+			stars := starsFor(g.Lives, g.StartLives)
+			drawTextCol(screen, fmt.Sprintf("Level %d: %s", lv.ID, lv.Name), cx, cy,
+				color.RGBA{R: 200, G: 200, B: 220, A: 255})
+			cy += 20
+			drawTextCol(screen, fmt.Sprintf("Rating: %s", strings.Repeat("*", stars)), cx, cy,
+				color.RGBA{R: 255, G: 220, B: 80, A: 255})
+		} else {
+			drawTextBigCol(screen, "GAME OVER", cx+40, cy,
+				color.RGBA{R: 235, G: 100, B: 90, A: 255})
+			cy += 30
+			if g.Endless {
+				drawTextCol(screen, fmt.Sprintf("Endless — survived %d waves", g.WaveIdx), cx, cy,
+					color.RGBA{R: 200, G: 200, B: 220, A: 255})
+			} else {
+				drawTextCol(screen, fmt.Sprintf("Level %d: %s — Wave %d/%d", lv.ID, lv.Name,
+					g.WaveIdx+1, len(lv.Waves)), cx, cy,
+					color.RGBA{R: 200, G: 200, B: 220, A: 255})
+			}
+		}
+		cy += 24
+		statCol := color.RGBA{R: 180, G: 180, B: 200, A: 255}
+		drawTextCol(screen, fmt.Sprintf("Kills: %d", g.KillsThisRun), cx, cy, statCol)
+		cy += 18
+		drawTextCol(screen, fmt.Sprintf("Gold earned: %d", g.GoldEarned), cx, cy, statCol)
+		cy += 18
+		drawTextCol(screen, fmt.Sprintf("Lives: %d/%d", g.Lives, g.StartLives), cx, cy, statCol)
+		cy += 18
+		if g.Hero != nil {
+			drawTextCol(screen, fmt.Sprintf("Hero: %s L%d", g.Hero.Class.Name, g.Hero.Level), cx, cy, statCol)
+			cy += 18
+		}
+		cy += 8
+		drawTextCol(screen, "M: menu  Q: quit", cx+60, cy,
+			color.RGBA{R: 150, G: 210, B: 235, A: 255})
 	}
 }

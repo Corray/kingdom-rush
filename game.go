@@ -63,9 +63,11 @@ type Game struct {
 	// V11 P3: 技能树屏当前选中职业列 (heroClasses index)
 	TreeClassIdx int
 
-	prepTimer  float64
-	spawned    int
-	spawnTimer float64
+	prepTimer     float64
+	spawned       int
+	spawnTimer    float64
+	KillsThisRun  int // V15: 本局击杀数 (结算屏用)
+	GoldEarned    int // V15: 本局赚取金币 (结算屏用)
 }
 
 func NewGame(levels []Level, save Save) *Game {
@@ -136,7 +138,9 @@ func (g *Game) beginRun(lv Level) {
 	g.prepTimer = wavePrepS
 	g.spawned = 0
 	g.spawnTimer = 0
-	g.MeteorCD = 0 // V5 Phase 5: 每关开局技能就绪
+	g.MeteorCD = 0
+	g.KillsThisRun = 0
+	g.GoldEarned = 0
 	g.Decor = genDecor(lv, g.pathLookup)
 	// V8 P1: 英雄生成在 path 中点 (玩家用 H 键重设集结点)
 	// V10 P3: 职业由存档选择; V11 P2: 技能树 perk 快照 (关内不变)
@@ -583,6 +587,8 @@ func (g *Game) killEnemy(e *Enemy, fx, fy float64) {
 		makeDeathEffect(fx, fy, e.Kind),
 		makeGoldText(fx+0.3, fy, reward))
 	g.Gold += reward
+	g.GoldEarned += reward
+	g.KillsThisRun++
 	// V3.6: Spawner 死时 spawn 2 个 ENormal 在同 PathIdx
 	// (V6 Phase 2: 召唤物同样吃难度系数 — newEnemy 统一施加点)
 	if e.Kind == ESpawner {
