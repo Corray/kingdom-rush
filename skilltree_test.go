@@ -7,13 +7,14 @@ import (
 	"testing"
 )
 
-// TestSkillTreeTable: 节点表守护 — 三树与职业表一一对应, 每树 4 节点,
-// 定价 3/6/9/12 (单树 30), 三树总价 90 = 1.5× 可赚上限 60 (决策 C)。
+// TestSkillTreeTable: 节点表守护 — 三树与职业表一一对应, 每树 5 节点
+// (V11 前 4 + V17 capstone), 定价 3/6/9/12/10 (单树 40), 三树总价 120
+// ≈ 1.33× 可赚上限 90 (V17 决策 A: 取舍恢复)。
 func TestSkillTreeTable(t *testing.T) {
 	if len(skillTrees) != len(heroClasses) {
 		t.Fatalf("skill trees (%d) must match hero classes (%d)", len(skillTrees), len(heroClasses))
 	}
-	wantPrices := [treeNodesPerClass]int{3, 6, 9, 12}
+	wantPrices := [treeNodesPerClass]int{3, 6, 9, 12, 10}
 	grand := 0
 	for i := range heroClasses {
 		name := heroClasses[i].Name
@@ -31,8 +32,8 @@ func TestSkillTreeTable(t *testing.T) {
 			grand += node.Price
 		}
 	}
-	if grand != 90 {
-		t.Errorf("grand total = %d, want 90 (1.5x earnable 60)", grand)
+	if grand != 120 {
+		t.Errorf("grand total = %d, want 120 (1.33x earnable 90, V17 决策 A)", grand)
 	}
 }
 
@@ -81,10 +82,12 @@ func TestStarsBudget(t *testing.T) {
 }
 
 // TestBuyTreeNodeGating: 未知职业拒绝; 预算充足时连买到满后拒绝。
+// V17 经济: 90 星上限 / 单树 40 → 两满树 80 剩 10, 第三树首节点 3 可买
+// 但永远买不满 (差 30) — 取舍从"第三树碰不了"变"第三树只能浅尝"。
 func TestBuyTreeNodeGating(t *testing.T) {
 	s := NewSave()
-	for lv := 1; lv <= 20; lv++ {
-		s.RecordStars(lv, 3) // 60 星满预算
+	for lv := 1; lv <= 30; lv++ {
+		s.RecordStars(lv, 3) // 90 星满预算 (V17: 30 关)
 	}
 	if ok, _ := s.BuyTreeNode("Paladin"); ok {
 		t.Error("unknown class must be rejected")
@@ -100,20 +103,26 @@ func TestBuyTreeNodeGating(t *testing.T) {
 	if ok, _ := s.BuyTreeNode("Rogue"); ok {
 		t.Error("maxed tree must reject further buys")
 	}
-	if s.SpentStars() != 30 || s.AvailableStars() != 30 {
-		t.Errorf("full Rogue tree: spent=%d avail=%d, want 30/30", s.SpentStars(), s.AvailableStars())
+	if s.SpentStars() != 40 || s.AvailableStars() != 50 {
+		t.Errorf("full Rogue tree: spent=%d avail=%d, want 40/50", s.SpentStars(), s.AvailableStars())
 	}
-	// 余 30 不够再满第二棵 (30) 之外的第三棵 → 取舍实锤: 买满 Knight 后归零
+	// 余 50 → 满第二棵 (40) 后剩 10: 第三树只能买前两节点 (3+6=9), 永远买不满
 	for i := 0; i < treeNodesPerClass; i++ {
 		if ok, _ := s.BuyTreeNode("Knight"); !ok {
-			t.Fatalf("Knight buy %d should succeed (exactly 30 left)", i+1)
+			t.Fatalf("Knight buy %d should succeed (50 left covers full tree)", i+1)
 		}
 	}
-	if s.AvailableStars() != 0 {
-		t.Errorf("two full trees must drain 60 stars exactly, avail=%d", s.AvailableStars())
+	if s.AvailableStars() != 10 {
+		t.Errorf("two full trees must leave 10 of 90, avail=%d", s.AvailableStars())
+	}
+	if ok, _ := s.BuyTreeNode("Archer"); !ok {
+		t.Error("third tree first node (3) should be affordable with 10 left")
+	}
+	if ok, _ := s.BuyTreeNode("Archer"); !ok {
+		t.Error("third tree second node (6) should be affordable with 7 left")
 	}
 	if ok, _ := s.BuyTreeNode("Archer"); ok {
-		t.Error("third tree must be unaffordable (决策 C 取舍)")
+		t.Error("third tree node 3 (9) must be unaffordable with 1 left (V17 取舍)")
 	}
 }
 

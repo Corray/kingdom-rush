@@ -278,8 +278,8 @@ func TestLoadLevels_10Levels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if len(levels) != 20 {
-		t.Errorf("expected 20 levels, got %d", len(levels))
+	if len(levels) != 30 {
+		t.Errorf("expected 30 levels, got %d", len(levels))
 	}
 	for _, lv := range levels {
 		if len(lv.Path) < 2 {
@@ -1907,8 +1907,8 @@ func TestLevels_IntegrityAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadLevels failed: %v", err)
 	}
-	if len(levels) != 20 {
-		t.Fatalf("want 20 levels, got %d", len(levels))
+	if len(levels) != 30 {
+		t.Fatalf("want 30 levels, got %d", len(levels))
 	}
 	for i, lv := range levels {
 		// unlock 链连续 (IsUnlocked 依赖 ID = 前一关 ID+1)
@@ -1939,7 +1939,8 @@ func TestLevels_IntegrityAll(t *testing.T) {
 				t.Errorf("Lv%d wave %d empty", lv.ID, w+1)
 			}
 		}
-		if lv.StartGold < 100 || lv.StartLives < 3 {
+		// V17: 第二章终局关 (L26/28/29/30) lives 2 是设计意图, 卫哨 ≥2
+		if lv.StartGold < 100 || lv.StartLives < 2 {
 			t.Errorf("Lv%d 起始资源异常: gold %d lives %d", lv.ID, lv.StartGold, lv.StartLives)
 		}
 	}

@@ -1,9 +1,10 @@
 // V11 P1: 技能树 — 跨局 meta 成长持久层 (星 → per-class perk 节点)。
 //
-// 设计 (roadmap V11 决策 A-E):
-//   - 货币 = 通关星 (Save.Stars, 20 关 × 3★ = 60 可赚上限), 老存档存量星直接可用
-//   - 每职业线性 4 节点: 前一节点已购才能买下一个 (线性树 → "已购数"即完整状态)
-//   - 定价 3/6/9/12 (单树满 30 星), 三树总价 90 ≈ 1.5× 预算 → 必须选 build
+// 设计 (roadmap V11 决策 A-E; V17 决策 A 扩展):
+//   - 货币 = 通关星 (Save.Stars; V17: 30 关 × 3★ = 90 可赚上限), 老存档存量星直接可用
+//   - 每职业线性 5 节点 (V11 4 节点 + V17 capstone): 前一节点已购才能买下一个
+//   - 定价 3/6/9/12/10 (单树满 40 星), 三树总价 120 ≈ 1.33× 预算 → 必须选 build
+//     (V17 决策 A: 30 关后可赚 90 追平 V11 三树总价, 加 capstone 恢复取舍)
 //   - 购买只在菜单发生 (P3 入口); 效果经 HeroBonus 在 beginRun 快照进 Hero (P2)
 //   - 无树基线零回归: 不买节点 = V10 行为完全不变
 package main
@@ -41,28 +42,32 @@ type TreeNode struct {
 	Bonus HeroBonus
 }
 
-const treeNodesPerClass = 4
+const treeNodesPerClass = 5
 
 // skillTrees: per-class 线性节点表 (key = HeroClass.Name, 与 Save.TreeNodes
-// 的 key 一致)。效果数值 P4 仿真校准。
+// 的 key 一致)。前 4 节点 = V11 原值不动 (老存档零回归); 第 5 节点 =
+// V17 capstone (组合 perk, 价 10)。
 var skillTrees = map[string][treeNodesPerClass]TreeNode{
 	"Knight": {
 		{Name: "Bulwark", Desc: "+30 max HP", Price: 3, Bonus: HeroBonus{MaxHP: 30}},
 		{Name: "Sharpened Blade", Desc: "+6 damage", Price: 6, Bonus: HeroBonus{Damage: 6}},
 		{Name: "Wide Cleave", Desc: "+0.6 cleave radius", Price: 9, Bonus: HeroBonus{AbilityRadius: 0.6}},
 		{Name: "Undying", Desc: "respawn 6s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 6}},
+		{Name: "Warlord", Desc: "+20 HP & +4 damage", Price: 10, Bonus: HeroBonus{MaxHP: 20, Damage: 4}},
 	},
 	"Archer": {
 		{Name: "Eagle Eye", Desc: "+0.6 attack range", Price: 3, Bonus: HeroBonus{Range: 0.6}},
 		{Name: "Fleet Foot", Desc: "+0.8 move speed", Price: 6, Bonus: HeroBonus{Speed: 0.8}},
 		{Name: "Piercing Arrows", Desc: "+3 damage", Price: 9, Bonus: HeroBonus{Damage: 3}},
 		{Name: "Storm of Arrows", Desc: "+0.8 volley radius", Price: 12, Bonus: HeroBonus{AbilityRadius: 0.8}},
+		{Name: "Windrunner", Desc: "+0.5 range & +2 damage", Price: 10, Bonus: HeroBonus{Range: 0.5, Damage: 2}},
 	},
 	"Rogue": {
 		{Name: "Shadow Step", Desc: "+0.7 move speed", Price: 3, Bonus: HeroBonus{Speed: 0.7}},
 		{Name: "Twin Fangs", Desc: "+2 damage", Price: 6, Bonus: HeroBonus{Damage: 2}},
 		{Name: "Blade Flurry", Desc: "ability 2s faster", Price: 9, Bonus: HeroBonus{AbilityCDReduceS: 2}},
 		{Name: "Cheat Death", Desc: "respawn 4s faster", Price: 12, Bonus: HeroBonus{RespawnReduceS: 4}},
+		{Name: "Phantom", Desc: "+0.7 speed & ability 2s faster", Price: 10, Bonus: HeroBonus{Speed: 0.7, AbilityCDReduceS: 2}},
 	},
 }
 

@@ -19,17 +19,17 @@ A tower defense game written in Go — playable on **desktop**, in the **termina
 
 ## Features
 
-- **20 handcrafted dual-path levels** across 4 themed zones (Forest → Desert → Snow → Lava), each with two entry points converging at a shared exit
+- **30 handcrafted dual-path levels** across 5 themed zones (Forest → Desert → Snow → Lava → Twilight), each with two entry points converging at a shared exit
 - **6 tower types** — Archer, Cannon (AoE splash), Magic, Frost (slow), Tesla (chain lightning), Sniper (long-range anti-boss) — each with 3 upgrade levels and **upgrade branches** (`V` to switch path before upgrading)
 - **8 enemy types** — Normal, Fast, Glider (flying), Boss (special abilities per zone: shield / charge / summon), Spawner (summons on death), Shield (armor reduces damage), Regen (heals over time), Healer (heals nearby allies)
 - **Hero unit** — a controllable champion: press `H` to rally it anywhere on the map. It auto-attacks nearby enemies, falls when overwhelmed, and respawns after a cooldown. Fliers slip past it. It **levels up through each battle** (kills grant XP → more HP / damage / range, healing on level-up) and unlocks a **cleave** ability (`G`) at level 3.
 - **3 hero classes** — pick your champion in the menu (`H`): **Knight** (gold, tanky melee, blocks foes at chokepoints), **Archer** (green, long-range kiter, doesn't block), **Rogue** (purple, fast skirmisher that catches runners, blocks, quick respawn). Each has its own stats, growth curve, and cleave flavor.
-- **Skill trees** — spend the stars you earn from level ratings on permanent per-class perks (menu `T`). Four nodes per class, and the three trees cost more than you can ever earn — pick your build.
+- **Skill trees** — spend the stars you earn from level ratings on permanent per-class perks (menu `T`). Five nodes per class, and the three trees cost more than you can ever earn — pick your build.
 - **Tactical depth** — sell towers (70% refund), per-tower targeting strategies (First / Last / Strong), meteor strike active ability with cooldown
 - **3 difficulty settings** (Normal / Hard / Easy) and **3-star ratings** per level
 - **Endless mode** — budget-based procedural waves, survive as long as you can, best-wave record
 - **Full audio** — SFX + chiptune BGM with volume control (all CC0)
-- **16 achievements** — progression, combat, hero, strategy, and endless milestones tracked across sessions (menu `A`)
+- **18 achievements** — progression, combat, hero, strategy, and endless milestones tracked across sessions (menu `A`)
 - **Game feel** — smooth enemy movement, damage popups, screen shake, hit-stop (toggleable)
 - Save progress persists across sessions (file on desktop, localStorage in browser)
 
@@ -117,6 +117,12 @@ Per-file mappings live next to the assets: `assets/sprites/LICENSE-Kenney.txt`,
 | `v9.0` | Hero growth (per-run level/XP / cleave ability) |
 | `v10.0` | Multiple heroes (Knight / Archer / Rogue classes) |
 | `v11.0` | Meta progression (per-class skill trees / star currency) |
+| `v12.0` | Dual-path levels (two entries, converging exit) |
+| `v13.0` | New enemies (Shield / Regen / Healer) |
+| `v14.0` | Sprites, wave preview, map themes, boss abilities |
+| `v15.0` | Achievements + results screen |
+| `v16.0` | New towers (Tesla / Sniper) + upgrade branches |
+| `v17.0` | Chapter 2 (levels 21-30, Twilight zone, 5-node trees) |
 
 Detailed per-era planning and closure records: [docs/roadmap.md](docs/roadmap.md).
 

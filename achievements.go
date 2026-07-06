@@ -8,11 +8,14 @@ type Achievement struct {
 }
 
 var achievements = []Achievement{
-	// 进度
+	// 进度 (V17: conqueror 条件保持 20 关不动 — 防打破已解锁语义;
+	// 30 关全通走新增 second_dawn)
 	{ID: "first_blood", Name: "First Blood", Desc: "Clear level 1"},
 	{ID: "halfway", Name: "Halfway There", Desc: "Clear 10 levels"},
-	{ID: "conqueror", Name: "Conqueror", Desc: "Clear all 20 levels"},
-	{ID: "perfectionist", Name: "Perfectionist", Desc: "Earn 60 stars (all 3-star)"},
+	{ID: "conqueror", Name: "Conqueror", Desc: "Clear 20 levels"},
+	{ID: "second_dawn", Name: "Second Dawn", Desc: "Clear all 30 levels"},
+	{ID: "perfectionist", Name: "Perfectionist", Desc: "Earn 60 stars"},
+	{ID: "star_master", Name: "Star Master", Desc: "Earn 90 stars (all 3-star)"},
 	// 战斗
 	{ID: "hunter_100", Name: "Hunter", Desc: "Kill 100 enemies (lifetime)"},
 	{ID: "hunter_500", Name: "Veteran", Desc: "Kill 500 enemies (lifetime)"},
@@ -91,7 +94,9 @@ func (s *Save) CheckAchievements() []string {
 	check("first_blood", completed >= 1)
 	check("halfway", completed >= 10)
 	check("conqueror", completed >= 20)
+	check("second_dawn", completed >= 30)
 	check("perfectionist", s.TotalStars() >= 60)
+	check("star_master", s.TotalStars() >= 90)
 
 	check("hunter_100", s.TotalKills >= 100)
 	check("hunter_500", s.TotalKills >= 500)

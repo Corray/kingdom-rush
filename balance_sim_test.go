@@ -200,16 +200,16 @@ func TestBalance_NewTowerMatrix(t *testing.T) {
 			bp   simBlueprint
 			min  int
 		}{
-			{"tesla-mix", simBlueprint{kinds: []TowerKind{TTesla, TArcher, TTesla, TFrost}}, 18},
-			{"sniper-mix", simBlueprint{kinds: []TowerKind{TArcher, TSniper, TArcher, TFrost}}, 18},
-			{"tesla-pure", simBlueprint{kinds: []TowerKind{TTesla, TTesla, TTesla, TFrost}}, 18},
-			{"branchB-all", simBlueprint{kinds: []TowerKind{TArcher, TArcher, TArcher, TFrost}, branch: 1}, 18},
-			{"gatling-mix", simBlueprint{kinds: []TowerKind{TArcher, TCannon, TArcher, TFrost}, branch: 1}, 18},
+			{"tesla-mix", simBlueprint{kinds: []TowerKind{TTesla, TArcher, TTesla, TFrost}}, 27},
+			{"sniper-mix", simBlueprint{kinds: []TowerKind{TArcher, TSniper, TArcher, TFrost}}, 27},
+			{"tesla-pure", simBlueprint{kinds: []TowerKind{TTesla, TTesla, TTesla, TFrost}}, 27},
+			{"branchB-all", simBlueprint{kinds: []TowerKind{TArcher, TArcher, TArcher, TFrost}, branch: 1}, 27},
+			{"gatling-mix", simBlueprint{kinds: []TowerKind{TArcher, TCannon, TArcher, TFrost}, branch: 1}, 27},
 		}
 		for _, tc := range blueprints {
 			wins := 0
 			var fails []int
-			for idx := 0; idx < 20; idx++ {
+			for idx := 0; idx < 30; idx++ {
 				g := autoPlayBlueprint(idx, DiffNormal, tc.bp)
 				if g.Phase == PhaseWon {
 					wins++
@@ -218,9 +218,9 @@ func TestBalance_NewTowerMatrix(t *testing.T) {
 				}
 			}
 			if wins < tc.min {
-				t.Errorf("[%s] Normal %d/20 < 门槛 %d (失守: %v)", tc.name, wins, tc.min, fails)
+				t.Errorf("[%s] Normal %d/30 < 门槛 %d (失守: %v)", tc.name, wins, tc.min, fails)
 			} else {
-				t.Logf("[%s] Normal %d/20 (失守: %v)", tc.name, wins, fails)
+				t.Logf("[%s] Normal %d/30 (失守: %v)", tc.name, wins, fails)
 			}
 		}
 	})
@@ -228,7 +228,7 @@ func TestBalance_NewTowerMatrix(t *testing.T) {
 
 func TestBalance_AllLevelsBeatableOnNormal(t *testing.T) {
 	withTempSavePath(t, func() {
-		for idx := 0; idx < 20; idx++ {
+		for idx := 0; idx < 30; idx++ {
 			g := autoPlay(idx, DiffNormal, true)
 			if g.Phase != PhaseWon {
 				t.Errorf("Lv%-2d ✗ 不可通关 (phase=%v lives=%d wave=%d/%d)",
@@ -269,7 +269,7 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 	// 仅记录数据供平衡决策)
 	withTempSavePath(t, func() {
 		wins := 0
-		for idx := 0; idx < 20; idx++ {
+		for idx := 0; idx < 30; idx++ {
 			g := autoPlay(idx, DiffHard, true)
 			if g.Phase == PhaseWon {
 				wins++
@@ -280,7 +280,7 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 					g.WaveIdx+1, len(g.currentLevel().Waves))
 			}
 		}
-		t.Logf("Hard 通关率: %d/20", wins)
+		t.Logf("Hard 通关率: %d/30", wins)
 	})
 }
 
@@ -288,7 +288,7 @@ func TestBalance_HardDifficultyReport(t *testing.T) {
 // 速度合理: 太慢则成长无感 / cleave@L3 够不着; 太快则中期碾压)。不断言, 供调参。
 func TestBalance_HeroLevelReport(t *testing.T) {
 	withTempSavePath(t, func() {
-		for idx := 0; idx < 20; idx++ {
+		for idx := 0; idx < 30; idx++ {
 			g := autoPlay(idx, DiffNormal, true)
 			lv := 0
 			if g.Hero != nil {
@@ -306,7 +306,7 @@ func TestBalance_HeroLevelReport(t *testing.T) {
 func TestBalance_HeroNetNonNegative(t *testing.T) {
 	withTempSavePath(t, func() {
 		winsWith, winsWithout := 0, 0
-		for idx := 0; idx < 20; idx++ {
+		for idx := 0; idx < 30; idx++ {
 			if autoPlay(idx, DiffHard, true).Phase == PhaseWon {
 				winsWith++
 			}
@@ -332,14 +332,14 @@ func TestBalance_AllClassesBeatableOnNormal(t *testing.T) {
 	withTempSavePath(t, func() {
 		for classIdx := 1; classIdx < len(heroClasses); classIdx++ {
 			name := heroClasses[classIdx].Name
-			for idx := 0; idx < 20; idx++ {
+			for idx := 0; idx < 30; idx++ {
 				g := autoPlayClass(idx, DiffNormal, true, classIdx)
 				if g.Phase != PhaseWon {
 					t.Errorf("[%s] Lv%-2d ✗ 不可通关 (lives=%d wave=%d/%d)",
 						name, idx+1, g.Lives, g.WaveIdx+1, len(g.currentLevel().Waves))
 				}
 			}
-			t.Logf("[%s] Normal 20 关跑完", name)
+			t.Logf("[%s] Normal 30 关跑完", name)
 		}
 	})
 }
@@ -350,7 +350,7 @@ func TestBalance_AllClassesBeatableOnNormal(t *testing.T) {
 func TestBalance_ClassMatrixHard(t *testing.T) {
 	withTempSavePath(t, func() {
 		baseline := 0
-		for idx := 0; idx < 20; idx++ {
+		for idx := 0; idx < 30; idx++ {
 			if autoPlay(idx, DiffHard, false).Phase == PhaseWon {
 				baseline++
 			}
@@ -358,7 +358,7 @@ func TestBalance_ClassMatrixHard(t *testing.T) {
 		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
 			name := heroClasses[classIdx].Name
 			wins := 0
-			for idx := 0; idx < 20; idx++ {
+			for idx := 0; idx < 30; idx++ {
 				if autoPlayClass(idx, DiffHard, true, classIdx).Phase == PhaseWon {
 					wins++
 				}
@@ -367,7 +367,7 @@ func TestBalance_ClassMatrixHard(t *testing.T) {
 				t.Errorf("[%s] Hard 通关 %d < 无英雄基线 %d (净负 = 设计失败)",
 					name, wins, baseline)
 			}
-			t.Logf("[%s] Hard %d/20 (基线 %d, 净增益 %+d)", name, wins, baseline, wins-baseline)
+			t.Logf("[%s] Hard %d/30 (基线 %d, 净增益 %+d)", name, wins, baseline, wins-baseline)
 		}
 	})
 }
@@ -384,7 +384,7 @@ func TestBalance_FullTreeMatrixHard(t *testing.T) {
 		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
 			name := heroClasses[classIdx].Name
 			noTree, fullTree := 0, 0
-			for idx := 0; idx < 20; idx++ {
+			for idx := 0; idx < 30; idx++ {
 				if autoPlayTree(idx, DiffHard, true, classIdx, 0).Phase == PhaseWon {
 					noTree++
 				}
@@ -395,7 +395,7 @@ func TestBalance_FullTreeMatrixHard(t *testing.T) {
 			if fullTree < noTree {
 				t.Errorf("[%s] 满树 %d < 无树 %d (perk 净负 = 设计失败)", name, fullTree, noTree)
 			}
-			t.Logf("[%s] Hard 无树 %d/20 → 满树 %d/20 (perk 增益 %+d)",
+			t.Logf("[%s] Hard 无树 %d/30 → 满树 %d/30 (perk 增益 %+d)",
 				name, noTree, fullTree, fullTree-noTree)
 		}
 	})
@@ -406,14 +406,14 @@ func TestBalance_FullTreeNormalAllClear(t *testing.T) {
 	withTempSavePath(t, func() {
 		for classIdx := 0; classIdx < len(heroClasses); classIdx++ {
 			name := heroClasses[classIdx].Name
-			for idx := 0; idx < 20; idx++ {
+			for idx := 0; idx < 30; idx++ {
 				g := autoPlayTree(idx, DiffNormal, true, classIdx, treeNodesPerClass)
 				if g.Phase != PhaseWon {
 					t.Errorf("[%s 满树] Lv%-2d ✗ 不可通关 (lives=%d wave=%d/%d)",
 						name, idx+1, g.Lives, g.WaveIdx+1, len(g.currentLevel().Waves))
 				}
 			}
-			t.Logf("[%s] 满树 Normal 20 关跑完", name)
+			t.Logf("[%s] 满树 Normal 30 关跑完", name)
 		}
 	})
 }

@@ -505,15 +505,26 @@ func pixelToCell(mx, my int) (Point, bool) {
 	return Point{X: gx, Y: gy}, true
 }
 
-// menuRowsPerCol: V6 Phase 1 — 两列布局, 每列关卡数。
+// menuRowsPerCol: V6 Phase 1 — 多列布局, 每列关卡数。
 const menuRowsPerCol = 10
+
+// menuCols: V17 P3 — 列数按关卡数动态 (20 关两列 / 30 关三列)。
+func menuCols(numLevels int) int {
+	c := (numLevels + menuRowsPerCol - 1) / menuRowsPerCol
+	if c < 1 {
+		c = 1
+	}
+	return c
+}
 
 // menuRowAtPixel 返回鼠标所在的 level select index (0..numLevels-1)。
 // V3 Phase 5a: layout 重排 (startY 50→60, rowH 22→36 配合 box-style 渲染)
-// V6 Phase 1: 两列布局 — 左列 0-9, 右列 10-19 (按 windowW/2 分界)
+// V6 Phase 1: 两列布局; V17 P3: 列数动态化 (列判定按列宽, 与 drawLevelSelect 同式)
 func menuRowAtPixel(mx, my, numLevels int) (int, bool) {
 	const startY = 60
 	const rowH = 36
+	const rowX = 8
+	const colGap = 8
 	// V6 修复既有 bug: Go 负数整除向零截断, my 略小于 startY 时
 	// (my-startY)/rowH == 0 误命中首行 (点 title 区误启动关卡)
 	if my < startY {
@@ -523,9 +534,14 @@ func menuRowAtPixel(mx, my, numLevels int) (int, bool) {
 	if row >= menuRowsPerCol {
 		return 0, false
 	}
-	col := 0
-	if mx >= windowW/2 {
-		col = 1
+	cols := menuCols(numLevels)
+	colW := (windowW - rowX*2 - colGap*(cols-1)) / cols
+	if mx < rowX {
+		return 0, false
+	}
+	col := (mx - rowX) / (colW + colGap)
+	if col >= cols {
+		return 0, false
 	}
 	i := col*menuRowsPerCol + row
 	if i >= numLevels {
@@ -602,7 +618,7 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 
 	// V3 Phase 5a: 每关 row 用 box (panel + border)
 	// 状态颜色: 通关绿底, 锁定灰底, 默认深底; hover unlocked 加金边
-	// V6 Phase 1: 两列布局 (10 关/列), stats 压缩适配列宽
+	// V6 Phase 1: 两列布局 (10 关/列); V17 P3: 列数动态 (30 关三列)
 	mouseX, mouseY := ebiten.CursorPosition()
 	const (
 		rowStartY = 60
@@ -611,7 +627,8 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		rowX      = 8
 		colGap    = 8
 	)
-	colW := (windowW - rowX*2 - colGap) / 2
+	cols := menuCols(len(g.Levels))
+	colW := (windowW - rowX*2 - colGap*(cols-1)) / cols
 
 	for i, lv := range g.Levels {
 		colIdx := i / menuRowsPerCol
@@ -685,9 +702,10 @@ func (eg *EbitenGame) drawLevelSelect(screen *ebiten.Image) {
 		default:
 			seg("[    ] ", cDim)
 		}
+		// V17 P3: 三列 colW ~389px, stats 压缩防右缘裁剪
 		seg(fmt.Sprintf("Lv%2d %-14s ", lv.ID, lv.Name), cName)
 		seg(fmt.Sprintf("%-3s ", stars), cGold)
-		seg(fmt.Sprintf("(w:%d g:%d l:%d)", len(lv.Waves), lv.StartGold, lv.StartLives), cDim)
+		seg(fmt.Sprintf("w%d g%d", len(lv.Waves), lv.StartGold), cDim)
 	}
 
 	// Help row + msg (V6: 按每列最大行数定位)
@@ -749,12 +767,13 @@ func (eg *EbitenGame) drawSkillTree(screen *ebiten.Image) {
 
 	const (
 		panelY   = 64
-		panelH   = 4*86 + 40
 		marginX  = 14
 		colGap   = 10
 		headerH  = 30
 		nodeH    = 86
 		nodePadX = 10
+		// V17 P1: 面板高按节点数动态 (5 节点 = 470; panelY 64 + help 两行 < windowH 640)
+		panelH = treeNodesPerClass*nodeH + 40
 	)
 	colW := (windowW - marginX*2 - colGap*2) / 3
 
