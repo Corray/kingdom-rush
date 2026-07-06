@@ -441,3 +441,15 @@
 - tag 全景: v1.0~v13.0 十三 era + v7.2~v7.5 四批次; 33→202 tests; gameplay 从单路5敌 → 双路8敌
 - 项目状态: 零挂账, 202 tests, 已 push 待 CI 验证, 工作区干净
 - **下次会话入口**: 1) CI 绿确认 + 线上实玩双路+新敌人手感 → 满意则归档 2) V14 候选: 真 sprite 替换 (素材阻塞长悬) / Boss 机制深化 / 截图重拍
+
+## 2026-06-29 ~ 07-06 — V14/V15/V16 三批次 + audit + V16 收尾
+
+- **V14 视觉+体验** (06-29): sprite 全映射 (3 新敌人 tile265/291/292 + 3 英雄职业 tile266/269/253 + tint, drawTileRotTint 新增) / wave 预览 (HUD 下波敌型图标+数量) / 地图 4 主题 (Forest L1-7 原色 / Desert L8-13 黄棕 / Snow L14-17 蓝白 / Lava L18-20 暗红, terrain tint + 路径配色) / Boss 行为三分区 (L8-13 护盾半血 3s 无敌 / L14-17 冲锋 8s 周期 ×3 速 2s / L18-20 召唤 10s 周期 2 ENormal, 渲染白圈/橙圈)
+- **audit code-quality V12-V14** (06-29): 1 MEDIUM (endless Boss 无行为 — endlessLv.ID=0 走 default) + 3 LOW; 合规面全绿 (难度缩放统一路径 / term 渲染自动生效 / 零 TODO)
+- **audit 修复** (06-30, `3c71545`): bossTier() 纯函数统一关卡+endless 分区 (endless wave 8+/12+/20+ 对应护盾/冲锋/召唤) + Boss spawn 3s 初始 bossCD (不入场即冲)
+- **V15 Meta+UX** (07-01): 成就 16 项 ×5 维度 (Save 7 新字段零值兼容 / killEnemy 累积 / 胜利检查 / recordBestWave 触发) + 菜单 A 查看屏 + 结算屏 (半透明面板: 星级/击杀/金币/命数/英雄等级, KillsThisRun/GoldEarned 新计数) + 截图重拍 ×4 (菜单/双路战斗/成就/技能树, 替换 V7 旧图)
+- **V16 塔系扩张** (07-01): Tesla (键5, 链电弹射 2-3 目标 50% 伤害, 打飞行) + Sniper (键6, 射程 6-8 / 伤 40-120 / 慢速, 不打飞行反 Boss) + 4 塔升级分支 (V 键 L1 切换 L2 锁定: Marksman/Rapidfire / Mortar/Gatling / Archmage/Enchanter / DeepFreeze/Hailstorm) — 10 条 build 路线
+- **V16 收尾** (07-06, `6e5cada`): simStrategy 重构蓝图参数化 (simBlueprint, legacy [A,A,A,F] 逐位零回归) + TestBalance_NewTowerMatrix 5 蓝图矩阵。**首跑拦截 sniper-mix 16/20 坍塌** (单发溢出 + cost 120 铺塔慢 = 陷阱选项) → cost 120/100/150→100/90/140 + cd 3.0/2.5/2.0→2.6/2.2/1.8 一轮收敛 18/20。**仿真器第 4 次拦截拍脑袋数值** (V7.5 gold / V9 XP / V11 Knight 树 / V16 Sniper)
+- tag: v14.0 @ 733493c / v15.0 @ 49bac79 / v16.0 @ 6e5cada; 测试 202→218; roadmap 补 V14-V16 归档 (版本史 +3 行 + 合并批次段 + 变更记录 +6 行)
+- 项目状态: 218 tests, 十六 era, 6 塔 ×分支 / 8 敌 / 3 英雄 / 技能树 / 成就 / 双路 / 4 主题
+- **下次会话入口**: 1) 线上实玩 V14-V16 手感 (新塔/分支/成就/结算屏) 2) 候选: itch.io 分发 (悬留最久) / 关卡 21-30 第二章 / 移动端触屏

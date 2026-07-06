@@ -24,6 +24,9 @@
 | V11 Phase 1-4 | Meta 成长 | 跨局技能树（per-class 线性 4 节点、星货币 60 赚 vs 90 总价制造 build 取舍、`HeroBonus` 七字段 beginRun 快照、菜单 `T` 新 `PhaseSkillTree` 两端）、「perk 预算」替代「按关缩放」（持久层存树点不存等级 → 平衡冲击缩到一张 perk 表）、仿真上下界 + Knight 树一轮校准（满树三职业 Hard 20/20 earned power、无树基线零回归）、188 tests | `v11.0` | `cda346d` |
 | V12 Phase 1-4 | 多入口 path | 单路径承重假设首次重构：`Paths [][]Point` + `Enemy.PathID` + `Level.CPS2`，57 触点机械替换零回归；全 20 关双路（cps2 汇合同终点）、spawn 均摊交替、汇流渲染去重两端；仿真校准（Normal 20/20、Hard 19/20 难点移 Lv9）、195 tests | `v12.0` | `4494364` |
 | V13 | 新敌人类型 | 敌型 5→8：EShield（护甲减免 min 1）、ERegen（每秒回血）、EHealer（治疗附近盟友）；L8 起渐进混入 20 关 wave、endless 按波次解锁；202 tests | `v13.0` | `21cc588` |
+| V14 | 视觉+体验批次 | sprite 替换（3 新敌人 + 3 英雄职业映射 tilesheet + tint）、wave 预览（HUD 下波敌型图标）、地图 4 主题分区（Forest/Desert/Snow/Lava tint）、Boss 行为按分区差异化（护盾/冲锋/召唤，audit 修复补 endless bossTier + spawn 3s 初始冷却）；205→207 tests | `v14.0` | `733493c` |
+| V15 | Meta+UX 批次 | 成就系统 16 项（5 维度：进度/战斗/英雄/策略/Endless，菜单 `A` 查看屏 + 胜利通知 + Save 7 新字段零值兼容）、胜利/失败结算屏（半透明面板：星级/击杀/金币/命数/英雄等级）、截图重拍 ×4；213 tests | `v15.0` | `49bac79` |
+| V16 | 新塔型+升级分支 | 塔 4→6：Tesla（链电弹射 2-3 目标 50%）+ Sniper（射程 6-8 高伤慢速反 Boss）；4 基础塔升级分支（`V` 键 L1 切换 L2 锁定：Marksman/Rapidfire、Mortar/Gatling、Archmage/Enchanter、DeepFreeze/Hailstorm）；仿真蓝图矩阵（5 蓝图 × Normal 门槛 18/20）+ Sniper 一轮校准（16→18/20）；218 tests | `v16.0` | `6e5cada` |
 
 ### V3 未竟项（不阻塞收尾，归入 backlog）
 
@@ -780,6 +783,22 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 
 ---
 
+## V14 / V15 / V16 — 连续批次（已收尾 2026-06-29 ~ 2026-07-06）
+
+> V13 后三个中型批次，沿 V7.2-7.5 轻量归档惯例（详情见版本史表 + tag message + commit body）。
+
+| 批次 | 主题 | 关键交付 | Tag |
+|------|------|---------|-----|
+| V14 | 视觉+体验 | sprite 全映射（新敌人+英雄 tint）、wave 预览、地图 4 主题、Boss 行为三分区（护盾/冲锋/召唤）；audit 发现 2 修复 2（endless bossTier + spawn 初始冷却） | `v14.0` |
+| V15 | Meta+UX | 成就 16 项 + 查看屏（`A`）、胜利/失败结算屏、截图重拍 | `v15.0` |
+| V16 | 塔系扩张 | Tesla/Sniper 新塔（键 5/6）、4 塔升级分支（`V` 键，10 条 build 路线）、仿真蓝图矩阵 + Sniper 校准 | `v16.0` |
+
+**V16 收尾校准记录（仿真器第 4 次拦截拍脑袋数值）：** 首跑 sniper-mix 蓝图 Normal 16/20 坍塌（Lv9/14/15/17）——Sniper 单发 40 伤打 12 HP Fast 溢出 70% + cost 120 铺塔慢，机会成本过高会沦为陷阱选项。校准 cost/cd 降档（伤害不动保持反 Boss 定位）→ 18/20 收敛。剩余失守 Lv9（全蓝图共同难点关）+ Lv15（全飞行关克制不打飞行蓝图，设计意图）。前三次拦截：V7.5 gold 降档 / V9 XP 来源 / V11 Knight 树。
+
+**未竟项 / 留档：** endless wave 预览波间不可见（audit LOW，下波清场后才生成）；护盾 Boss 可被一击秒杀绕过（audit LOW，设计取舍）；卖塔退款按默认分支近似（分支 B cost 差异小，可接受）。
+
+---
+
 ## 变更记录
 
 | 日期 | 变更 |
@@ -815,3 +834,8 @@ HeroNet 增益 +2 保持，无英雄基线仍 17/20（零回归）。**per-run �
 | 2026-06-17 | V12 启动：用户拍板多入口 path（gameplay 广度，单路径承重假设首次重构，LMP L3）。研究证承重面收敛（Pos/pickTarget/pathLerp 已参数化 path）。决策 A 全 20 关双路（用户拍板，最大回归面）/ B 自动均摊（wave DSL 零改动）/ C 共享汇流（用户拍板，数据层重合尾段免几何）/ D endless 保持单路 / E Paths[][]Point + Enemy.PathID + Level.CPS2。4 Phase（数据模型多路化零回归 → spawn 均摊+汇流渲染 → 全 20 关双路数据 → 仿真+平衡全重校+收尾）|
 | 2026-06-22 | V12 收尾：P3+P4 合并交付（`4494364`），20 关 cps2 全入 + `TestLevels_DualPathIntegrity` 校验 + `rankedTowerSpots` 多路覆盖修复。Normal 20/20、Hard 19/20（Lv9 难点）、无英雄 15/20（双路削弱预期）。tag `v12.0` @ `4494364`，195 tests |
 | 2026-06-22 | V13 一次性交付（`21cc588`）：敌型 5→8（EShield 护甲 / ERegen 回血 / EHealer 治疗），damageEnemy 加 armor 减免 / Update 加 regen+healer AI / wave DSL 扩展 d/r/h / L8 起渐进混入 20 关 / endless 按波次解锁。仿真 202 tests 全过（Normal 20/20、Hard 19/20 不变）。tag `v13.0` @ `21cc588` |
+| 2026-06-29 | V14 交付：sprite 替换（`733493c`）+ wave 预览/地图 4 主题/Boss 三分区行为（`659cc63`）。audit code-quality V12-V14 产出 1 MEDIUM + 3 LOW |
+| 2026-06-30 | audit 修复（`3c71545`）：endless Boss 按 wave 数 bossTier（8+ 护盾/12+ 冲锋/20+ 召唤）+ Boss spawn 3s 初始冷却。207 tests |
+| 2026-07-01 | V15 交付：成就系统 16 项（`230926a`）+ 结算屏（`49bac79`）+ 截图重拍（`c0f0a75`）。tag `v14.0` @ `733493c` / `v15.0` @ `49bac79`。213 tests |
+| 2026-07-01 | V16 交付（`9157d50`）：Tesla/Sniper 新塔 + 4 塔升级分支（V 键切换 L2 锁定）。217 tests |
+| 2026-07-06 | V16 收尾（`6e5cada`）：仿真蓝图矩阵（simBlueprint 参数化，legacy 零回归）首跑拦截 sniper-mix 16/20 坍塌 → cost/cd 校准一轮收敛 18/20（仿真器第 4 次拦截）。tag `v16.0` @ `6e5cada`。218 tests。roadmap 补 V14-V16 归档 |
