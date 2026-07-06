@@ -244,6 +244,32 @@ func TestUpdate_LivesDecOnEscape(t *testing.T) {
 	}
 }
 
+// V17 audit #2: 输局也落盘 lifetime 击杀统计 (killEnemy 累积的
+// TotalKills/BossKillsTotal 不应只在胜利路径持久化)。
+func TestLose_PersistsKillStats(t *testing.T) {
+	withTempSavePath(t, func() {
+		g := newTestGame()
+		g.prepTimer = 0
+		g.Lives = 1
+		g.Save.TotalKills = 7 // 本局已累积的击杀 (killEnemy 写入)
+		g.Enemies = append(g.Enemies, &Enemy{
+			Kind: ENormal, HP: 20, MaxHP: 20,
+			PathIdx: float64(len(g.Paths[0]) - 1),
+		})
+		g.Update(0.1)
+		if g.Phase != PhaseLost {
+			t.Fatalf("phase: got %v want PhaseLost", g.Phase)
+		}
+		loaded, err := LoadSave()
+		if err != nil {
+			t.Fatalf("load after lose: %v", err)
+		}
+		if loaded.TotalKills != 7 {
+			t.Errorf("lose should persist TotalKills: got %d want 7", loaded.TotalKills)
+		}
+	})
+}
+
 func TestUpdate_LostWhenLivesZero(t *testing.T) {
 	g := newTestGame()
 	g.prepTimer = 0

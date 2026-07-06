@@ -170,19 +170,6 @@ func towerInvested(kind TowerKind, level int) int {
 	return total
 }
 
-func towerInvestedBranch(t *Tower) int {
-	spec := towerSpecs[t.Kind]
-	total := spec.Levels[0].Cost
-	for i := 1; i < t.Level; i++ {
-		if t.Branch == 1 && spec.BranchB != nil && i >= 1 {
-			total += spec.BranchB[i-1].Cost
-		} else if i < len(spec.Levels) {
-			total += spec.Levels[i].Cost
-		}
-	}
-	return total
-}
-
 // ============================================================
 // Enemy
 // ============================================================

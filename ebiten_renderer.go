@@ -71,6 +71,8 @@ func heroClassColor(c *HeroClass) color.RGBA {
 // mapThemeGrass: V14 — 草地 tint (r,g,b 乘数)。
 func mapThemeGrass(levelID int) (float32, float32, float32) {
 	switch {
+	case levelID >= 21:
+		return 0.7, 0.55, 1.0 // Twilight (V17 第二章): 暮紫
 	case levelID >= 18:
 		return 0.6, 0.35, 0.3 // Lava: 暗红
 	case levelID >= 14:
@@ -85,6 +87,9 @@ func mapThemeGrass(levelID int) (float32, float32, float32) {
 // mapThemePath: V14 — 路径颜色。
 func mapThemePath(levelID int) (color.RGBA, color.RGBA) {
 	switch {
+	case levelID >= 21:
+		return color.RGBA{R: 110, G: 75, B: 150, A: 255},
+			color.RGBA{R: 78, G: 50, B: 110, A: 255} // Twilight (V17): 深紫
 	case levelID >= 18:
 		return color.RGBA{R: 180, G: 80, B: 30, A: 255},
 			color.RGBA{R: 130, G: 50, B: 15, A: 255} // Lava: 橙棕

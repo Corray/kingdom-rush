@@ -287,6 +287,9 @@ func (g *Game) Update(dt float64) {
 					g.Msg = fmt.Sprintf("Endless over — cleared %d waves (best: %d)",
 						g.WaveIdx, g.Save.BestWave)
 				}
+				// V17 audit #2: 输局也落盘 — killEnemy 累积的 TotalKills/
+				// BossKillsTotal 是 lifetime 统计, 只在胜利路径 save 会丢输局击杀
+				_ = StoreSave(g.Save)
 				g.Phase = PhaseLost
 				return
 			}

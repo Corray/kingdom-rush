@@ -27,7 +27,7 @@ var achievements = []Achievement{
 	// 策略
 	{ID: "flawless", Name: "Flawless", Desc: "Clear any level without losing a life"},
 	{ID: "hard_clear", Name: "Iron Will", Desc: "Clear any level on Hard"},
-	{ID: "hard_all", Name: "Unstoppable", Desc: "Clear all 20 levels on Hard"},
+	{ID: "hard_all", Name: "Unstoppable", Desc: "Clear the first 20 levels on Hard"},
 	// Endless
 	{ID: "endless_10", Name: "Survivor", Desc: "Reach wave 10 in Endless"},
 	{ID: "endless_25", Name: "Endurance", Desc: "Reach wave 25 in Endless"},
