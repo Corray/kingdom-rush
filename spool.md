@@ -453,3 +453,16 @@
 - tag: v14.0 @ 733493c / v15.0 @ 49bac79 / v16.0 @ 6e5cada; 测试 202→218; roadmap 补 V14-V16 归档 (版本史 +3 行 + 合并批次段 + 变更记录 +6 行)
 - 项目状态: 218 tests, 十六 era, 6 塔 ×分支 / 8 敌 / 3 英雄 / 技能树 / 成就 / 双路 / 4 主题
 - **下次会话入口**: 1) 线上实玩 V14-V16 手感 (新塔/分支/成就/结算屏) 2) 候选: itch.io 分发 (悬留最久) / 关卡 21-30 第二章 / 移动端触屏
+
+## 2026-07-06 — itch.io 脚手架 + V17 第二章 (关卡 21-30)
+
+- **itch.io 脚手架** (`e16ec17`): 用户拍板做分发 → docs/itch-page.md (配置/embed 1000×640/正文/标签) + make itch-zip (zip 根含 index.html, 6.3MB) + web/index.html 键位表 V7→V16 全量更新 + butler v15.27.0 装 ~/bin。**上传中断**: 用户选"装 butler 我来推"后改主意 → 等 `! ~/bin/butler login` + username, 随时可续
+- **V17 拍板**: 决策 A 星星经济 = 树加第 5 节点 (30 关 90 星 = V11 三树总价 90, 取舍失效 → capstone ×3 价 10, 总价 120 = 1.33× 恢复) / 决策 B 难度 = 接续爬升
+- **P1 树 5 节点**: Warlord (+20HP&+4dmg) / Windrunner (+0.5rng&+2dmg) / Phantom (+0.7spd&ability-2s); 前 4 节点不动零回归; V11 经济测试更新为 V17 语义 (90 星 → 两满树 80 剩 10, 第三树只能浅尝); 树屏 panelH 硬编码 4 → treeNodesPerClass 动态 (计划外发现: 第 5 节点与帮助行重叠)
+- **P2 关卡 21-30** (Twilight 章): Swarm Nexus (Tesla 秀场 n50 海) / Iron Column (Sniper 秀场 d16+b4) / Unequal Roads (不对称双路: 超长蛇形 vs 直道) / Field Hospital (r16 h8 恢复大队) / Velvet Rush (f46) / Broodmoon (s14 h7 增殖) / Night Raid (g38) / Vanguard (b5 车轮) / Ragnarok (终局 6 波); 终局关 lives 2 (卫哨 ≥3 放宽 ≥2)
+- **P3 菜单三列**: menuCols 动态 (ceil(n/10)), hitbox 与渲染同式; stats 压缩 `w%d g%d` (首拍右缘裁剪实锤盲点 2); 成就 +2 (Second Dawn 30 关 / Star Master 90 星, 既有条件不动防打破已解锁)
+- **P4 仿真扩 30**: **盲点 1 反向 — Normal 首跑 30/30 零校准** (V16 蓝图矩阵基线立功); Hard 28/30 (Lv9 老难点 + Lv23 新装甲难点); 蓝图克制实证 (sniper-mix 过 L23 装甲关 / tesla 蓝图 L29 Boss 车轮失守 — 正反都对); **Rogue 满树 +0 判结构性** (失守关在英雄弱期/蓝图盲区, perk 救不动, V9 per-run 自限同因) → Phantom 加强一档收手 (V7.5 边际收益同判)
+- playwright 冒烟: 三列 30 关 + L21 hitbox/unlock 链 + 树 5 节点两轮 (首轮抓 2 个 UI 溢出 → 修后复拍干净)
+- tag v17.0 @ efb24ce; 218 tests; README 版本史补 v12-v17 + 30 关/5 节点/18 成就文案; .playwright-mcp/ 入 gitignore
+- 项目状态: 十七 era, 30 关 × 5 主题 / 6 塔 × 分支 / 8 敌 / 3 英雄 × 5 节点树 / 18 成就
+- **下次会话入口**: 1) 线上实玩第二章 (L21-30 手感 + capstone) 2) itch.io 续传 (butler login + username 即推) 3) 候选: 移动端触屏 / 在线排行榜 / 关卡编辑器
