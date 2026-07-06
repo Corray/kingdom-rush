@@ -117,12 +117,14 @@ var towerSpecs = map[TowerKind]TowerSpec{
 			{Cost: 110, Damage: 32, Range: 4.0, Cooldown: 0.8, Chain: 3, Char1: 'T', Char2: '3'},
 		},
 	},
+	// V16 收尾校准: cost 120→100 / cd 3.0→2.6 系 (仿真 sniper-mix 16/20
+	// 坍塌 — 单发溢出+铺塔慢的机会成本过高; 伤害不动保持反 Boss 定位)
 	TSniper: {
 		Name: "Sniper", Color: rgb(200, 160, 100), HitsFlying: false,
 		Levels: [3]TowerLevel{
-			{Cost: 120, Damage: 40, Range: 6.0, Cooldown: 3.0, Char1: 'S', Char2: '1'},
-			{Cost: 100, Damage: 70, Range: 7.0, Cooldown: 2.5, Char1: 'S', Char2: '2'},
-			{Cost: 150, Damage: 120, Range: 8.0, Cooldown: 2.0, Char1: 'S', Char2: '3'},
+			{Cost: 100, Damage: 40, Range: 6.0, Cooldown: 2.6, Char1: 'S', Char2: '1'},
+			{Cost: 90, Damage: 70, Range: 7.0, Cooldown: 2.2, Char1: 'S', Char2: '2'},
+			{Cost: 140, Damage: 120, Range: 8.0, Cooldown: 1.8, Char1: 'S', Char2: '3'},
 		},
 	},
 }

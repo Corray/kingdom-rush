@@ -63,19 +63,31 @@ func rankedTowerSpots(g *Game) []Point {
 	return out
 }
 
+// simBlueprint: V16 — 参数化塔蓝图 (kinds 按 built 序循环选型; branch
+// 建成即设, L1→L2 升级时生效)。legacy = [A,A,A,F] branch 0, 与 V7.4
+// 原策略序列逐位一致 (零回归)。
+type simBlueprint struct {
+	kinds  []TowerKind
+	branch int
+}
+
+var legacyBlueprint = simBlueprint{kinds: []TowerKind{TArcher, TArcher, TArcher, TFrost}}
+
 func simStrategy(g *Game, spots []Point, built *int) {
+	simStrategyBP(g, spots, built, legacyBlueprint)
+}
+
+func simStrategyBP(g *Game, spots []Point, built *int, bp simBlueprint) {
 	// 铺塔阶段
 	if *built < len(spots) && *built < 8 {
-		kind := TArcher
-		if *built%4 == 3 {
-			kind = TFrost
-		}
+		kind := bp.kinds[*built%len(bp.kinds)]
 		if g.Gold >= towerSpecs[kind].Levels[0].Cost {
 			g.Selected = kind
 			g.Cursor = spots[*built]
 			before := len(g.Towers)
 			g.TryAction()
 			if len(g.Towers) > before {
+				g.Towers[len(g.Towers)-1].Branch = bp.branch
 				*built++
 			}
 		}
@@ -152,6 +164,66 @@ func autoPlayTree(levelIdx int, d Difficulty, heroEnabled bool, classIdx, treeLv
 		g.DrainSounds() // 防队列顶满
 	}
 	return g
+}
+
+// autoPlayBlueprint: V16 — 指定塔蓝图的仿真 (默认 Knight / 无树 / 有英雄)。
+func autoPlayBlueprint(levelIdx int, d Difficulty, bp simBlueprint) *Game {
+	levels, err := LoadLevels()
+	if err != nil {
+		panic(err)
+	}
+	g := NewGame(levels, NewSave())
+	for i := 1; i <= len(levels); i++ {
+		g.Save.MarkCompleted(i)
+	}
+	g.Save.Difficulty = d
+	g.StartLevel(levelIdx)
+	spots := rankedTowerSpots(g)
+	built := 0
+	for step := 0; step < 60000 && g.Phase == PhasePlaying; step++ {
+		if step%5 == 0 {
+			simStrategyBP(g, spots, &built, bp)
+		}
+		g.Update(0.1)
+		g.DrainSounds()
+	}
+	return g
+}
+
+// TestBalance_NewTowerMatrix: V16 — 新塔/分支蓝图矩阵。每个蓝图跑
+// Normal 20 关, 断言不低于门槛 (18/20 — 允许风格弱项, 但不允许坍塌);
+// legacy 基线仍 20/20 由 TestBalance_AllLevelsBeatableOnNormal 守。
+func TestBalance_NewTowerMatrix(t *testing.T) {
+	withTempSavePath(t, func() {
+		blueprints := []struct {
+			name string
+			bp   simBlueprint
+			min  int
+		}{
+			{"tesla-mix", simBlueprint{kinds: []TowerKind{TTesla, TArcher, TTesla, TFrost}}, 18},
+			{"sniper-mix", simBlueprint{kinds: []TowerKind{TArcher, TSniper, TArcher, TFrost}}, 18},
+			{"tesla-pure", simBlueprint{kinds: []TowerKind{TTesla, TTesla, TTesla, TFrost}}, 18},
+			{"branchB-all", simBlueprint{kinds: []TowerKind{TArcher, TArcher, TArcher, TFrost}, branch: 1}, 18},
+			{"gatling-mix", simBlueprint{kinds: []TowerKind{TArcher, TCannon, TArcher, TFrost}, branch: 1}, 18},
+		}
+		for _, tc := range blueprints {
+			wins := 0
+			var fails []int
+			for idx := 0; idx < 20; idx++ {
+				g := autoPlayBlueprint(idx, DiffNormal, tc.bp)
+				if g.Phase == PhaseWon {
+					wins++
+				} else {
+					fails = append(fails, idx+1)
+				}
+			}
+			if wins < tc.min {
+				t.Errorf("[%s] Normal %d/20 < 门槛 %d (失守: %v)", tc.name, wins, tc.min, fails)
+			} else {
+				t.Logf("[%s] Normal %d/20 (失守: %v)", tc.name, wins, fails)
+			}
+		}
+	})
 }
 
 func TestBalance_AllLevelsBeatableOnNormal(t *testing.T) {
