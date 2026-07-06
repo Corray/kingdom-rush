@@ -63,3 +63,6 @@ build/
 # GitHub identity（Layout A — 不进任何 repo）
 # ============================================================
 .gh-account
+
+# itch.io 上传包 (make itch-zip 产物, 不入库)
+gopher-defense-itch.zip

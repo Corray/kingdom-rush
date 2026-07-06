@@ -4,13 +4,14 @@
 # build-term  — V1.7 terminal binary (tcell, build tag `term`)
 # wasm        — WASM build + 拷贝 wasm_exec.js 到 web/
 # serve       — wasm + 本地 HTTP 服务 (port 8080)
+# itch-zip    — itch.io 上传包 (web/ 打包, index.html 在 zip 根; 页面配置见 docs/itch-page.md)
 # test        — go test ./...
 # clean       — 删 binary + WASM artifacts
 
 GOROOT := $(shell go env GOROOT)
 WASM_EXEC_SRC := $(GOROOT)/lib/wasm/wasm_exec.js
 
-.PHONY: build build-term wasm serve test vet clean all
+.PHONY: build build-term wasm serve itch-zip test vet clean all
 
 all: build build-term
 
@@ -42,6 +43,11 @@ web/kingdom-rush.wasm: $(wildcard *.go) assets/levels.yaml
 serve: wasm
 	@echo "Serving at http://localhost:8080 (Ctrl+C to stop)"
 	@cd web && python3 -m http.server 8080
+
+itch-zip: wasm
+	rm -f gopher-defense-itch.zip
+	cd web && zip -r ../gopher-defense-itch.zip index.html wasm_exec.js kingdom-rush.wasm bgm/
+	@echo "itch.io package: gopher-defense-itch.zip (页面配置照 docs/itch-page.md)"
 
 test:
 	go test ./...

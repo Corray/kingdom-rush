@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Gopher Defense — browser tower defense in Go</title>
-    <meta name="description" content="Gopher Defense — a tower defense game written in Go, running in your browser via WebAssembly. 20 levels, endless mode, 4 towers.">
+    <meta name="description" content="Gopher Defense — a tower defense game written in Go, running in your browser via WebAssembly. 20 dual-path levels, 6 towers with upgrade branches, 3 hero classes, skill trees, achievements, endless mode.">
     <!-- 内联 favicon (SVG data URI) — 修掉历史 favicon 404 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏰</text></svg>">
     <style>
@@ -58,14 +58,20 @@
 
     <div class="controls">
         <kbd>←↑↓→</kbd>/mouse move ·
-        <kbd>1</kbd>-<kbd>4</kbd> tower ·
+        <kbd>1</kbd>-<kbd>6</kbd> tower ·
         <kbd>Space</kbd>/click build/upgrade ·
+        <kbd>V</kbd> upgrade branch ·
         <kbd>X</kbd>/right-click sell ·
         <kbd>T</kbd> targeting ·
+        <kbd>H</kbd> rally hero ·
+        <kbd>G</kbd> hero cleave ·
         <kbd>R</kbd>+click meteor ·
         <kbd>P</kbd> pause ·
         <kbd>F</kbd> 2x speed ·
-        <kbd>M</kbd> menu ·
+        <kbd>M</kbd> menu<br>
+        in menu: <kbd>H</kbd> hero class ·
+        <kbd>T</kbd> skill trees ·
+        <kbd>A</kbd> achievements ·
         <kbd>D</kbd> difficulty ·
         <kbd>E</kbd> endless ·
         <kbd>-</kbd>/<kbd>=</kbd> volume ·
